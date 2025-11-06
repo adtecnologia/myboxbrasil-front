@@ -1,0 +1,53 @@
+name: Deploy front master
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy-prod:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Passo 1: Checkout do repositório
+      - name: Checkout do código
+        uses: actions/checkout@v3
+
+      # Passo 2: Configurar o Node.js
+      - name: Configurar Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20
+
+      # Passo 3: Verificar versão do Node e npm
+      - name: Verificar ambiente Node.js
+        run: |
+          node -v
+          npm -v
+
+      # Passo 4: Limpar e instalar dependências
+      - name: Instalar dependências
+        run: |
+          rm -rf node_modules
+          npm ci
+
+      # Passo 5: Verificar scripts disponíveis
+      - name: Verificar scripts do package.json
+        run: npm run
+
+      # Passo 6: Executar build do projeto
+      - name: Executar build
+        run: npm run build
+
+      # Passo 7: Configure AWS credentials
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      # Passo 8: Upload para AWS S3
+      - name: Upload da build para AWS S3
+        run: aws s3 sync ./dist s3://myboxbrasil-web-prod --delete --cache-control "public, max-age=3600"

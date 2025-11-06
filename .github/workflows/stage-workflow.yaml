@@ -1,9 +1,9 @@
-name: Deploy front master
+name: Deploy front stage
 
 on:
   push:
     branches:
-      - main
+      - stage
 
 jobs:
   build-and-deploy-prod:
@@ -40,15 +40,14 @@ jobs:
       - name: Executar build
         run: npm run build
 
-      # Passo 7: Configurar credenciais AWS
-      - name: Configurar credenciais AWS
-        uses: aws-actions/configure-aws-credentials@v1
+      # Passo 7: Configure AWS credentials
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: sa-east-1 
+          aws-region: sa-east-1
 
-      # Passo 8: Upload da build para AWS S3
+      # Passo 8: Upload para AWS S3
       - name: Upload da build para AWS S3
-        run: |
-          aws s3 sync ./dist s3://myboxbrasil-web-prod --delete --cache-control "public, max-age=3600"
+        run: aws s3 sync ./dist s3://myboxbrasil-web-stage --delete --cache-control "public, max-age=3600"
