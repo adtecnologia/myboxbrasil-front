@@ -1,0 +1,9 @@
+.load-item-text {
+    color: #FFF;
+    font-size: 1.2em;
+    margin-bottom: 0.6em;
+}
+
+.load-item-text.alt {
+    color: var(--color02);
+}

@@ -1,0 +1,167 @@
+
+.btn-map-screen, .btn-map-screen:hover, .btn-map-screen:focus {
+    z-index: 9999999999 !important;
+    left: 11px !important;
+    top: 80px !important;
+    width: 30px !important;
+    height: 30px !important;
+    line-height: 30px !important;
+    border-radius: 2px !important;
+    background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADQAAAA0CAQAAABvcdNgAAAAnklEQVR4Ae2WVQEDMRAFn4RIi8OVtBIiIQ7KzO3dlN+8z4MJbEDGGPPXTA+SukQevTlKlCq6RFFSor7RXFR1qkehawTRo9uqIOaoPyTqQ0Wporh76GJdFg+zqbS4odm8s6nAkVQ1Tc+kqQqkano5pKpdFTVhTG8EwyKLwPLmF+xHbkH8psofEx918PFHOX85+YbrFn+B5K/Ef4wxxswAnU97CHDaZQMAAAAASUVORK5CYII=) !important;
+    background-size: 26px 26px !important;
+    background-position: 50% 50% !important;
+    background-repeat: no-repeat !important;
+    display: block !important;
+    text-align: center !important;
+    text-decoration: none !important;
+    color: black !important;
+    border: 1px solid rgb(160, 160, 160) !important;
+    box-shadow: 0px 0px 3px rgb(160, 160, 160) !important;
+    background-color: #FFF !important;
+    transition: 0.2s !important;
+}
+
+.btn-map-screen:hover {
+    background-color: #e0e0e0 !important;
+}
+
+.btn-map-screen-alt, .btn-map-screen-alt:hover, .btn-map-screen-alt:focus {
+    z-index: 9999999999 !important;
+    position: absolute !important;
+    left: 11px !important;
+    bottom: 80px !important;
+    width: 30px !important;
+    height: 30px !important;
+    line-height: 30px !important;
+    border-radius: 2px !important;
+    background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADQAAAA0CAQAAABvcdNgAAAAnklEQVR4Ae2WVQEDMRAFn4RIi8OVtBIiIQ7KzO3dlN+8z4MJbEDGGPPXTA+SukQevTlKlCq6RFFSor7RXFR1qkehawTRo9uqIOaoPyTqQ0Wporh76GJdFg+zqbS4odm8s6nAkVQ1Tc+kqQqkano5pKpdFTVhTG8EwyKLwPLmF+xHbkH8psofEx918PFHOX85+YbrFn+B5K/Ef4wxxswAnU97CHDaZQMAAAAASUVORK5CYII=) !important;
+    background-size: 26px 26px !important;
+    background-position: 50% 50% !important;
+    background-repeat: no-repeat !important;
+    display: block !important;
+    text-align: center !important;
+    text-decoration: none !important;
+    color: black !important;
+    border: 1px solid rgb(160, 160, 160) !important;
+    box-shadow: 0px 0px 3px rgb(160, 160, 160) !important;
+    background-color: #FFF !important;
+    transition: 0.2s !important;
+}
+
+.btn-map-screen-alt:hover {
+    background-color: #e0e0e0 !important;
+}
+
+.modal-fullscreen {
+    top: 0px !important;
+    margin: 0px !important;
+    max-width: none !important;
+    height: 100vh !important;
+    padding: 0px !important;
+}
+
+.modal-fullscreen .ant-modal-content{
+    border-radius: 0px !important;
+    height: 100vh !important;
+    padding: 0px !important;
+}
+
+.modal-fullscreen .ant-modal-body {
+    height: 100vh !important;
+}
+
+.modal-fullscreen-row {
+    height: 100vh !important;
+}
+
+.modal-fullscreen-col-menu {
+    box-shadow: 1px 0px 5px rgba(0, 0, 0, 0.384);
+    height: 100vh !important;
+    z-index: 9999999999;
+    padding: 20px;
+}
+
+.img-map-screen {
+    width: 100px;
+    position: absolute;
+    bottom: 10px;
+    left: 46px;
+    z-index: 99999999;
+}
+
+.user-map-screen {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 9999999;
+}
+
+.search-map-mobile-screen {
+    display: none;
+}
+
+.search-map-screen {
+    z-index: 9999999;
+    position: absolute;
+    width: 360px;
+    max-width: 100%;
+    height: 100vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+    right: 0;
+}
+
+.input-map-screen {
+    background-color: #FFF;
+    border-radius: 50px;
+    box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.4);
+    padding: 10px 14px;
+}
+
+.input-field-map-screen, .input-field-map-screen:focus {
+    border: none !important;
+    box-shadow: none !important;
+}
+
+.card-map-screen {
+    background-color: #fff;
+    box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.4);
+    padding: 10px;
+    border-radius: 10px ;
+    border-left: 5px solid;
+    transition: 0.2s;
+    cursor: pointer;
+}
+
+.card-map-screen:hover {
+    box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.8);
+}
+
+@media (max-width: 500px) {
+    .user-map-screen, .search-map-screen{
+        display: none;
+    }
+    .img-map-screen {
+        left: auto !important;
+        right: 0px !important;
+        bottom: 16px !important;
+    }
+
+    .search-map-mobile-screen {
+        display: block;
+        z-index: 999;
+        position: absolute;
+        width: 100%;
+        height: 50vh;
+        overflow-y: auto;
+        overflow-x: hidden;
+        right: 0;
+        transition: 0.2s;
+    }
+
+    .search-map-mobile-screen.active {
+        background-color: #FFF;
+        box-shadow: 0px 0px 15px rgba(0, 0, 0, 0.8);
+    }
+
+}

@@ -1,0 +1,141 @@
+.table {
+  margin-top: 20px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  border-radius: 8px;
+  white-space: nowrap !important;
+  overflow-x: auto !important;
+  
+}
+
+.table-header {
+  flex-wrap: nowrap !important;
+}
+
+.table-header-col {
+  text-align: center;
+  padding: 5px;
+  background-color: rgba(0, 0, 0, 0.05) !important;
+  border-bottom: 1px rgba(0, 0, 0, 0.05) solid;
+  cursor: pointer;
+  transition: 0.2s;
+  font-weight: 600;
+  white-space: normal !important
+}
+
+.table-header-col-title {
+  transition: 0.2s;
+  width: 100%;
+}
+.table-header-col.active .table-header-col-title {
+  color: var(--color01);
+}
+
+.table-header-col:hover {
+  background-color: rgba(0, 0, 0, 0.06) !important;
+}
+
+.table-header-col + .table-header-col, .table-body-col + .table-body-col {
+  border-left: 1px rgba(0, 0, 0, 0.05) solid;
+}
+
+.table-header-col-order-up, .table-header-col-order-down {
+  position: absolute;
+  right: 5px;
+  color: rgba(0, 0, 0, 0.3);
+  transition: 0.2s;
+}
+
+.table-header-col-order-down {
+  bottom: 5px;
+}
+
+.table-header-col-order-up {
+  top: 5px;
+}
+
+.table-header-col-order-up.active, .table-header-col-order-down.active {
+  color: var(--color01) !important;
+}
+
+.table-body-col-nodata {
+  text-align: center;
+  text-transform: uppercase;
+  font-size: 12px;
+  width: 100%;
+}
+
+.table-body-col {
+  padding: 5px;
+  border-bottom: 1px rgba(0, 0, 0, 0.05) solid;
+  transition: 0.2s;
+  white-space: normal !important;
+  display: flex;
+  align-items: center;
+}
+
+.table-body {
+  flex-wrap: nowrap !important;
+}
+
+.table-body:hover {
+  /* background-color: rgba(0, 0, 0, 0.02); */
+}
+
+.table-body-col:hover {
+  background-color: rgba(0, 0, 0, 0.03);
+}
+
+.input-search input {
+  height: 32px !important;
+}
+
+.actions-button {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: 0.3s;
+  color: rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  margin-left: 2px;
+  margin-right: 2px;
+}
+
+.actions-button:hover {
+  background-color: transparent !important;
+  color: var(--color01) !important;
+}
+
+.table-summary {
+  color: var(--color01) !important;
+  text-transform: uppercase !important;
+  font-size: 12px !important;
+}
+
+.table-summary-value {
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  margin-top: -6px !important;
+}
+
+.ant-pagination-item-active {
+  border: none !important;
+}
+
+.ant-pagination-item a {
+  color: rgba(0, 0, 0, 0.3) !important;
+}
+
+.ant-pagination-item-active a, .ant-pagination-item-link-icon {
+  color: var(--color01) !important;
+}
+
+.ant-spin-dot-item {
+  background-color: var(--color01) !important;
+}
+
+:where(.css-dev-only-do-not-override-dkbvqv).ant-checkbox-checked .ant-checkbox-inner {
+  border-color: var(--color01) !important;
+  background-color: var(--color01) !important;
+}

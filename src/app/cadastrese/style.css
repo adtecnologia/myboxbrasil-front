@@ -1,0 +1,108 @@
+.content-register {
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  background: linear-gradient(to right bottom, var(--color03), var(--color01));
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+
+.card-logo-register {
+  max-width: 150px;
+}
+
+.content-register .col-login {
+  padding-top: 10px;
+  padding-bottom: 10px;
+  padding-right: 10px;
+  padding-left: 10px;
+  height: 100vh;
+}
+
+.card-register-div {
+  height: 100vh;
+  width: 100vw;
+  overflow-x: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.pd-register {
+  height: 100px;
+  width: 100%;
+  border-radius: 0.4rem;
+  overflow: hidden;
+  cursor: pointer;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+.pd-register-pele {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(to right bottom, var(--color01), var(--color03));
+  opacity: 0.6;
+  transition: 0.2s;
+}
+
+.pd-register:hover .pd-register-pele,
+.pd-register.active .pd-register-pele {
+  opacity: 0.8;
+}
+
+.pd-register-texto {
+  position: absolute;
+  z-index: 1;
+  left: 50%;
+  top: 50%;
+  line-height: 26px;
+  transform: translate(-50%, -50%);
+  font-size: 1.6em;
+  text-align: center;
+  font-weight: 700;
+  color: #fff;
+}
+
+.register-link {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  color: rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.register-link:hover {
+  color: var(--color01);
+}
+
+.checkbox-register {
+  float: left;
+}
+
+.ant-drawer:has(.drawer-register) {
+  display: none !important;
+}
+
+@media (max-width: 1100px) {
+  .card-register-div {
+    display: none;
+  }
+
+  .ant-drawer:has(.drawer-register) {
+    display: block !important;
+  }
+
+  .pd-register {
+    height: 120px;
+  }
+
+  .pd-register-texto {
+    font-size: 1.4em;
+  }
+
+  .register-link {
+    width: 100%;
+  }
+}

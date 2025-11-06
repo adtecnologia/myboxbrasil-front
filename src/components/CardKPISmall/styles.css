@@ -1,0 +1,62 @@
+.card-kpi-small {
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border-radius: 0.4rem;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  height: 6em;
+  padding: 1em;
+}
+
+.card-kpi-small-is-button {
+  cursor: pointer;
+}
+
+.card-kpi-small-title {
+  color: #fff;
+  font-size: 1.1em;
+  line-height: 1.1em;
+  text-wrap: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+.card-kpi-small-icon {
+  font-size: 3em;
+  color: #fff;
+}
+
+.card-kpi-small-value {
+  font-size: 2em;
+  color: #fff;
+  text-wrap: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+.card-kpi-small.alt {
+  background-color: #fff;
+}
+
+.card-kpi-small.black {
+  background-color: #fff;
+  box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.26);
+}
+
+.card-kpi-small.alt .card-kpi-small-title,
+.card-kpi-small.alt .card-kpi-small-icon,
+.card-kpi-small.alt .card-kpi-small-value {
+  color: var(--color02);
+}
+
+.card-kpi-small.black .card-kpi-small-title,
+.card-kpi-small.black .card-kpi-small-icon,
+.card-kpi-small.black .card-kpi-small-value {
+  color: #000;
+}
+
+.ant-skeleton:has(.dash-skeleton),
+.dash-skeleton {
+  width: 50%;
+  overflow: hidden;
+}

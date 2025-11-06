@@ -1,0 +1,73 @@
+@font-face {
+  font-family: "Artico Black";
+  src:
+    local("Tangerine"),
+    url("https://webestaticocoleta.blob.core.windows.net/assets/fonts/Artico/cretype  Artico Black.otf")
+    format("truetype");
+}
+
+@font-face {
+  font-family: "Artico Bold";
+  src:
+    local("Artico"),
+    url("https://webestaticocoleta.blob.core.windows.net/assets/fonts/Artico/cretype  Artico Bold.otf")
+    format("truetype");
+}
+
+@font-face {
+  font-family: "Artico Book";
+  src:
+    local("Artico"),
+    url("https://webestaticocoleta.blob.core.windows.net/assets/fonts/Artico/cretype  Artico Book.otf")
+    format("truetype");
+}
+
+@font-face {
+  font-family: "Artico ExtraLight";
+  src:
+    local("Artico"),
+    url("https://webestaticocoleta.blob.core.windows.net/assets/fonts/Artico/cretype  Artico ExtraLight.otf")
+    format("truetype");
+}
+
+@font-face {
+  font-family: "Artico Light";
+  src:
+    local("Artico"),
+    url("https://webestaticocoleta.blob.core.windows.net/assets/fonts/Artico/cretype  Artico Light.otf")
+    format("truetype");
+}
+
+@font-face {
+  font-family: "Artico Medium";
+  src:
+    local("Artico"),
+    url("https://webestaticocoleta.blob.core.windows.net/assets/fonts/Artico/cretype  Artico Medium.otf")
+    format("truetype");
+}
+
+@font-face {
+  font-family: "Artico";
+  font-weight: normal;
+  font-style: normal;
+  src:
+    local("Artico"),
+    url("https://webestaticocoleta.blob.core.windows.net/assets/fonts/Artico/cretype  Artico Medium.otf")
+    format("truetype");
+}
+
+@font-face {
+  font-family: "Artico Thin";
+  src:
+    local("Artico"),
+    url("https://webestaticocoleta.blob.core.windows.net/assets/fonts/Artico/cretype  Artico Thin.otf")
+    format("truetype");
+}
+
+@font-face {
+  font-family: "Typografix";
+  src:
+    local("Artico"),
+    url("https://webestaticocoleta.blob.core.windows.net/assets/fonts/Typografix/Typografix-demo.otf")
+    format("truetype");
+}

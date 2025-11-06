@@ -1,0 +1,87 @@
+.mp-avatar {
+    width: 16em;
+    height: 16em;
+}
+
+.mp-name {
+    margin: 0.4em;
+    font-size: 1.6em;
+}
+
+.mp-type {
+    margin: 0em !important;
+    font-size: 1.1em;
+    background-color: var(--color01);
+    color: #FFF;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+.btn-upload-div {
+    margin-top: -3em;
+    margin-bottom: 1em;
+}
+
+.btn-upload {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.fdp-div {
+    display: flex;
+    align-items: center;
+    padding: 0.8em;
+    border-radius: 1em;
+    border: 1px solid rgba(0, 0, 0, 0.4);
+    cursor: pointer;
+    transition: 0.2s all;
+}
+
+.fdp-icon {
+    font-size: 1.3em;
+    margin-right: 0.5em;
+}
+
+.fdp-text {
+    font-size: 1.2em;
+}
+
+.fdp-div:hover{
+    color:  var(--color02) !important;
+}
+
+.fdp-arrow {
+    position: absolute;
+    right: 0.8em;
+    font-size: 1.3em;
+}
+
+.cr-total {
+    font-size: 1.4em;
+    text-align: right;
+    padding: 0.6em 1em;
+}
+
+.cr-total span {
+    color: var(--color02);
+    font-size: 1.4em;
+    font-weight: 600;
+}
+
+.fdp-tag {
+    position: absolute;
+    right: 2.6em;
+    background-color: var(--color02);
+    color: #fff;
+    padding: 0px 8px;
+    border-radius: 8px;
+}
+
+@media (max-width: 900px) {
+
+    .mp-col {
+        flex: 0 0 100% !important;
+    }
+
+}

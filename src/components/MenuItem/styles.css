@@ -1,0 +1,139 @@
+.painel-sidebar-btn, .painel-sidebar-group {
+    padding: 0.8em 1em;
+    display: flex;
+    align-items: center !important;
+    cursor: pointer;
+    transition: 0.2s;
+    justify-content: center;
+    flex-wrap: nowrap;
+}
+
+.painel-sidebar-btn-icon {
+    font-size: 1.6em;
+    height: 27px;
+}
+
+.painel-sidebar-btn-text {
+    font-size: 1.2em;
+    display: none;
+}
+
+.painel-sidebar-btn:hover {
+    background-color: #0303030a;
+    border-left: 3px solid var(--color01);
+    z-index: 1;
+}
+
+.painel-sidebar-btn:hover, .painel-sidebar-group:hover {
+    background-color: #0303030a;
+    border-left: 3px solid var(--color01);
+}
+
+.painel-sidebar-btn.active {
+    background: linear-gradient(to right, var(--color01), var(--color03));
+    color: #FFF !important;
+}
+
+.painel-sidebar-group.active {
+    color: var(--color01);
+}
+
+.painel-sidebar-btn.active:hover, .painel-sidebar-group.active:hover {
+    border-left: none !important;
+}
+
+.painel-sidebar.active .painel-sidebar-btn-text {
+    display: block;
+}
+
+.painel-sidebar.active .painel-sidebar-btn,
+.painel-sidebar.active .painel-sidebar-group {
+    justify-content: flex-start;
+}
+
+.painel-sidebar.active .painel-sidebar-btn-icon {
+    margin-right: 0.4em;
+}
+
+.painel-sidebar-btn-arrow {
+    display: none;
+    position: absolute;
+    right: 1em;
+    top: 0.6em;
+    font-size: 1.3em;
+}
+
+.painel-sidebar.active .painel-sidebar-btn-arrow {
+    display: block;
+}
+
+.painel-sidebar-btn-sub {
+    padding: 0.6em 1em;
+    display: none;
+    align-items: center !important;
+    cursor: pointer;
+    transition: 0.2s;
+    justify-content: flex-start;
+    margin-left: 2em;
+    border-left: 1px solid rgba(0, 0, 0, 0.226);
+}
+
+.painel-sidebar.active .painel-sidebar-btn-sub {
+    display: flex;
+}
+
+.painel-sidebar-btn-sub:hover, .painel-sidebar-btn-sub.active {
+    color: var(--color01);
+    border-left-color: var(--color01);
+}
+
+.painel-sidebar-col {
+    display: none;
+}
+
+.painel-sidebar-btn-col:has(.painel-sidebar-btn-sub.active) .painel-sidebar-btn {
+    background: linear-gradient(to right, var(--color01), var(--color03)) !important;
+    color: #FFF !important;
+}
+
+.painel-sidebar-dropdown {
+    background-color: white;
+    width: 18em;
+    position: absolute;
+    top: 0;
+    z-index: -10 !important;
+    box-shadow: 0em 0em 1em rgba(0, 0, 0, 0.452);
+    border-radius: 0.5rem;
+}
+
+.painel-sidebar-btn-col .painel-sidebar-dropdown {
+    right: 17em;
+    transition: 0.2s;
+}
+
+.painel-sidebar-btn-col:hover .painel-sidebar-dropdown {
+    right: -17em;
+}
+
+.painel-sidebar-btn-drop {
+    width: 100%;
+}
+
+.painel-sidebar-btn-drop-text {
+    font-size: 1.2em;
+}
+
+.painel-sidebar-btn-drop {
+    padding: 0.6em 1em;
+    align-items: center !important;
+    cursor: pointer;
+    transition: 0.2s;
+    justify-content: flex-start;
+    margin-left: 2em;
+    border-left: 1px solid rgba(0, 0, 0, 0.226);
+}
+
+.painel-sidebar-btn-drop:hover, .painel-sidebar-btn-drop.active {
+    color: var(--color01);
+    border-left-color: var(--color01);
+}

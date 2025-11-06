@@ -1,0 +1,55 @@
+.dsh-cmt-avatar {
+    width: 4em;
+    height: 4em;
+}
+
+.dsh-cmt-name {
+    font-size: 1.3em;
+    font-weight: 600;
+}
+
+.dsh-cmt-date {
+    color: rgba(0, 0, 0, 0.6);
+    margin-top: -0.4em;
+}
+
+.dsh-cmt-footer {
+    position: absolute;
+    bottom: 0em;
+    left: 0em;
+    width: 100%;
+}
+
+.dsh-cmt-arrow {
+    color: rgba(0, 0, 0, 0.6);
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.dsh-cmt-arrow.disabled {
+    cursor: not-allowed;
+}
+
+.dsh-cmt-arrow:hover {
+    color: var(--color02);
+}
+
+.dsh-cmt-text {
+    height: 12.6em;
+    overflow-y: auto;
+}
+
+.loading-graph {
+    position: absolute !important;
+    top: 10px !important;
+    width: 100%;
+}
+
+.dsh-item-link {
+    transition: 0.2s;
+}
+
+.dsh-item-link:hover {
+    text-decoration: underline;
+    color: var(--color02);
+}

@@ -1,0 +1,45 @@
+.mp-row {
+    flex-wrap: nowrap;
+}
+
+.mp-avatar {
+    width: 16em;
+    height: 16em;
+}
+
+.mp-name {
+    margin: 0.4em;
+    font-size: 1.6em;
+}
+
+.mp-type {
+    margin: 0em !important;
+    font-size: 1.1em;
+    background-color: var(--color01);
+    color: #FFF;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+.btn-upload-div {
+    margin-top: -3em;
+    margin-bottom: 1em;
+}
+
+.btn-upload {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+@media (max-width: 900px) {
+    
+    .mp-row {
+        flex-wrap: wrap;
+    }
+
+    .mp-col {
+        flex: 0 0 100% !important;
+    }
+
+}

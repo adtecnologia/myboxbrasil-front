@@ -1,0 +1,55 @@
+.page-default-breadcrumb a, .page-default-breadcrumb a:hover, .page-default-breadcrumb a:focus,
+.page-default-breadcrumb .ant-breadcrumb-link,
+.page-default-breadcrumb .ant-breadcrumb-separator {
+    color: rgb(255, 255, 255);
+}
+
+
+.page-default-padding {
+    padding: 0em 1em;
+}
+
+.page-default-page {
+    height: 100vh;
+    min-height: 100vh;
+    max-height: 100vh;
+    overflow-y: auto;
+    padding-bottom: 10em;
+}
+
+.page-default-button-primary {
+    border-color: var(--color02) !important;
+    border-width: 1.6px;
+    text-transform: uppercase;
+    font-size: 0.8em;
+    letter-spacing: 2px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.page-default-button-primary:hover {
+    border-color: var(--color04) !important;
+}
+
+.page-default-button {
+    background-color: transparent !important;
+    color: #ffffffab !important;
+    border-color: #ffffffab !important;
+    border-width: 1.6px;
+    text-transform: uppercase;
+    font-size: 0.8em;
+    letter-spacing: 2px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.page-default-button-icon {
+    font-size: 1.6em !important;
+}
+
+.ant-btn-default.page-default-button:hover, .ant-btn-default.page-default-button:focus {
+    color: #fff !important;
+    border-color: #fff !important;
+}

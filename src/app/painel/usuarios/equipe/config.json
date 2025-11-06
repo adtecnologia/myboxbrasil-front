@@ -1,0 +1,60 @@
+{ 
+    "ADMIN": [
+        { "label": "Equipe", "key": "eqp", "ignore": [ ] },
+        { "label": "Locatários", "key": "lct", "ignore": [ ] },
+        { "label": "Locadores", "key": "lcd", "ignore": [ ] },
+        { "label": "Destino Final", "key": "dtf", "ignore": [ ] },
+        { "label": "Tipos de Veículo", "key": "tvc", "ignore": [ ] },
+        { "label": "Modelos de Caçamba", "key": "mcm", "ignore": [ ] },
+        { "label": "Classes de Resíduo", "key": "rsd", "ignore": [ ] },
+        { "label": "Tecnologia de Tratamento", "key": "tec", "ignore": [ ] },
+        { "label": "Cidades", "key": "cdd", "ignore": [ "add", "del", "rec", "trash" ] },
+        { "label": "Estados", "key": "etd", "ignore": [ "add", "del", "rec", "trash" ] },
+        { "label": "MTR", "key": "mtr", "ignore": [ "add", "del", "rec", "trash", "edit" ] },
+        { "label": "CDF", "key": "cdf", "ignore": [ "add", "del", "rec", "trash", "edit" ] }
+    ],
+    "CITY": [
+        { "label": "Equipe", "key": "eqp", "ignore": [ ] },
+        { "label": "Fiscais", "key": "tax", "ignore": [ ] },
+        { "label": "MTR", "key": "mtr", "ignore": [ "add", "del", "rec", "trash", "edit" ] },
+        { "label": "CDF", "key": "cdf", "ignore": [ "add", "del", "rec", "trash", "edit" ] }
+    ],
+    "CUSTOMER": [
+        { "label": "Equipe", "key": "eqp", "ignore": [ ] },
+        { "label": "Meus endereços", "key": "add", "ignore": [ ] },
+        { "label": "Meus pedidos", "key": "pdd", "ignore": [ "del", "rec", "trash" ] },
+        { "label": "Ordem locação | Entrega pendente", "key": "ord.agr", "ignore": [ "add", "del", "rec", "trash" ] },
+        { "label": "Ordem locação | Em trânsito", "key": "ord.ent", "ignore": [ "add", "del", "rec", "trash" ] },
+        { "label": "Ordem locação | Locadas", "key": "ord.lcd", "ignore": [ "add", "del", "rec", "trash" ] },
+        { "label": "Ordem locação | Em análise", "key": "ord.anl", "ignore": [ "add", "del", "rec", "trash" ] },
+        { "label": "Ordem locação | CDF emitido", "key": "ord.cdf", "ignore": [ "add", "del", "rec", "trash", "edit" ] },
+        { "label": "MTR", "key": "dmt", "ignore": [ "add", "del", "rec", "trash", "edit" ] },
+        { "label": "CDF", "key": "cdf", "ignore": [ "add", "del", "rec", "trash", "edit" ] }
+    ],
+    "SELLER": [
+        { "label": "Equipe", "key": "eqp", "ignore": [ ] },
+        { "label": "Motorista", "key": "mot", "ignore": [ ] },
+        { "label": "Veículos", "key": "vcl", "ignore": [ ] },
+        { "label": "Caçambas", "key": "cmb", "ignore": [ ] },
+        { "label": "Pedidos", "key": "pdd", "ignore": [ "add", "del", "rec", "trash" ] },
+        { "label": "Configurar resíduos", "key": "conf.rsd", "ignore": [ "add", "del", "rec", "trash" ] },
+        { "label": "Configurar cidades", "key": "conf.cdd", "ignore": [ "add", "del", "rec", "trash" ] },
+        { "label": "Configurar licença ambiental", "key": "conf.lcs", "ignore": [ "add", "del", "rec", "trash" ] },
+        { "label": "Configurar meta", "key": "conf.met", "ignore": [ "add", "del", "rec", "trash" ] },
+        { "label": "Ordem locação | Entrega pendente", "key": "ord.agr", "ignore": [ "add", "del", "rec", "trash" ] },
+        { "label": "Ordem locação | Em trânsito", "key": "ord.ent", "ignore": [ "add", "del", "rec", "trash" ] },
+        { "label": "Ordem locação | Locadas", "key": "ord.lcd", "ignore": [ "add", "del", "rec", "trash" ] },
+        { "label": "Ordem locação | Em análise", "key": "ord.anl", "ignore": [ "add", "del", "rec", "trash" ] },
+        { "label": "Ordem locação | CDF emitido", "key": "ord.cdf", "ignore": [ "add", "del", "rec", "trash", "edit" ] },
+        { "label": "MTR", "key": "mtr", "ignore": [ "add", "del", "rec", "trash", "edit" ] },
+        { "label": "CDF", "key": "cdf", "ignore": [ "add", "del", "rec", "trash", "edit" ] }
+    ],
+    "FINAL_DESTINATION": [
+        { "label": "Equipe", "key": "eqp", "ignore": [ ] },
+        { "label": "Configurar licença ambiental", "key": "conf.lcs", "ignore": [ "add", "del", "rec", "trash" ] },
+        { "label": "Ordem locação | Em análise", "key": "ord.anl", "ignore": [ "add", "del", "rec", "trash" ] },
+        { "label": "Ordem locação | CDF emitido", "key": "ord.cdf", "ignore": [ "add", "del", "rec", "trash", "edit" ] },
+        { "label": "MTR", "key": "dmt", "ignore": [ "add", "del", "rec", "trash", "edit" ] },
+        { "label": "CDF", "key": "cdf", "ignore": [ "add", "del", "rec", "trash", "edit" ] }
+    ]
+}

@@ -1,0 +1,99 @@
+.dashboard * {
+    box-sizing: border-box !important;
+}
+
+.dashboard {
+    box-sizing: border-box !important;
+    padding: 20px;
+    max-width: 100%;
+    grid-template: auto / 1fr 1fr;
+    gap: 20px !important;
+}
+
+.dashboard h2 {
+    margin: 10px 0;
+}
+
+.dashboard .area-cards {
+    width: 100%;
+    gap: 20px !important;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    grid-area: 2/1/2/3;
+}
+
+.dashboard .card {
+    width: 100%;
+}
+
+.dashboard .card p {
+    margin: 0;
+}
+
+.dashboard .card h2 {
+    width: 100%;
+    text-align: center !important;
+    margin: 0;
+    padding: 0 0 10px 0;
+    border-bottom: 1px solid rgb(217, 217, 217);
+}
+
+.dashboard .card>div {
+    width: 100%;
+}
+
+.dashboard .card>div>div {
+    display: flex;
+    align-items: end;
+    gap: 5px;
+}
+
+.dashboard .card svg {
+    color: var(--color02);
+    font-size: 30px;
+}
+
+.dashboard .card h3 {
+    font-size: 23px;
+    margin: 0;
+}
+
+.dashboard .filter-btn {
+    width: fit-content;
+}
+
+.dashboard .filter-btn:hover {
+    cursor: pointer;
+}
+
+.dashboard .filter-btn .ant-space-item {
+    height: 14px;
+    display: flex;
+    align-items: center;
+}
+
+.dashboard .filter-btn h3 {
+    margin: 0;
+    font-weight: lighter;
+}
+
+.dashboard .grafico {
+    width: 100%;
+}
+
+.dashboard .echarts-grafico {
+    width: 100%;
+    height: 200px;
+}
+
+.dashboard .filter-bar {
+    width: 100% !important;
+}
+
+.dashboard .filter-cards {
+    grid-area: 1/1/1/3;
+}
+
+.dashboard .filter-graficos {
+    grid-area: 3/1/3/3;
+}

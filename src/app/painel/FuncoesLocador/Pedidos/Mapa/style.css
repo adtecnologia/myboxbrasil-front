@@ -1,0 +1,121 @@
+.cacamba-name {
+    font-size: 2em;
+    color: var(--color02);
+    font-weight: 600;
+}
+
+.cacamba-rate {
+    display: flex;
+    align-items: center;
+    color: rgba(0, 0, 0, 0.4);
+    margin-bottom: 10px;
+}
+
+.cacamba-title {
+    font-size: 1.2em;
+    font-weight: 600;
+    margin-top: 10px;
+}
+
+.cacamba-desc span {
+    color: var(--color01);
+}
+
+.cacamba-qtde {
+    font-size: 1.4em;
+    color: #0000008e;
+}
+
+.cacamba-plus {
+    color: var(--color02);
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.cacamba-plus:hover {
+    color: var(--color01);
+}
+
+.cacamba-plus.disabled {
+    cursor: not-allowed;
+    color: #00000064;;
+}
+
+.cacamba-plus.disabled:hover {
+    color: #00000064;;
+}
+
+.carrinho-button {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: var(--color02);
+    transition: 0.2s;
+    padding: 0.6em 2em;
+    border-radius: 2em;
+    cursor: pointer;
+}
+
+.carrinho-button.disabled {
+    cursor: not-allowed;
+    background-color: #00000078;
+}
+
+.carrinho-button:hover {
+    background-color: var(--color01);
+}
+
+.carrinho-button.disabled:hover {
+    background-color: #00000078;
+}
+
+
+.carrinho-button-text {
+    color: #FFF;
+    font-size: 1.2em;
+}
+
+.cacamba-footer {
+    margin-top: 9%;
+}
+
+.cacamba-link {
+    color: rgba(0, 0, 0, 0.6);
+    transition: 0.2s;
+    cursor: pointer;
+}
+
+.cacamba-link:hover {
+    color: var(--color01);
+}
+
+.btn-search-product {
+    color: var(--color01);
+    cursor: pointer;
+}
+
+.img-google {
+    position: absolute;
+    bottom: 7px;
+    left: 16px;
+    z-index: 400;
+    width: 40px;
+    transition: 0.2s;
+}
+.img-google:hover {
+    width: 60px;
+}
+
+@media (max-width: 1100px) {
+
+    .cacamba-footer-price {
+        font-size: 1.5em;
+    }
+    
+    /* .cacamba-footer-price span {
+        font-size: 0.7em;
+        color: #000;
+        margin-left: 6px;
+    } */
+
+}

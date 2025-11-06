@@ -1,0 +1,123 @@
+// BIBLIOTECAS REACT
+
+import { Button, Row, Typography } from 'antd';
+import { useEffect, useState } from 'react';
+import { CircleMarker, MapContainer, Popup, TileLayer } from 'react-leaflet';
+import { Oval } from 'react-loader-spinner';
+import { GET_API } from '../../services';
+
+// INTERFACE
+interface GraphMapaCacambasLocadasInterface {
+  height?: string;
+}
+
+// CSS
+import './styles.css';
+
+// components
+import MapFullScreen from '../MapFullScreen';
+
+const GraphMapaCacambasLocadas = ({
+  height,
+}: GraphMapaCacambasLocadasInterface) => {
+  // ESTADOS DO COMPONENTE
+  const [loading, setLoading] = useState<boolean>(true);
+  const [data, setData] = useState<any[]>([]);
+  const [coord, setCoord] = useState<any>(null);
+  const [open, setOpen] = useState<boolean>(false);
+
+  useEffect(() => {
+    GET_API('/address?default=1')
+      .then((rs) => rs.json())
+      .then((res) => {
+        setCoord([res.data[0].latitude, res.data[0].longitude]);
+      });
+  }, []);
+
+  // CARREGA ENTREGAS HOJE
+  useEffect(() => {
+    setLoading(true);
+    GET_API('/order_location_product?status=L')
+      .then((rs) => rs.json())
+      .then((res) => setData(res.data))
+      .finally(() => setLoading(false));
+  }, []);
+
+  return (
+    <div style={{ height, overflow: 'hidden' }}>
+      {coord === null || loading ? (
+        <Row
+          align={'middle'}
+          className="loading-graph"
+          justify={'center'}
+          style={{ height: '90%', zIndex: 100 }}
+        >
+          <Oval
+            ariaLabel="oval-loading"
+            color="var(--color01)"
+            height="50"
+            secondaryColor="var(--color01)"
+            visible={true}
+            width="50"
+            wrapperClass=""
+            wrapperStyle={{}}
+          />
+        </Row>
+      ) : null}
+      {coord !== null && !loading ? (
+        <MapContainer
+          center={[coord[0], coord[1]]}
+          scrollWheelZoom={false}
+          style={{ width: '100%', height: '100%' }}
+          zoom={14}
+        >
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+          {data.map((v, i) => (
+            <CircleMarker
+              center={[
+                Number(v.order_locations.cart_product.address.latitude),
+                Number(v.order_locations.cart_product.address.longitude),
+              ]}
+              key={i}
+              pathOptions={{ color: v.product.status.color }}
+              radius={10}
+            >
+              <Popup>
+                {' '}
+                <Typography
+                  style={{
+                    textAlign: 'center',
+                    color: v.product.status.color,
+                    fontSize: '1.2em',
+                  }}
+                >
+                  {v.product.status.name}
+                </Typography>{' '}
+                <br /> {v.order_locations.cart_product.address.street},{' '}
+                {v.order_locations.cart_product.address.number} -{' '}
+                {v.order_locations.cart_product.address.district} -{' '}
+                {v.order_locations.cart_product.address.city.name} /{' '}
+                {v.order_locations.cart_product.address.city.state.acronym}{' '}
+              </Popup>
+            </CircleMarker>
+          ))}
+          <Button
+            className="btn-map-screen"
+            onClick={() => setOpen(true)}
+            type="text"
+          />
+        </MapContainer>
+      ) : null}
+      <MapFullScreen
+        open={open}
+        setOpen={setOpen}
+        startStatus={['L', 'AR', 'ETR']}
+      />
+    </div>
+  );
+};
+
+export default GraphMapaCacambasLocadas;

@@ -1,0 +1,60 @@
+.perfil * {
+    box-sizing: border-box !important;
+}
+
+.perfil {
+    box-sizing: border-box !important;
+    padding: 20px;
+    max-width: 100%;
+    gap: 20px;
+}
+
+.perfil>div {
+    width: 100%;
+}
+
+.perfil .perfil-img-container {
+    height: fit-content;
+}
+
+.perfil .perfil-img {
+    width: 150px;
+    height: 150px;
+    object-fit: cover;
+    border-radius: 100%;
+}
+
+.perfil .dado-perfil {
+    display: grid;
+    grid-template: 10px auto / auto;
+}
+
+.perfil .dado-perfil p {
+    background: white;
+    margin: 0 12px;
+    padding: 0 3px;
+    width: fit-content;
+    height: fit-content;
+    z-index: 1;
+}
+
+.perfil .dado-perfil span {
+    margin: 0;
+}
+
+.dado-perfil .container {
+    align-items: center;
+}
+
+.perfil svg {
+    font-size: 15px;
+}
+
+.perfil-img-container {
+    grid-template: 1fr/1fr;
+    align-items: end;
+}
+
+.perfil-img-container * {
+    grid-area: 1/1;
+}
