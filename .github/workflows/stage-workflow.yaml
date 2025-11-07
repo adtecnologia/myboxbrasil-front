@@ -36,11 +36,15 @@ jobs:
       - name: Verificar scripts do package.json
         run: npm run
 
-      # Passo 6: Executar build do projeto
+      # Passo 6: Criar arquivo .env com variáveis de ambiente
+      - name: Criar arquivo .env
+        run: echo "${{ secrets.ENV_SECRET }}" > .env
+
+      # Passo 7: Executar build do projeto
       - name: Executar build
         run: npm run build
 
-      # Passo 7: Configure AWS credentials
+      # Passo 8: Configure AWS credentials
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -48,6 +52,6 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: sa-east-1
 
-      # Passo 8: Upload para AWS S3
+      # Passo 9: Upload para AWS S3
       - name: Upload da build para AWS S3
         run: aws s3 sync ./dist s3://myboxbrasil-web-stage --delete --cache-control "public, max-age=3600"
