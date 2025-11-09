@@ -38,7 +38,7 @@ jobs:
 
       # Passo 6: Criar arquivo .env com variáveis de ambiente
       - name: Criar arquivo .env
-        run: echo "${{ secrets.ENV_SECRET_STAGE }}" > .env
+        run: echo '${{ secrets.ENV_SECRET_STAGE }}' > .env
 
       # Passo 7: Executar build do projeto
       - name: Executar build
