@@ -54,4 +54,13 @@ jobs:
 
       # Passo 9: Upload para AWS S3
       - name: Upload da build para AWS S3
-        run: aws s3 sync ./dist s3://myboxbrasil-web-stage --delete --cache-control "public, max-age=3600"
+        run:
+          aws s3 sync ./dist s3://myboxbrasil-web-stage --delete --cache-control "public, max-age=3600"
+
+      # Passo 10: Invalidar cache do CloudFront
+      - name: Invalidar cache do CloudFront
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id "E1FNPII8YECQ91" \
+            --paths "/*" \
+            --query 'Invalidation.Id' --output text
