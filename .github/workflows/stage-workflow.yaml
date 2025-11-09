@@ -6,7 +6,7 @@ on:
       - stage
 
 jobs:
-  build-and-deploy-prod:
+  build-and-deploy-stage:
     runs-on: ubuntu-latest
 
     steps:
