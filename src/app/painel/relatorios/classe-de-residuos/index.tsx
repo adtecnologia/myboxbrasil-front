@@ -56,7 +56,7 @@ export default function RelatorioClasseDeResiduos() {
           valueFormatter: (value: any) =>
             `${Number(value).toLocaleString('pt-br')} m³`,
         },
-        legend: { data: labels },
+        legend: { data: labels, bottom: 0 },
         xAxis: {
           type: 'category',
           data: labelMonth,
@@ -72,7 +72,7 @@ export default function RelatorioClasseDeResiduos() {
         grid: {
           left: '0px',
           right: '20px',
-          bottom: '20px',
+          bottom: '35px',
           top: '20px',
           containLabel: true,
         },
@@ -137,7 +137,7 @@ export default function RelatorioClasseDeResiduos() {
               <Col key={item.name} lg={8} md={12} sm={24} xl={4} xs={24}>
                 <CardKPISmall
                   icon={<GiStoneBlock className="card-kpi-small-icon" />}
-                  title={item.name}
+                  title={`${item.name} - ${filterMes.label}/${filterAno.value}`}
                   value={`${item.total} m³`}
                 />
               </Col>
@@ -159,7 +159,7 @@ export default function RelatorioClasseDeResiduos() {
           </Button>
         </Col>
         <Col span={24}>
-          <CardItem>
+          <CardItem title={`Classe de resíduos por mês / ${filterAno.value}`}>
             <div ref={thisGraph} style={{ height: 400, overflow: 'hidden' }} />
             {loading && (
               <Row

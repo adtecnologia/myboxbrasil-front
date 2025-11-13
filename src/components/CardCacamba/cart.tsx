@@ -19,22 +19,9 @@ const CardCacambaCart = ({
   const navigate = useNavigate();
 
   return (
-    <div className="card-cacamba" onClick={() => navigate(`${item?.id}`)}>
+    <div className="card-cacamba" style={{borderRadius: 0}} onClick={() => navigate(`${item?.id}`)}>
       <div className="card-cacamba-div cart">
-        <Typography
-          className="card-cacamba-title"
-          onClick={() =>
-            navigate(
-              `/painel/pedirlocacao/fornecedor/${item?.product.provider_name}`
-            )
-          }
-        >
-          <Avatar
-            className="card-cacamba-title-avt"
-            src={item?.product.provider_photo}
-          />
-          {String(item?.product.provider_name).toLocaleUpperCase()}
-        </Typography>
+        
         <div className="card-cacamba-text-row">
           <Typography className="card-cacamba-name">
             Modelo {item?.product.stationary_bucket_type.name} <span />

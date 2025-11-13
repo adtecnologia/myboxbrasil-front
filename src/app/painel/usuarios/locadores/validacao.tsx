@@ -38,7 +38,11 @@ const LocadorValidacaoForm = ({ path, permission }: PageDefaultProps) => {
       .then(() => {
         POST_API(
           '/user',
-          { municipal_approval: 0, profile_type: 'seller' },
+          {
+            municipal_approval_status: 'rejected',
+            municipal_approved_reason: values.message,
+            profile_type: 'seller',
+          },
           ID
         );
         setVisible(false);
@@ -58,7 +62,14 @@ const LocadorValidacaoForm = ({ path, permission }: PageDefaultProps) => {
       okText: 'Sim',
       onOk: () => {
         setLoadButton(true);
-        POST_API('/user', { municipal_approval: 1, profile_type: 'seller' }, ID)
+        POST_API(
+          '/user',
+          {
+            municipal_approval_status: 'approved',
+            profile_type: 'final_destination',
+          },
+          ID
+        )
           .then((rs) => rs.json())
           .then(() => {
             message.success('Salvo com sucesso!');
@@ -69,20 +80,6 @@ const LocadorValidacaoForm = ({ path, permission }: PageDefaultProps) => {
       },
     });
     setLoadButton(true);
-
-    // POST_API('/user', { ...values }, ID)
-    //   .then((rs) => {
-    //     if (rs.ok) {
-    //       return rs.json();
-    //     }
-    //     Modal.warning({ title: 'Algo deu errado', content: rs.statusText });
-    //   })
-    //   .then(() => {
-    //     message.success('Salvo com sucesso!');
-    //     navigate('..');
-    //   })
-    //   .catch(POST_CATCH)
-    //   .finally(() => setLoadButton(false));
   };
 
   // valid params

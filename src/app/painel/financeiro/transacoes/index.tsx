@@ -1,42 +1,29 @@
-// react libraries
-
 import {
   Button,
   Col,
-  Collapse,
   Divider,
-  Form,
   Modal,
-  message,
-  Popover,
   Row,
   Tag,
   Tooltip,
   Typography,
-  Upload,
-} from 'antd';
-import { useEffect, useState } from 'react';
-import { BsClock, BsClockFill } from 'react-icons/bs';
-import { HiDownload, HiReceiptTax } from 'react-icons/hi';
-import { IoDocument } from 'react-icons/io5';
-import { TbUserDollar } from 'react-icons/tb';
-import { Oval } from 'react-loader-spinner';
-import CardItem from '../../../../components/CardItem';
-import CardKPISmall from '../../../../components/CardKPISmall';
-import Filter from '../../../../components/Filter';
-import LoadItem from '../../../../components/LoadItem';
-// components
-import PageDefault from '../../../../components/PageDefault';
-import Table from '../../../../components/Table';
-// services
+} from "antd";
+import { useEffect, useState } from "react";
 import {
-  GET_API,
-  getProfileID,
-  getProfileType,
-  getToken,
-  getUPLOADAPI,
-  POST_API,
-} from '../../../../services';
+  TbBarcode,
+  TbClock,
+  TbFileInvoice,
+  TbReceipt,
+  TbUserDollar,
+} from "react-icons/tb";
+import { Oval } from "react-loader-spinner";
+import CardItem from "@/components/CardItem";
+import CardKPISmall from "@/components/CardKPISmall";
+import PageDefault from "@/components/PageDefault";
+import Table from "@/components/Table";
+import { BillingTypeStatusEnum } from "@/enums/billing-type-enum";
+import { InvoicePaymentStatusEnum } from "@/enums/invoice-payment-status-enum";
+import { GET_API, POST_API, POST_CATCH } from "@/services";
 
 const Financeiro = () => {
   // state
@@ -51,46 +38,54 @@ const Financeiro = () => {
   const [antSendLoad, setAntSendLoad] = useState<boolean>(false);
   const [ant, setAnt] = useState<any>(null);
 
-  const [balance, setBalance] = useState<number>(0);
+  const returnStyle = (value: string | null) => {
+    if (value) {
+      return "actions-button";
+    }
+    return "actions-button disabled";
+  };
 
-  const [note, setNote] = useState<any[]>([]);
-  const [noteModal, setNoteModal] = useState<boolean>(false);
-  const [noteLoading, setNoteLoading] = useState<boolean>(false);
+  const onOpen = (value: string | null) => {
+    if (value) {
+      window.open(value);
+    }
+  };
 
-  const seller =
-    getProfileType() === 'SELLER' ||
-    getProfileType() === 'LEGAL_SELLER' ||
-    getProfileType() === 'SELLER_EMPLOYEE';
+  const formatNumber = (value: number) =>
+    Number(value).toLocaleString("pt-br", {
+      maximumFractionDigits: 2,
+      minimumFractionDigits: 2,
+    });
 
   useEffect(() => {
-    GET_API('/me')
+    GET_API("/me")
       .then((rs) => rs.json())
       .then((res) => {
         setSaldoTotal(
-          `R$ ${Number(res.data.total_balance).toLocaleString('pt-br', { maximumFractionDigits: 2, minimumFractionDigits: 2 })}`
+          `R$ ${Number(res.data.total_balance).toLocaleString("pt-br", { maximumFractionDigits: 2, minimumFractionDigits: 2 })}`
         );
         setSaldoDisponivel(
-          `R$ ${Number(res.data.available_balance).toLocaleString('pt-br', { maximumFractionDigits: 2, minimumFractionDigits: 2 })}`
+          `R$ ${Number(res.data.available_balance).toLocaleString("pt-br", { maximumFractionDigits: 2, minimumFractionDigits: 2 })}`
         );
         setSaldoBloqueado(
-          `R$ ${Number(res.data.blocked_balance).toLocaleString('pt-br', { maximumFractionDigits: 2, minimumFractionDigits: 2 })}`
+          `R$ ${Number(res.data.blocked_balance).toLocaleString("pt-br", { maximumFractionDigits: 2, minimumFractionDigits: 2 })}`
         );
         setTotalLiquido(
-          `R$ ${Number(res.data.net_total).toLocaleString('pt-br', { maximumFractionDigits: 2, minimumFractionDigits: 2 })}`
+          `R$ ${Number(res.data.net_total).toLocaleString("pt-br", { maximumFractionDigits: 2, minimumFractionDigits: 2 })}`
         );
       });
   }, []);
 
   const column: any = [
     {
-      title: 'Data e hora',
-      dataIndex: 'balances.created_at',
-      table: 'balances.created_at',
-      width: '200px',
+      title: "Data e hora",
+      dataIndex: "balances.created_at",
+      table: "balances.created_at",
+      width: "200px",
       sorter: false,
-      align: 'center',
+      align: "center",
       render: (item: any) => (
-        <Row justify={'center'} style={{ width: '100%' }}>
+        <Row justify={"center"} style={{ width: "100%" }}>
           <Col>
             <Typography>{item.created_at}</Typography>
           </Col>
@@ -98,241 +93,211 @@ const Financeiro = () => {
       ),
     },
     {
-      title: 'Cliente',
-      dataIndex: 'order.client',
-      table: 'clients.name',
-      width: 'auto',
-      minWidth: '260px',
+      title: "Cliente",
+      dataIndex: "invoice.client.name",
+      table: "clients.name",
+      width: "auto",
+      minWidth: "260px",
       sorter: false,
-      align: 'rigth',
+      align: "rigth",
       render: null,
     },
     {
-      title: 'Tipo transação',
-      dataIndex: 'order_splits.type',
-      table: 'order_splits.type',
-      width: '140px',
+      title: "Tipo transação",
+      dataIndex: "invoice_splits.type",
+      table: "invoice_splits.type",
+      width: "140px",
       sorter: false,
-      align: 'center',
+      align: "center",
       render: (item: any) => (
-        <Row justify={'center'} style={{ width: '100%' }}>
-          <Col>
-            <Typography>{item.order.payment_type_name}</Typography>
+        <Row justify={"center"} style={{ width: "100%" }}>
+          <Col span={24}>
+            <Tag>{item.invoice.payment_method?.name}</Tag>
           </Col>
         </Row>
       ),
     },
     {
-      title: 'Transação',
-      dataIndex: 'balances.credit',
-      table: 'balances.credit',
-      width: '140px',
+      title: "Transação",
+      dataIndex: "balances.credit",
+      table: "balances.credit",
+      width: "140px",
       sorter: false,
-      align: 'center',
+      align: "center",
       render: (item: any) => (
-        <Row justify={'end'} style={{ width: '100%' }}>
+        <Row justify={"end"} style={{ width: "100%" }}>
           <Col>
-            <Typography style={{ display: 'flex', alignItems: 'center' }}>
-              R${' '}
-              {Number(item.credit).toLocaleString('pt-br', {
-                maximumFractionDigits: 2,
-              })}
+            <Typography style={{ display: "flex", alignItems: "center" }}>
+              R$ {formatNumber(item.credit)}
             </Typography>
           </Col>
         </Row>
       ),
     },
     {
-      title: 'A receber',
-      dataIndex: 'balances.balance',
-      table: 'balances.balance',
-      width: '140px',
+      title: "A receber",
+      dataIndex: "balances.balance",
+      table: "balances.balance",
+      width: "140px",
       sorter: false,
-      align: 'center',
+      align: "center",
       render: (item: any) => (
-        <Row justify={'end'} style={{ width: '100%' }}>
+        <Row justify={"end"} style={{ width: "100%" }}>
           <Col>
             <Typography
               style={{
-                display: 'flex',
-                alignItems: 'center',
+                display: "flex",
+                alignItems: "center",
                 textDecoration:
-                  item.order.status === 'REFUNDED' ? 'line-through' : '',
+                  item.invoice.status === InvoicePaymentStatusEnum.REFUNDED
+                    ? "line-through"
+                    : "",
               }}
             >
-              R${' '}
-              {Number(seller ? item.debit : item.balance).toLocaleString(
-                'pt-br',
-                {
-                  maximumFractionDigits: 2,
-                }
-              )}{' '}
-              {item.balance > 0 ? (
+              R$ {formatNumber(item.balance)}{" "}
+              {item.balance > 0 && (
                 <Tooltip
                   title={
-                    <Row style={{ flexDirection: 'column' }}>
-                      {item.credit_breakdown.map((i: any) =>
-                        Number(i.amount) > 0 ? <Col>{i.description}</Col> : null
+                    <Row style={{ flexDirection: "column" }}>
+                      {item.credit_breakdown.map(
+                        (i: any) =>
+                          Number(i.amount) > 0 && (
+                            <Col key={i.amount}>{i.description}</Col>
+                          )
                       )}
                     </Row>
                   }
                 >
                   <span className="info">?</span>
                 </Tooltip>
-              ) : null}
+              )}
             </Typography>
           </Col>
         </Row>
       ),
     },
     {
-      title: 'Custos',
-      dataIndex: 'balances.debit',
-      table: 'balances.debit',
-      width: '140px',
+      title: "Custos",
+      dataIndex: "balances.debit",
+      table: "balances.debit",
+      width: "140px",
       sorter: false,
-      align: 'center',
+      align: "center",
       render: (item: any) => (
-        <Row justify={'end'} style={{ width: '100%' }}>
+        <Row justify={"end"} style={{ width: "100%" }}>
           <Col>
-            <Typography style={{ display: 'flex', alignItems: 'center' }}>
-              R${' '}
-              {Number(seller ? item.balance : item.debit).toLocaleString(
-                'pt-br',
-                {
-                  maximumFractionDigits: 2,
-                }
-              )}{' '}
-              {item.debit > 0 ? (
+            <Typography style={{ display: "flex", alignItems: "center" }}>
+              R$ {formatNumber(item.debit)}{" "}
+              {item.debit > 0 && (
                 <Tooltip
                   title={
-                    <Row style={{ flexDirection: 'column' }}>
-                      {item.debit_breakdown.map((i: any) =>
-                        Number(i.amount) > 0 ? <Col>{i.description}</Col> : null
+                    <Row style={{ flexDirection: "column" }}>
+                      {item.debit_breakdown.map(
+                        (i: any) =>
+                          Number(i.amount) > 0 && (
+                            <Col key={i}>
+                              {i.description} - R$ {formatNumber(i.amount)}
+                            </Col>
+                          )
                       )}
                     </Row>
                   }
                 >
                   <span className="info">?</span>
                 </Tooltip>
-              ) : null}
+              )}
             </Typography>
           </Col>
         </Row>
       ),
     },
     {
-      title: 'Situação',
-      dataIndex: 'order_splits.balance',
-      table: 'order_splits.balance',
-      width: '140px',
+      title: "Situação",
+      dataIndex: "invoice_splits.balance",
+      table: "invoice_splits.balance",
+      width: "140px",
       sorter: false,
-      align: 'center',
+      align: "center",
       render: (item: any) => (
-        <Row justify={'center'} style={{ width: '100%' }}>
-          {item.order.status === 'REFUNDED' ? (
+        <Row justify={"center"} style={{ width: "100%" }}>
+          <Col span={24}>
+            <Tag color={item.invoice.payment_status.color}>
+              {item.invoice.payment_status.name}
+            </Tag>
+          </Col>
+        </Row>
+      ),
+    },
+    {
+      title: "Ações",
+      width: "100px",
+      sorter: false,
+      align: "center",
+      render: (item: any) => (
+        <Row justify={"center"} style={{ width: "100%" }}>
+          <Col>
+            <Tooltip title="Ver recibo">
+              <TbReceipt
+                className={returnStyle(item.invoice.transaction_receipt_url)}
+                onClick={() => onOpen(item.invoice.transaction_receipt_url)}
+                size={18}
+              />
+            </Tooltip>
+          </Col>
+          {item.bank_slip_url && (
             <Col>
-              <Tag color="#F94A52">Estornado</Tag>
-            </Col>
-          ) : (
-            <Col>
-              <Tag
-                color={
-                  item.gateway_compensated && item.delivery_compensated
-                    ? '#0E7A0D'
-                    : item.order_split.anticipation_requested === 1
-                      ? '#00A8FF'
-                      : '#FFA500'
-                }
-              >
-                {item.gateway_compensated && item.delivery_compensated
-                  ? 'Recebido'
-                  : item.order_split.anticipation_requested === 1
-                    ? 'Aguardando antecipação'
-                    : 'Aguardando'}
-              </Tag>
+              <Tooltip title="Boleto">
+                <TbBarcode
+                  className="actions-button"
+                  onClick={() => onOpen(item.invoice.bank_slip_url)}
+                  size={18}
+                />
+              </Tooltip>
             </Col>
           )}
-        </Row>
-      ),
-    },
-    {
-      title: 'Ações',
-      width: '100px',
-      sorter: false,
-      align: 'center',
-      render: (item: any) => (
-        <Row gutter={[4, 4]} justify={'center'} style={{ width: '100%' }}>
-          {!item.order.invoice_url && item.order.status !== 'REFUNDED' ? (
-            <Col>
-              <Tooltip title="Nota fiscal">
-                <Button
-                  onClick={() => onInvoicedata(item)}
-                  shape="circle"
-                  size="small"
-                  type="primary"
-                >
-                  <HiReceiptTax />
-                </Button>
-              </Tooltip>
-            </Col>
-          ) : null}
-          {item.order.invoice_url ? (
-            <Col>
-              <Tooltip title="Nota fiscal">
-                <Button
-                  onClick={() => window.open(`${item.order.invoice_url}`)}
-                  shape="circle"
-                  size="small"
-                  type="primary"
-                >
-                  <HiDownload />
-                </Button>
-              </Tooltip>
-            </Col>
-          ) : null}
-          {/* <Col><Tooltip title="Comprovante"><Button size="small" type="primary" shape="circle"><IoDocument /></Button></Tooltip></Col> */}
-          {item.order.status !== 'REFUNDED' &&
-          item.order.payment_type !== 'PIX' &&
-          item.order_split.anticipation_requested === 0 ? (
-            <Col>
-              <Tooltip title="Pedir antecipação">
-                <Button
-                  onClick={() => onSimulateAntecipation(item)}
-                  shape="circle"
-                  size="small"
-                  type="primary"
-                >
-                  <BsClockFill />
-                </Button>
-              </Tooltip>
-            </Col>
-          ) : null}
+          <Col>
+            <Tooltip title="Nota fiscal">
+              <TbFileInvoice className="actions-button disabled" size={18} />
+            </Tooltip>
+          </Col>
+
+          {item.invoice.payment_status.code !==
+            InvoicePaymentStatusEnum.REFUNDED &&
+            item.invoice.payment_method.key ===
+              BillingTypeStatusEnum.CREDIT_CARD &&
+            item.invoice.anticipation_requested === 0 && (
+              <Col>
+                <Tooltip title="Pedir antecipação">
+                  <TbClock
+                    className="actions-button"
+                    onClick={() => onSimulateAntecipation(item)}
+                    size={18}
+                  />
+                </Tooltip>
+              </Col>
+            )}
         </Row>
       ),
     },
   ];
 
-  const onInvoicedata = (item: any) => {
-    setNoteLoading(true);
-    setBalance(item.id);
-    GET_API(`/balance/${item.id}/invoice_data`)
-      .then((rs) => rs.json())
-      .then((res) => {
-        setNote(res.data);
-        setNoteModal(true);
-      })
-      .finally(() => setNoteLoading(false));
-  };
-
   const onSimulateAntecipation = (item: any) => {
     setAntLoad(true);
     setModal(true);
-    POST_API(`/anticipation/${item.order_splits_id}/simulate`, {})
+    GET_API(`/anticipation/${item.invoice.id}/simulate`)
       .then((rs) => rs.json())
       .then((res) => {
+        if (res.errors) {
+          Modal.warning({
+            title: "Oops!",
+            content: res.errors[0].description,
+          });
+          setModal(false);
+          return;
+        }
         setAnt(res);
       })
+      .catch(POST_CATCH)
       .finally(() => setAntLoad(false));
   };
 
@@ -341,37 +306,17 @@ const Financeiro = () => {
     setModal(true);
     POST_API(`/anticipation/${ant.id}`, {})
       .then((rs) => rs.json())
-      .then((res) => {
+      .then((_) => {
         setModal(false);
         setAction(!action);
       })
+      .catch(POST_CATCH)
       .finally(() => setAntSendLoad(false));
-  };
-
-  const onSend = (values: any) => {
-    if (!values.note) {
-      message.warning({ content: 'Anexe uma nota fiscal para continuar' });
-      return;
-    }
-    setNoteLoading(true);
-    POST_API(`/balance/${balance}/invoice`, {
-      note: values.note.file.response.url,
-    })
-      .then((rs) => {
-        if (rs.ok) {
-          message.success('Nota anexada!');
-          setNote([]);
-          setNoteModal(false);
-          setAction(!action);
-        } else
-          Modal.warning({ title: 'Algo deu errado', content: rs.statusText });
-      })
-      .finally(() => setNoteLoading(false));
   };
 
   return (
     <PageDefault
-      items={[{ title: 'Transações financeiras' }]}
+      items={[{ title: "Transações financeiras" }]}
       options={
         <Row gutter={[8, 8]}>
           {/* <Col><Button  size="small">Baixar relatório</Button></Col> */}
@@ -413,48 +358,48 @@ const Financeiro = () => {
             <Table
               action={action}
               column={column}
-              path={'balance'}
+              path={"balance"}
               sorterActive={{
-                order: 'DESC',
-                selectColumn: 'balances.created_at',
+                order: "DESC",
+                selectColumn: "balances.created_at",
               }}
-              type={'list'}
+              type={"list"}
               useFilter={[
                 {
-                  type: 'search',
-                  name: 'clientId',
-                  label: 'Cliente',
-                  url: '/client',
-                  labelField: ['id', 'name'],
+                  type: "search",
+                  name: "clientId",
+                  label: "Cliente",
+                  url: "/client",
+                  labelField: ["id", "name"],
                 },
                 {
-                  type: 'select',
-                  name: 'paymentType',
-                  label: 'Tipo de transação',
+                  type: "select",
+                  name: "paymentType",
+                  label: "Tipo de transação",
                   items: [
-                    { value: 'CREDIT_CARD', label: 'Cartão de crédito' },
-                    { value: 'PIX', label: 'Pix' },
-                    { value: 'BOLETO', label: 'Boleto' },
+                    { value: "CREDIT_CARD", label: "Cartão de crédito" },
+                    { value: "PIX", label: "Pix" },
+                    { value: "BOLETO", label: "Boleto" },
                   ],
                 },
                 {
-                  type: 'select',
-                  name: 'status',
-                  label: 'Situação',
+                  type: "select",
+                  name: "status",
+                  label: "Situação",
                   items: [
-                    { value: true, label: 'Recebido' },
-                    { value: false, label: 'Aguradando' },
+                    { value: true, label: "Recebido" },
+                    { value: false, label: "Aguradando" },
                   ],
                 },
                 {
-                  type: 'date',
-                  name: 'date_start',
-                  label: 'Data (início)',
+                  type: "date",
+                  name: "date_start",
+                  label: "Data (início)",
                 },
                 {
-                  type: 'date',
-                  name: 'date_end',
-                  label: 'Data (final)',
+                  type: "date",
+                  name: "date_end",
+                  label: "Data (final)",
                 },
               ]}
             />
@@ -469,7 +414,7 @@ const Financeiro = () => {
         width={360}
       >
         {antLoad ? (
-          <Row justify={'center'}>
+          <Row justify={"center"}>
             <Col style={{ marginTop: 16 }}>
               <Oval
                 ariaLabel="oval-loading"
@@ -487,47 +432,47 @@ const Financeiro = () => {
           <Row gutter={[8, 8]}>
             <Col span={24}>
               <Typography
-                style={{ textAlign: 'center', fontSize: 20, marginBottom: 6 }}
+                style={{ textAlign: "center", fontSize: 20, marginBottom: 6 }}
               >
                 Simulação de antecipação
               </Typography>
             </Col>
             <Col span={24} style={{ marginBottom: 10 }}>
-              <Row justify={'space-between'}>
+              <Row justify={"space-between"}>
                 <Col style={{ fontSize: 16 }}>
                   <b>Valor</b>
                 </Col>
                 <Col style={{ fontSize: 16 }}>
-                  R${' '}
+                  R${" "}
                   {Number(ant?.simulated_anticipation?.value).toLocaleString(
-                    'pt-br',
+                    "pt-br",
                     { maximumFractionDigits: 2 }
                   )}
                 </Col>
               </Row>
-              <Row justify={'space-between'}>
+              <Row justify={"space-between"}>
                 <Col style={{ fontSize: 16 }}>
                   <b>Taxa antecipação</b>
                 </Col>
                 <Col style={{ fontSize: 16 }}>
-                  R${' '}
+                  R${" "}
                   {Number(ant?.simulated_anticipation?.fee).toLocaleString(
-                    'pt-br',
+                    "pt-br",
                     { maximumFractionDigits: 2 }
                   )}
                 </Col>
               </Row>
               <Divider style={{ marginTop: 4, marginBottom: 4 }} />
-              <Row justify={'space-between'}>
+              <Row justify={"space-between"}>
                 <Col style={{ fontSize: 16 }}>
                   <b>A receber</b>
                 </Col>
-                <Col style={{ fontSize: 16, color: 'var(--color01)' }}>
+                <Col style={{ fontSize: 16, color: "var(--color01)" }}>
                   <b>
-                    R${' '}
+                    R${" "}
                     {Number(
                       ant?.simulated_anticipation?.net_value
-                    ).toLocaleString('pt-br', { maximumFractionDigits: 2 })}
+                    ).toLocaleString("pt-br", { maximumFractionDigits: 2 })}
                   </b>
                 </Col>
               </Row>
@@ -549,129 +494,6 @@ const Financeiro = () => {
               >
                 Pedir antecipação
               </Button>
-            </Col>
-          </Row>
-        )}
-      </Modal>
-      <Modal
-        footer={false}
-        onCancel={() => setNoteModal(false)}
-        open={noteModal}
-        title="Dados para emissão da nota fiscal"
-      >
-        {note.length > 0 ? (
-          <Row gutter={[8, 8]}>
-            <Col span={24}>
-              <Typography className="">Pedido #{note[0]?.order_id}</Typography>
-            </Col>
-            <Col span={24}>
-              <Collapse>
-                {note.map((v: any, i: number) => (
-                  <Collapse.Panel header={`Ordem de locação #${v.id}`} key={i}>
-                    <Typography>
-                      <b>Cliente:</b> {v.client.name}
-                    </Typography>
-                    <Typography>
-                      <b>E-mail:</b> {v.client.email}
-                    </Typography>
-                    <Typography>
-                      <b>{String(v.client.document_type).toUpperCase()}</b>{' '}
-                      {v.client.document_number}
-                    </Typography>
-                    <Divider style={{ marginTop: 8, marginBottom: 8 }} />
-                    <Typography>
-                      <b>Endereço:</b> {v.client.address.street},{' '}
-                      {v.client.address.number}
-                    </Typography>
-                    <Typography>
-                      <b>Bairro:</b> {v.client.address.district}
-                    </Typography>
-                    <Typography>
-                      <b>Cidade:</b> {v.client.address.city} /{' '}
-                      {v.client.address.state}
-                    </Typography>
-                    <Divider style={{ marginTop: 8, marginBottom: 8 }} />
-                    {v.items.length > 0 ? (
-                      <>
-                        <Typography>
-                          <b>Modelo:</b>{' '}
-                          {
-                            v.items[0].product.stationary_bucket_group
-                              .stationary_bucket_type.name
-                          }
-                        </Typography>
-                        <Typography>
-                          <b>Cor:</b>{' '}
-                          {v.items[0].product.stationary_bucket_group.color}
-                        </Typography>
-                        <Typography>
-                          <b>Material:</b>{' '}
-                          {v.items[0].product.stationary_bucket_group.material}
-                        </Typography>
-                        <Typography>
-                          <b>Quantidade:</b> {v.items[0].quantity}
-                        </Typography>
-                        <Typography>
-                          <b>Valor total:</b> R${' '}
-                          {Number(v.items[0].price).toLocaleString('pt-br', {
-                            maximumFractionDigits: 2,
-                            minimumFractionDigits: 2,
-                          })}
-                        </Typography>
-                        <Divider style={{ marginTop: 8, marginBottom: 8 }} />
-                        {v.items.map((v1: any, i1: number) => (
-                          <Typography>
-                            <b>Item #{i1 + 1}</b> {v1.product.code}
-                          </Typography>
-                        ))}
-                      </>
-                    ) : (
-                      <Typography>Nenhuma caçamba selecionada ainda</Typography>
-                    )}
-                  </Collapse.Panel>
-                ))}
-              </Collapse>
-            </Col>
-            <Col span={24}>
-              <Form onFinish={onSend}>
-                <Form.Item name={'note'} style={{ marginBottom: 0 }}>
-                  <Upload
-                    accept="application/pdf"
-                    action={getUPLOADAPI}
-                    headers={{
-                      Authorization: 'Bearer ' + getToken(),
-                      Profile: getProfileID(),
-                    }}
-                    maxCount={1}
-                    showUploadList={true}
-                  >
-                    <Button
-                      block
-                      className="btn-default"
-                      style={{ marginBottom: -10 }}
-                      type="default"
-                    >
-                      Anexar nota fiscal
-                    </Button>
-                  </Upload>
-                </Form.Item>
-                <Button
-                  block
-                  className="btn-primary"
-                  htmlType="submit"
-                  loading={noteLoading}
-                  style={{ marginTop: 10 }}
-                  type="primary"
-                >
-                  Salvar
-                </Button>
-              </Form>
-            </Col>
-          </Row>
-        ) : (
-          <Row gutter={[8, 8]}>
-            <Col span={24}>
-              <Typography>Pedido aguardando confirmação</Typography>
             </Col>
           </Row>
         )}

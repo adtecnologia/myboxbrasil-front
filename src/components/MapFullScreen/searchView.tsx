@@ -3,9 +3,9 @@
 /** biome-ignore-all lint/nursery/noNoninteractiveElementInteractions: ignorar */
 /** biome-ignore-all lint/a11y/useKeyWithClickEvents: ignorar */
 /** biome-ignore-all lint/a11y/noStaticElementInteractions: ignorar */
-import { Button, Col, Input, Row, Typography } from 'antd';
-import { IoClose, IoSearch } from 'react-icons/io5';
-import { useMap } from 'react-leaflet';
+import { Button, Col, Input, Row, Typography } from "antd";
+import { IoClose, IoSearch } from "react-icons/io5";
+import { useMap } from "react-leaflet";
 
 export function SearchView({
   focus,
@@ -38,20 +38,20 @@ export function SearchView({
       >
         <Col span={24}>
           <div className="input-map-screen">
-            <Row align={'middle'}>
-              <Col flex={'auto'}>
+            <Row align={"middle"}>
+              <Col flex={"auto"}>
                 <Input
                   allowClear
                   className="input-field-map-screen"
                   onChange={(e) => setSearch(e.target.value)}
                   onKeyDown={(event) =>
-                    event.key === 'Enter' ? loadData() : null
+                    event.key === "Enter" ? loadData() : null
                   }
                   placeholder="Pesquisar..."
                   value={search}
                 />
               </Col>
-              <Col flex={'32px'}>
+              <Col flex={"32px"}>
                 <Button
                   disabled={loading}
                   onClick={focus ? () => setFocus(null) : loadData}
@@ -73,14 +73,14 @@ export function SearchView({
                 style={{
                   fontSize: 14,
                   fontWeight: 700,
-                  color: 'var(--color03)',
+                  color: "var(--color03)",
                 }}
               >
-                {focus.order_locations.client_street},{' '}
-                {focus.order_locations.client_number} -{' '}
-                {focus.order_locations.client_district} -{' '}
-                {focus.order_locations.client_city.name} /{' '}
-                {focus.order_locations.client_city.state.acronym}
+                {focus.order_location.client_street},{" "}
+                {focus.order_location.client_number} -{" "}
+                {focus.order_location.client_district} -{" "}
+                {focus.order_location.client_city.name} /{" "}
+                {focus.order_location.client_city.state.acronym}
               </Typography>
               <hr />
               <Typography>
@@ -88,17 +88,17 @@ export function SearchView({
               </Typography>
               <hr />
               <Typography>
-                <b>Locatário:</b> {focus.order_locations.client.name}
+                <b>Locatário:</b> {focus.order_location.client.name}
               </Typography>
               <Typography>
-                <b>Locador:</b> {focus.order_locations.provider.name}
+                <b>Locador:</b> {focus.order_location.provider.name}
               </Typography>
               <hr />
               <Typography>
                 <b>Identificação:</b> {focus.product.code}
               </Typography>
               <Typography>
-                <b>Modelo:</b>{' '}
+                <b>Modelo:</b>{" "}
                 {
                   focus.product.stationary_bucket_group.stationary_bucket_type
                     .name
@@ -106,16 +106,16 @@ export function SearchView({
               </Typography>
               <hr />
               <Typography>
-                <b>Tipo de locação:</b>{' '}
-                {focus.order_locations.cart_product.type_local === 'E'
-                  ? 'Externo'
-                  : 'Interno'}{' '}
-                | {focus.order_locations.cart_product.days} dias
+                <b>Tipo de locação:</b>{" "}
+                {focus.order_location.product.type_local === "E"
+                  ? "Externo"
+                  : "Interno"}{" "}
+                | {focus.order_location.product.days} dias
               </Typography>
               <Typography>
-                <b>Data locação:</b>{' '}
-                {focus.status.code === 'EP' || focus.status.code === 'ETL'
-                  ? 'Aguardando locação'
+                <b>Data locação:</b>{" "}
+                {focus.status.code === "EP" || focus.status.code === "ETL"
+                  ? "Aguardando locação"
                   : focus.location_date_format}
               </Typography>
             </div>
@@ -128,8 +128,8 @@ export function SearchView({
                 onClick={() =>
                   changeCenter(
                     [
-                      item.order_locations.client_latitude,
-                      item.order_locations.client_longitude,
+                      item.order_location.client_latitude,
+                      item.order_location.client_longitude,
                     ],
                     item
                   )
@@ -140,14 +140,14 @@ export function SearchView({
                   style={{
                     fontSize: 14,
                     fontWeight: 700,
-                    color: 'var(--color03)',
+                    color: "var(--color03)",
                   }}
                 >
-                  {item.order_locations.client_street},{' '}
-                  {item.order_locations.client_number} -{' '}
-                  {item.order_locations.client_district} -{' '}
-                  {item.order_locations.client_city.name} /{' '}
-                  {item.order_locations.client_city.state.acronym}
+                  {item.order_location.client_street},{" "}
+                  {item.order_location.client_number} -{" "}
+                  {item.order_location.client_district} -{" "}
+                  {item.order_location.client_city.name} /{" "}
+                  {item.order_location.client_city.state.acronym}
                 </Typography>
                 <hr />
                 <Typography>

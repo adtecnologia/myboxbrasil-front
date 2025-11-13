@@ -11,12 +11,12 @@ import {
   Select,
   Statistic,
   Typography,
-} from 'antd';
-import { useEffect, useState } from 'react';
-import CardItem from '@/components/CardItem';
-import LoadItem from '@/components/LoadItem';
-import PageDefault from '@/components/PageDefault';
-import { GET_API } from '@/services';
+} from "antd";
+import { useEffect, useState } from "react";
+import CardItem from "@/components/CardItem";
+import LoadItem from "@/components/LoadItem";
+import PageDefault from "@/components/PageDefault";
+import { GET_API } from "@/services";
 
 export default function RelatorioVencimentoPrazo() {
   const [current, setCurrent] = useState(1);
@@ -41,7 +41,7 @@ export default function RelatorioVencimentoPrazo() {
 
     GET_API(url).then((response) => {
       if (!response.ok) {
-        Modal.warning({ title: 'Algo deu errado' });
+        Modal.warning({ title: "Algo deu errado" });
         return;
       }
       response.json().then((res) => {
@@ -54,14 +54,14 @@ export default function RelatorioVencimentoPrazo() {
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: ignorar
   useEffect(() => {
-    form.setFieldValue('order_by', 'expiration_date');
-    onSend({ order_by: 'expiration_date' });
+    form.setFieldValue("order_by", "expiration_date");
+    onSend({ order_by: "expiration_date" });
   }, [current]);
 
   return (
     <PageDefault
-      items={[{ title: 'Relatório' }, { title: 'Vencimento de prazo' }]}
-      valid={'rpt.vdp'}
+      items={[{ title: "Relatório" }, { title: "Vencimento de prazo" }]}
+      valid={"rpt.vdp"}
     >
       <Row gutter={[16, 16]}>
         <Col span={24}>
@@ -70,25 +70,9 @@ export default function RelatorioVencimentoPrazo() {
               form={form}
               layout="vertical"
               onFinish={onSend}
-              style={{ width: '100%' }}
+              style={{ width: "100%" }}
             >
-              <Row align={'bottom'} gutter={[8, 16]}>
-                <Col lg={4} md={8} xl={3} xs={24}>
-                  <Form.Item
-                    label="Ordenar por"
-                    name="order_by"
-                    style={{ marginBottom: 0 }}
-                  >
-                    <Select>
-                      <Select.Option value="expiration_date">
-                        Data vencimento
-                      </Select.Option>
-                      <Select.Option value="client_district">
-                        Bairro
-                      </Select.Option>
-                    </Select>
-                  </Form.Item>
-                </Col>
+              <Row align={"bottom"} gutter={[8, 16]}>
                 <Col lg={4} md={8} xl={3} xs={12}>
                   <Form.Item
                     label="Data locação início"
@@ -107,13 +91,35 @@ export default function RelatorioVencimentoPrazo() {
                     <Input type="date" />
                   </Form.Item>
                 </Col>
-                <Col lg={9} md={20} xl={13} xs={24}>
+                <Col lg={9} md={20} xl={12} xs={24}>
                   <Form.Item
                     label="Pesquisar"
                     name="search"
                     style={{ marginBottom: 0 }}
                   >
-                    <Input placeholder="Pesquise aqui..." />
+                    <Input placeholder="Pesquisar locação..." />
+                  </Form.Item>
+                </Col>
+                <Col lg={4} md={8} xl={4} xs={24}>
+                  <Form.Item
+                    label="Ordenar por"
+                    name="order_by"
+                    style={{ marginBottom: 0 }}
+                  >
+                    <Select>
+                      <Select.Option value="expiration_date">
+                        Menor data vencimento
+                      </Select.Option>
+                      <Select.Option value="-expiration_date">
+                        Maior data vencimento
+                      </Select.Option>
+                      <Select.Option value="client_district">
+                        Bairro A-Z
+                      </Select.Option>
+                      <Select.Option value="-client_district">
+                        Bairro Z-A
+                      </Select.Option>
+                    </Select>
                   </Form.Item>
                 </Col>
                 <Col lg={3} md={4} xl={2} xs={24}>
@@ -148,9 +154,9 @@ export default function RelatorioVencimentoPrazo() {
                   <Col span={24}>
                     <Typography
                       style={{
-                        fontWeight: 'bold',
+                        fontWeight: "bold",
                         fontSize: 18,
-                        color: 'var(--color03)',
+                        color: "var(--color03)",
                       }}
                     >
                       {item.stationary_bucket_code} - Modelo {item.type_name}
@@ -218,7 +224,7 @@ export default function RelatorioVencimentoPrazo() {
           ))}
         <Col span={24}>
           <CardItem>
-            <Row justify={'space-between'}>
+            <Row justify={"space-between"}>
               <InputNumber
                 defaultValue={page}
                 max={100}
@@ -231,7 +237,7 @@ export default function RelatorioVencimentoPrazo() {
                   )
                 }
                 size="small"
-                style={{ width: 150, textAlign: 'right' }}
+                style={{ width: 150, textAlign: "right" }}
                 suffix=" / página"
               />
               <Pagination

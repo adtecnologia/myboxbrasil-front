@@ -1,10 +1,10 @@
 // BIBLIOTECAS REACT
 
-import { Button, Row, Typography } from 'antd';
-import { useEffect, useState } from 'react';
-import { CircleMarker, MapContainer, Popup, TileLayer } from 'react-leaflet';
-import { Oval } from 'react-loader-spinner';
-import { GET_API } from '../../services';
+import { Button, Row, Typography } from "antd";
+import { useEffect, useState } from "react";
+import { CircleMarker, MapContainer, Popup, TileLayer } from "react-leaflet";
+import { Oval } from "react-loader-spinner";
+import { GET_API } from "../../services";
 
 // INTERFACE
 interface GraphEntregaRetiradaHojeInterface {
@@ -14,8 +14,8 @@ interface GraphEntregaRetiradaHojeInterface {
 }
 
 // CSS
-import './styles.css';
-import MapFullScreen from '../MapFullScreen';
+import "./styles.css";
+import MapFullScreen from "../MapFullScreen";
 
 const GraphEntregaRetiradaHoje = ({
   height,
@@ -29,7 +29,7 @@ const GraphEntregaRetiradaHoje = ({
   const [open, setOpen] = useState<boolean>(false);
 
   useEffect(() => {
-    GET_API('/address?active=1')
+    GET_API("/address?active=1")
       .then((rs) => rs.json())
       .then((res) => {
         setCoord([res.data[0].latitude, res.data[0].longitude]);
@@ -46,13 +46,13 @@ const GraphEntregaRetiradaHoje = ({
   }, []);
 
   return (
-    <div style={{ height, overflow: 'hidden' }}>
+    <div style={{ height, overflow: "hidden" }}>
       {coord === null || loading ? (
         <Row
-          align={'middle'}
+          align={"middle"}
           className="loading-graph"
-          justify={'center'}
-          style={{ height: '90%', zIndex: 100 }}
+          justify={"center"}
+          style={{ height: "90%", zIndex: 100 }}
         >
           <Oval
             ariaLabel="oval-loading"
@@ -70,7 +70,7 @@ const GraphEntregaRetiradaHoje = ({
         <MapContainer
           center={[coord[0], coord[1]]}
           scrollWheelZoom={false}
-          style={{ width: '100%', height: '100%' }}
+          style={{ width: "100%", height: "100%" }}
           zoom={14}
         >
           <TileLayer
@@ -79,37 +79,37 @@ const GraphEntregaRetiradaHoje = ({
           />
           <CircleMarker
             center={[Number(coord[0]), Number(coord[1])]}
-            pathOptions={{ color: 'green' }}
+            pathOptions={{ color: "green" }}
             radius={10}
           >
             <Popup> Meu local </Popup>
           </CircleMarker>
-          {data.map((v, i) => (
+          {data.map((v) => (
             <CircleMarker
               center={[
-                Number(v.order_locations.cart_product.address.latitude),
-                Number(v.order_locations.cart_product.address.longitude),
+                Number(v.order_location.client_latitude),
+                Number(v.order_location.client_longitude),
               ]}
-              key={i}
-              pathOptions={{ color: v.product.status.color }}
+              key={v.id}
+              pathOptions={{ color: v.status.color }}
               radius={10}
             >
               <Popup>
-                {' '}
+                {" "}
                 <Typography
                   style={{
-                    textAlign: 'center',
-                    color: v.product.status.color,
-                    fontSize: '1.2em',
+                    textAlign: "center",
+                    color: v.status.color,
+                    fontSize: "1.2em",
                   }}
                 >
-                  {v.product.status.name}
-                </Typography>{' '}
-                <br /> {v.order_locations.cart_product.address.street},{' '}
-                {v.order_locations.cart_product.address.number} -{' '}
-                {v.order_locations.cart_product.address.district} -{' '}
-                {v.order_locations.cart_product.address.city.name} /{' '}
-                {v.order_locations.cart_product.address.city.state.acronym}{' '}
+                  {v.status.name}
+                </Typography>{" "}
+                <br /> {v.order_location.client_street},{" "}
+                {v.order_location.client_number} -{" "}
+                {v.order_location.client_district} -{" "}
+                {v.order_location.client_city.name} /{" "}
+                {v.order_location.client_city.state.acronym}{" "}
               </Popup>
             </CircleMarker>
           ))}

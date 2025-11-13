@@ -140,6 +140,7 @@ const PlaceOrderStationary = () => {
     setLoad(true);
     POST_API('/cart_product', {
       product_id: ID,
+      provider_id: cacamba.provider_id,
       quantity: qtde,
       days: typeLocal === 'I' ? cacamba.days_internal : cacamba.days_external,
       price:
@@ -147,6 +148,7 @@ const PlaceOrderStationary = () => {
       address_id: address?.id,
       type_local: typeLocal,
       residues: residueSelect,
+      productable_type: 'StationaryBucketGroup'
     })
       .then((rs) => {
         if (rs.ok) {

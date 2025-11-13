@@ -47,6 +47,9 @@
 .card-meta-title {
     color: #FFF;
     font-size: 1.1em;
+    text-wrap: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .card-meta-icon {

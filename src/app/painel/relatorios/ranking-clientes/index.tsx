@@ -79,22 +79,7 @@ export default function RelatorioRankingClientes() {
               style={{ width: '100%' }}
             >
               <Row align={'bottom'} gutter={[8, 16]}>
-                <Col lg={4} md={5} xl={3} xs={24}>
-                  <Form.Item
-                    label="Ordenar por"
-                    name="order_by"
-                    style={{ marginBottom: 0 }}
-                  >
-                    <Select>
-                      <Select.Option value="total_orders">
-                        Total locações
-                      </Select.Option>
-                      <Select.Option value="total_faturado">
-                        Faturamento
-                      </Select.Option>
-                    </Select>
-                  </Form.Item>
-                </Col>
+                
                 <Col lg={17} md={15} xl={19} xs={24}>
                   <Form.Item
                     label="Pesquisar"
@@ -102,6 +87,28 @@ export default function RelatorioRankingClientes() {
                     style={{ marginBottom: 0 }}
                   >
                     <Input placeholder="Pesquise aqui..." />
+                  </Form.Item>
+                </Col>
+                <Col lg={4} md={5} xl={3} xs={24}>
+                  <Form.Item
+                    label="Ordenar por"
+                    name="order_by"
+                    style={{ marginBottom: 0 }}
+                  >
+                    <Select>
+                      <Select.Option value="-total_orders">
+                        Mais locações
+                      </Select.Option>
+                      <Select.Option value="total_orders">
+                        Menos locações
+                      </Select.Option>
+                      <Select.Option value="-total_faturado">
+                        Maior faturamento
+                      </Select.Option>
+                      <Select.Option value="total_faturado">
+                        Menor faturamento
+                      </Select.Option>
+                    </Select>
                   </Form.Item>
                 </Col>
                 <Col lg={3} md={4} xl={2} xs={24}>

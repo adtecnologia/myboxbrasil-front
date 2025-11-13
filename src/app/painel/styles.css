@@ -19,6 +19,18 @@
   cursor: pointer;
 }
 
+.img-google {
+  position: absolute;
+  bottom: 7px;
+  left: 16px;
+  z-index: 400;
+  width: 40px;
+  transition: 0.2s;
+}
+.img-google:hover {
+  width: 60px;
+}
+
 .painel-logo {
   position: absolute;
   top: 2.2em;
@@ -340,7 +352,11 @@
 .my-menu .ant-menu-submenu-selected .ant-menu-submenu-title,
 .ant-menu-submenu .ant-menu-sub .ant-menu-item-selected,
 .ant-menu-submenu-selected .ant-menu-submenu-title {
-  background: linear-gradient(to right, var(--color01), var(--color03)) !important;
+  background: linear-gradient(
+    to right,
+    var(--color01),
+    var(--color03)
+  ) !important;
   color: #fff !important;
 }
 

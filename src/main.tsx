@@ -1,30 +1,21 @@
-/** biome-ignore-all lint/suspicious/noExplicitAny: ignorar */
-import Echo from 'laravel-echo';
-import Pusher from 'pusher-js';
-import ReactDOM from 'react-dom/client';
-import reportWebVitals from './reportWebVitals';
+import Echo from "laravel-echo";
+import Pusher from "pusher-js";
+import ReactDOM from "react-dom/client";
+import reportWebVitals from "./reportWebVitals";
 
-import './fonts.css';
-import './index.css';
-import './styles/dashboard.css';
-import './styles/assets.css';
-import './styles/perfil.css';
-import './styles/perfil.css';
-import 'leaflet/dist/leaflet.css';
-import { setDefaults } from 'react-geocode';
+import "./fonts.css";
+import "./index.css";
+import "./styles/dashboard.css";
+import "./styles/assets.css";
+import "./styles/perfil.css";
+import "./styles/perfil.css";
+import "leaflet/dist/leaflet.css";
 
-import 'react-credit-cards-2/dist/es/styles-compiled.css';
-import 'react-leaflet-fullscreen/styles.css';
-import React from 'react';
-import App from './App';
+import "react-credit-cards-2/dist/es/styles-compiled.css";
+import "react-leaflet-fullscreen/styles.css";
+import React from "react";
 
-const options: any = {
-  key: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
-  language: 'pt-BR',
-  region: 'br',
-};
-
-setDefaults(options);
+import App from "./App";
 
 declare global {
   interface Window {
@@ -36,18 +27,18 @@ declare global {
 window.Pusher = Pusher;
 
 window.Echo = new Echo({
-  broadcaster: 'reverb',
+  broadcaster: "reverb",
   key: import.meta.env.VITE_REVERB_APP_KEY,
   wsHost: import.meta.env.VITE_REVERB_HOST,
   wsPort: import.meta.env.VITE_REVERB_PORT,
   wssPort: import.meta.env.VITE_REVERB_PORT,
   wsPath: import.meta.env.VITE_REBERB_WS_PATH,
   forceTLS: true,
-  enabledTransports: ['ws', 'wss'],
+  enabledTransports: ["ws", "wss"],
 });
 
 // biome-ignore lint/style/noNonNullAssertion: ignorar
-ReactDOM.createRoot(document.getElementById('root')!).render(
+ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <App />
   </React.StrictMode>

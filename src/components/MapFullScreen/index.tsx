@@ -1,27 +1,24 @@
 // BIBLIOTECAS REACT
 
-import { Button, Col, Input, Modal, Row, Tag, Typography } from 'antd';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Button, Col, Modal, Row } from "antd";
+import { useEffect, useState } from "react";
 import {
   CircleMarker,
   MapContainer,
   Marker,
-  Popup,
   TileLayer,
   useMap,
-  useMapEvent,
   ZoomControl,
-} from 'react-leaflet';
+} from "react-leaflet";
 
 // services
-import { GET_API } from '../../services';
+import { GET_API } from "../../services";
 
 // css
-import './styles.css';
-import { IoClose, IoSearch } from 'react-icons/io5';
-import NavbarTopRigth from '../NavbarTopRight';
-import { SearchMobileView } from './search-mobile-view';
-import { SearchView } from './searchView';
+import "./styles.css";
+import NavbarTopRigth from "../NavbarTopRight";
+import { SearchMobileView } from "./search-mobile-view";
+import { SearchView } from "./searchView";
 
 // images
 const logo = `${import.meta.env.VITE_URL_ASSETS}/3.png`;
@@ -39,7 +36,7 @@ const MapFullScreen = ({
   setOpen,
   startStatus,
   drive = false,
-  field = '',
+  field = "",
 }: IMapFullScreen) => {
   // states
   const [show, setShow] = useState<boolean>(false);
@@ -56,7 +53,7 @@ const MapFullScreen = ({
   const loadData: any = () => {
     setLoading(true);
     GET_API(
-      `/order_location_product?search=${search ?? ''}${status ? (status.length > 1 ? `&statusIn=${status}` : `&status=${status}`) : ''}&driver=${drive}${field ? `&${field}=1` : ''}`
+      `/order_location_product?search=${search ?? ""}${status ? (status.length > 1 ? `&statusIn=${status}` : `&status=${status}`) : ""}&driver=${drive}${field ? `&${field}=1` : ""}`
     )
       .then((rs) => rs.json())
       .then((res) => setData(res.data))
@@ -64,7 +61,7 @@ const MapFullScreen = ({
   };
 
   useEffect(() => {
-    GET_API('/address?default=1')
+    GET_API("/address?default=1")
       .then((rs) => rs.json())
       .then((res) => {
         setLatitude(res.data[0].latitude);
@@ -122,15 +119,15 @@ const MapFullScreen = ({
       destroyOnClose={true}
       footer={false}
       open={open}
-      width={'100vw'}
+      width={"100vw"}
     >
       <Row className="modal-fullscreen-row">
-        <Col className="modal-fullscreen-col-map" flex={'auto'}>
+        <Col className="modal-fullscreen-col-map" flex={"auto"}>
           {latitude && longitude && show ? (
             <MapContainer
               center={[latitude, longitude]}
               scrollWheelZoom={false}
-              style={{ width: '100%', height: '100%' }}
+              style={{ width: "100%", height: "100%" }}
               zoom={zoom}
               zoomControl={false}
             >
@@ -143,8 +140,8 @@ const MapFullScreen = ({
                   color={v.status.color}
                   item={v}
                   key={i}
-                  lat={v.order_locations.client_latitude}
-                  log={v.order_locations.client_longitude}
+                  lat={v.order_location.client_latitude}
+                  log={v.order_location.client_longitude}
                 />
               ))}
               <Button

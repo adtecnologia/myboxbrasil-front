@@ -44,10 +44,6 @@ const CardCacambaShop = ({
           <Typography className="card-cacamba-name">
             Modelo {item?.stationary_bucket_type?.name} <span />
           </Typography>
-          <Typography className="card-cacamba-subtitle">
-            <FiMapPin color="var(--color01)" style={{ marginRight: '0.2em' }} />
-            {item.distance} Km
-          </Typography>
         </div>
         <Typography className="card-cacamba-subtitle desc">
           {item?.type_lid_name} • Cor {item?.color} • {item?.material}

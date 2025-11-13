@@ -1,10 +1,7 @@
-// react libraries
-
-import { ExclamationCircleOutlined } from '@ant-design/icons';
+import { ExclamationCircleOutlined } from "@ant-design/icons";
 import {
   Avatar,
   Col,
-  Input,
   InputNumber,
   Modal,
   message,
@@ -12,16 +9,15 @@ import {
   Tag,
   Tooltip,
   Typography,
-} from 'antd';
-import { useEffect, useState } from 'react';
-import { HiDesktopComputer } from 'react-icons/hi';
-import { IoSaveOutline } from 'react-icons/io5';
-import { TbClipboardSearch } from 'react-icons/tb';
-import { Link } from 'react-router-dom';
-import CardItem from '../../../../components/CardItem';
-import PageDefault from '../../../../components/PageDefault';
+} from "antd";
+import { useEffect, useState } from "react";
+import { IoSaveOutline } from "react-icons/io5";
+import { TbClipboardSearch } from "react-icons/tb";
+import { Link } from "react-router-dom";
+import CardItem from "../../../../components/CardItem";
+import PageDefault from "../../../../components/PageDefault";
 // components
-import Table from '../../../../components/Table';
+import Table from "../../../../components/Table";
 import {
   TableNewButton,
   TableReturnButton,
@@ -30,7 +26,7 @@ import {
   TableTrPhotoButton,
   TableTrRecoverButton,
   TableTrTrashButton,
-} from '../../../../components/Table/buttons';
+} from "../../../../components/Table/buttons";
 // services
 import {
   GET_API,
@@ -38,7 +34,7 @@ import {
   type PageDefaultProps,
   POST_API,
   POST_CATCH,
-} from '../../../../services';
+} from "../../../../services";
 
 const LandlordList = ({ type, path, permission }: PageDefaultProps) => {
   // states
@@ -47,34 +43,34 @@ const LandlordList = ({ type, path, permission }: PageDefaultProps) => {
   const [approve, setApprove] = useState<boolean>(false);
 
   const onSaveConfig = (user: any) => {
-    var value: any = window.document.getElementById(`user${user}`);
+    const value: any = window.document.getElementById(`user${user}`);
 
     Modal.confirm({
-      title: 'Mudar valor da taxa apra esse usuário?',
+      title: "Mudar valor da taxa apra esse usuário?",
       icon: <ExclamationCircleOutlined />,
-      cancelText: 'Não',
-      okText: 'Sim',
+      cancelText: "Não",
+      okText: "Sim",
       onOk() {
-        POST_API('/user', { tax: Number(value.value) }, user)
+        POST_API("/user", { tax: Number(value.value) }, user)
           .then((rs) => {
             if (rs.ok) {
-              message.success({ content: 'Taxa atualizada', key: 'screen' });
+              message.success({ content: "Taxa atualizada", key: "screen" });
               setAction(!action);
             } else {
               Modal.warning({
-                title: 'Algo deu errado',
-                content: 'Não foi possível atualizar taxa.',
+                title: "Algo deu errado",
+                content: "Não foi possível atualizar taxa.",
               });
             }
           })
           .catch(POST_CATCH);
       },
-      onCancel() {},
+      onCancel: () => null,
     });
   };
 
   useEffect(() => {
-    GET_API('/me')
+    GET_API("/me")
       .then((rs) => rs.json())
       .then((res) => {
         setApprove(res.data.address.city.municipal_approval === 1);
@@ -84,40 +80,40 @@ const LandlordList = ({ type, path, permission }: PageDefaultProps) => {
   // table columns
   const column = [
     {
-      title: 'Logo',
-      dataIndex: 'photo',
-      table: 'photo',
-      width: '60px',
+      title: "Logo",
+      dataIndex: "photo",
+      table: "photo",
+      width: "60px",
       sorter: false,
-      align: 'center',
+      align: "center",
       render: (item: any) => (
-        <Row justify={'center'} style={{ width: '100%' }}>
+        <Row justify={"center"} style={{ width: "100%" }}>
           <Avatar src={item.photo ? item.photo : null} />
         </Row>
       ),
     },
     {
-      title: 'Nome',
-      dataIndex: 'name',
-      table: 'name',
-      width: 'auto',
-      minWidth: '200px',
+      title: "Nome",
+      dataIndex: "name",
+      table: "name",
+      width: "auto",
+      minWidth: "200px",
       sorter: true,
-      align: 'left',
+      align: "left",
       render: null,
     },
     {
-      title: 'Licença ambiental',
-      dataIndex: 'environmental_license',
-      table: 'environmental_license',
-      width: '200px',
+      title: "Licença ambiental",
+      dataIndex: "environmental_license",
+      table: "environmental_license",
+      width: "200px",
       sorter: true,
-      align: 'center',
+      align: "center",
       render: (item: any) => (
-        <Row justify={'center'} style={{ width: '100%' }}>
+        <Row justify={"center"} style={{ width: "100%" }}>
           <Col span={24}>
             {item.environmental_license ? (
-              <Typography style={{ textAlign: 'center' }}>
+              <Typography style={{ textAlign: "center" }}>
                 <Link target="_blank" to={item.environmental_license}>
                   Anexo licença ambiental
                 </Link>
@@ -130,16 +126,14 @@ const LandlordList = ({ type, path, permission }: PageDefaultProps) => {
                 </center>
               </Typography>
             ) : (
-              <Typography style={{ textAlign: 'center' }}>Sem anexo</Typography>
+              <Typography style={{ textAlign: "center" }}>Sem anexo</Typography>
             )}
-            {getProfileType() === 'CITY' && approve && (
+            {getProfileType() === "CITY" && approve && (
               <Tag
-                color={item.municipal_approval === 1 ? 'green' : 'warning'}
-                style={{ width: '100%' }}
+                color={item.municipal_approval_status.color}
+                style={{ width: "100%" }}
               >
-                {item.municipal_approval === 1
-                  ? 'Aprovado'
-                  : 'Recusado / Aguardando'}
+                {item.municipal_approval_status.name}
               </Tag>
             )}
           </Col>
@@ -147,46 +141,58 @@ const LandlordList = ({ type, path, permission }: PageDefaultProps) => {
       ),
     },
     {
-      title: 'CPF/CNPJ',
-      dataIndex: 'document_number',
-      table: 'document_number',
-      width: '200px',
+      title: "CPF/CNPJ",
+      dataIndex: "document_number",
+      table: "document_number",
+      width: "200px",
       sorter: true,
-      align: 'center',
+      align: "center",
       render: null,
     },
     {
-      title: 'Cidade',
-      dataIndex: 'address.city.name',
-      table: 'cities.name',
-      width: '150px',
-      sorter: true,
-      align: 'center',
-      render: null,
-    },
-    {
-      title: 'Estado',
-      dataIndex: 'address.city.state.name',
-      table: 'states.name',
-      width: '100px',
-      sorter: true,
-      align: 'center',
-      render: null,
-    },
-    {
-      title: 'Taxa',
-      dataIndex: 'tax',
-      table: 'tax',
-      width: '100px',
+      title: "Caçambas",
+      dataIndex: "total_stationary",
+      table: "total_stationary",
+      width: "150px",
       sorter: false,
-      align: 'center',
-      hide: getProfileType() === 'CITY',
+      align: "center",
+      render: null,
+      hide: getProfileType() !== "CITY" && getProfileType() !== "CITY_EMPLOYEE",
+    },
+    {
+      title: "Cidade",
+      dataIndex: "address.city.name",
+      table: "cities.name",
+      width: "150px",
+      sorter: true,
+      align: "center",
+      render: null,
+      hide: getProfileType() === "CITY",
+    },
+    {
+      title: "Estado",
+      dataIndex: "address.city.state.name",
+      table: "states.name",
+      width: "100px",
+      sorter: true,
+      align: "center",
+      render: null,
+      hide: getProfileType() === "CITY",
+    },
+    {
+      title: "Taxa",
+      dataIndex: "tax",
+      table: "tax",
+      width: "100px",
+      sorter: false,
+      align: "center",
+      hide: getProfileType() === "CITY",
       render: (item: any) => (
         <InputNumber
           addonAfter={
             <IoSaveOutline
-              onClick={(e: any) => onSaveConfig(item.id)}
-              style={{ cursor: 'pointer' }}
+              onClick={(_) => onSaveConfig(item.id)}
+              style={{ cursor: "pointer" }}
             />
           }
           defaultValue={item.tax || 0}
@@ -196,14 +202,14 @@ const LandlordList = ({ type, path, permission }: PageDefaultProps) => {
       ),
     },
     {
-      title: 'Ações',
+      title: "Ações",
       dataIndex: null,
-      width: '120px',
+      width: "120px",
       sorter: false,
-      align: 'center',
-      hide: getProfileType() === 'CITY' && !approve,
+      align: "center",
+      hide: getProfileType() === "CITY" && !approve,
       render: (item: any) => (
-        <Row justify={'center'} style={{ width: '100%' }}>
+        <Row justify={"center"} style={{ width: "100%" }}>
           <TableTrPhotoButton
             action={() => setAction(!action)}
             item={item}
@@ -225,7 +231,7 @@ const LandlordList = ({ type, path, permission }: PageDefaultProps) => {
             permission={permission}
             type={type}
           />
-          {getProfileType() === 'CITY' && (
+          {getProfileType() === "CITY" && (
             <Col>
               <Tooltip title="Validar Cadastro">
                 <Link to={`${item.id}/validacao`}>
@@ -242,11 +248,11 @@ const LandlordList = ({ type, path, permission }: PageDefaultProps) => {
   return (
     <PageDefault
       items={[
-        { title: <Link to={type === 'list' ? '#' : '..'}>Locadores</Link> },
-        { title: type === 'list' ? 'Lista' : 'Lixeira' },
+        { title: <Link to={type === "list" ? "#" : ".."}>Locadores</Link> },
+        { title: type === "list" ? "Lista" : "Lixeira" },
       ]}
       options={
-        <Row gutter={[8, 8]} justify={'end'}>
+        <Row gutter={[8, 8]} justify={"end"}>
           <TableNewButton permission={permission} type={type} />
           <TableTrashButton permission={permission} type={type} />
           <TableReturnButton permission={permission} type={type} />
@@ -263,25 +269,36 @@ const LandlordList = ({ type, path, permission }: PageDefaultProps) => {
               path={path}
               type={type}
               useFilter={
-                getProfileType() === 'ADMIN' ||
-                getProfileType() === 'ADMIN_EMPLOYEE'
+                getProfileType() === "ADMIN" ||
+                getProfileType() === "ADMIN_EMPLOYEE"
                   ? [
                       {
-                        type: 'search',
-                        name: 'state',
-                        label: 'Estado',
-                        url: '/state',
-                        labelField: ['acronym', 'name'],
+                        type: "search",
+                        name: "state",
+                        label: "Estado",
+                        url: "/state",
+                        labelField: ["acronym", "name"],
                       },
                       {
-                        type: 'search',
-                        name: 'city',
-                        label: 'Cidade',
-                        url: '/city',
-                        labelField: 'name',
+                        type: "search",
+                        name: "city",
+                        label: "Cidade",
+                        url: "/city",
+                        labelField: "name",
                       },
                     ]
-                  : []
+                  : [
+                      {
+                        type: "select",
+                        name: "municipalApprovalStatus",
+                        label: "Situação",
+                        items: [
+                          { value: "waiting", label: "Aguardando" },
+                          { value: "approved", label: "Aprovado" },
+                          { value: "rejected", label: "Recusado" },
+                        ],
+                      },
+                    ]
               }
             />
           </CardItem>

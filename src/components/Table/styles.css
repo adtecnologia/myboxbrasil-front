@@ -4,7 +4,6 @@
   border-radius: 8px;
   white-space: nowrap !important;
   overflow-x: auto !important;
-  
 }
 
 .table-header {
@@ -19,7 +18,7 @@
   cursor: pointer;
   transition: 0.2s;
   font-weight: 600;
-  white-space: normal !important
+  white-space: normal !important;
 }
 
 .table-header-col-title {
@@ -34,11 +33,13 @@
   background-color: rgba(0, 0, 0, 0.06) !important;
 }
 
-.table-header-col + .table-header-col, .table-body-col + .table-body-col {
+.table-header-col + .table-header-col,
+.table-body-col + .table-body-col {
   border-left: 1px rgba(0, 0, 0, 0.05) solid;
 }
 
-.table-header-col-order-up, .table-header-col-order-down {
+.table-header-col-order-up,
+.table-header-col-order-down {
   position: absolute;
   right: 5px;
   color: rgba(0, 0, 0, 0.3);
@@ -53,7 +54,8 @@
   top: 5px;
 }
 
-.table-header-col-order-up.active, .table-header-col-order-down.active {
+.table-header-col-order-up.active,
+.table-header-col-order-down.active {
   color: var(--color01) !important;
 }
 
@@ -102,6 +104,11 @@
   margin-right: 2px;
 }
 
+.actions-button.disabled {
+  color: rgba(0, 0, 0, 0.1);
+  cursor: not-allowed;
+}
+
 .actions-button:hover {
   background-color: transparent !important;
   color: var(--color01) !important;
@@ -127,7 +134,8 @@
   color: rgba(0, 0, 0, 0.3) !important;
 }
 
-.ant-pagination-item-active a, .ant-pagination-item-link-icon {
+.ant-pagination-item-active a,
+.ant-pagination-item-link-icon {
   color: var(--color01) !important;
 }
 
@@ -135,7 +143,8 @@
   background-color: var(--color01) !important;
 }
 
-:where(.css-dev-only-do-not-override-dkbvqv).ant-checkbox-checked .ant-checkbox-inner {
+:where(.css-dev-only-do-not-override-dkbvqv).ant-checkbox-checked
+  .ant-checkbox-inner {
   border-color: var(--color01) !important;
   background-color: var(--color01) !important;
 }
