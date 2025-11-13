@@ -110,10 +110,8 @@ const Cart = () => {
         const initialPayments: PaymentState = {};
 
         for (const item of Object.values(res.data.products)) {
-          // @ts-expect-error
           const providerId = item[0].product.provider_id;
           const providerPeriodic =
-            // @ts-expect-error
             item[0].product.provider_use_periodic_payment;
           // se ainda não existe, inicializa como 0
           if (!initialPayments[providerId]) {
@@ -121,7 +119,7 @@ const Cart = () => {
               ? { id: 0 }
               : { id: 0, type: "immediate" };
           }
-          // @ts-expect-error
+
           if (item[0].product.provider_use_periodic_payment) {
             setHasPeriodicProvider(true);
           }
@@ -513,7 +511,6 @@ const Cart = () => {
                                     onClick={() => {
                                       const updated = Object.keys(cart).reduce(
                                         (acc: any, providerId) => {
-                                          // @ts-expect-error
                                           const current = payments[providerId];
 
                                           // só atualiza se o tipo for immediate

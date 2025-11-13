@@ -74,16 +74,6 @@ import VehicleTypeList from "./app/painel/dadosdosistema/tiposdeveiculo";
 import VehicleTypeForm from "./app/painel/dadosdosistema/tiposdeveiculo/form";
 import MtrPage from "./app/painel/documento/mtr";
 import EmAnaliseList from "./app/painel/FuncoesDestinoFinal/Analises";
-import AguardandoRetiradaList from "./app/painel/FuncoesLocador/AguardandoRetirada";
-import AguardandoRetiradaMapa from "./app/painel/FuncoesLocador/AguardandoRetirada/mapa";
-import EmTransitoDescarteList from "./app/painel/FuncoesLocador/EmTransitoDescarte";
-import EmTransitoLocacaoList from "./app/painel/FuncoesLocador/EmTransitoLocacao";
-import EmTransitoLocacaoMapa from "./app/painel/FuncoesLocador/EmTransitoLocacao/mapa";
-import EntregasPendentesList from "./app/painel/FuncoesLocador/EntregasPendentes";
-import EntregasPendentesMapa from "./app/painel/FuncoesLocador/EntregasPendentes/mapa";
-import LocadasList from "./app/painel/FuncoesLocador/Locadas";
-import OrdemLocacaoList from "./app/painel/FuncoesLocador/OrdensLocacao";
-import MinhasCacambas from "./app/painel/FuncoesLocatario/MinhasCacambas";
 import MinhasEntregas from "./app/painel/FuncoesMotorista/MinhasEntregas";
 import MinhasEntregasMapa from "./app/painel/FuncoesMotorista/MinhasEntregas/mapa";
 import MinhasRetiradas from "./app/painel/FuncoesMotorista/MinhasRetiradas";
@@ -883,16 +873,7 @@ const RoutesStack = () => {
           </Route>
           {/* FUNCOES LOCATARIO */}
           {/* MINHAS CAÇAMBAS */}
-          <Route
-            element={
-              <MinhasCacambas
-                path="stationary_bucket"
-                permission="mpd"
-                type="list"
-              />
-            }
-            path="minhascacambas"
-          />
+
           {/* FUNÇOES MOTORISTA */}
           {/* ENTREGAS AGENDADAS */}
           <Route element={<Outlet />} path="entregasagendadas">
@@ -945,102 +926,6 @@ const RoutesStack = () => {
                 <MinhasRetiradasMapa
                   path="stationary_bucket"
                   permission="eta"
-                  type="list"
-                />
-              }
-              path=":ID/mapa"
-            />
-          </Route>
-          {/* FUNCOES LOCADOR */}
-          <Route element={<OrdemLocacaoList />} path="ordemlocacao">
-            <Route path="" />
-          </Route>
-
-          {/* ENTREGAS PENDENTES */}
-          <Route element={<Outlet />} path="entregaspendentes">
-            <Route
-              element={
-                <EntregasPendentesList
-                  path="stationary_bucket"
-                  permission="lcc"
-                  type="list"
-                />
-              }
-              path=""
-            />
-            <Route
-              element={
-                <EntregasPendentesMapa
-                  path="order_location"
-                  permission="lcc"
-                  type="list"
-                />
-              }
-              path=":ID/mapa"
-            />
-          </Route>
-          {/* EM TRANSITO */}
-          <Route element={<Outlet />} path="emtransitolocacao">
-            <Route
-              element={
-                <EmTransitoLocacaoList
-                  path="stationary_bucket"
-                  permission="lcc"
-                  type="list"
-                />
-              }
-              path=""
-            />
-            <Route
-              element={
-                <EmTransitoLocacaoMapa
-                  path="stationary_bucket"
-                  permission="lcc"
-                  type="list"
-                />
-              }
-              path=":ID/mapa"
-            />
-          </Route>
-          {/* EM TRANSITO */}
-          <Route
-            element={
-              <EmTransitoDescarteList
-                path="stationary_bucket"
-                permission="lcc"
-                type="list"
-              />
-            }
-            path="emtransitodescarte"
-          />
-          {/* LOCADAS */}
-          <Route
-            element={
-              <LocadasList
-                path="stationary_bucket"
-                permission="lcc"
-                type="list"
-              />
-            }
-            path="locadas"
-          />
-          {/* AGUARDANDO RETIRADA */}
-          <Route element={<Outlet />} path="aguardandoretirada">
-            <Route
-              element={
-                <AguardandoRetiradaList
-                  path="stationary_bucket"
-                  permission="lcc"
-                  type="list"
-                />
-              }
-              path=""
-            />
-            <Route
-              element={
-                <AguardandoRetiradaMapa
-                  path="stationary_bucket"
-                  permission="lcc"
                   type="list"
                 />
               }

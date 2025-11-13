@@ -1,4 +1,4 @@
-import { createBrowserRouter } from "react-router-dom";
+/*import { createBrowserRouter } from "react-router-dom";
 import type IRoutesAndRoles from "@/interfaces/i-routes-and-roles";
 import AppLayout from "@/layouts/app";
 import AuthLayout from "@/layouts/auth";
@@ -44,3 +44,4 @@ const routes: ReturnType<typeof createBrowserRouter> = createBrowserRouter([
 ]);
 
 export default routes;
+*/

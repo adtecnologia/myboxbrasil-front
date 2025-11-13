@@ -1,4 +1,4 @@
-// react libraries
+/*
 
 import {
   Button,
@@ -146,3 +146,4 @@ export default function LoginPage() {
     </div>
   );
 }
+*/
