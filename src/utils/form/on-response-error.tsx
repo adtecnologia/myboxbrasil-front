@@ -1,4 +1,4 @@
-import type { AxiosError } from "axios";
+/*import type { AxiosError } from "axios";
 import { toast } from "sonner";
 import Toast from "@/components/ui/toast";
 
@@ -11,3 +11,4 @@ export const onResponseError = (err: ResponseErrorProps) => {
     <Toast type="danger">{errorMessage || "Existem campos inválidos!"}</Toast>
   ));
 };
+*/

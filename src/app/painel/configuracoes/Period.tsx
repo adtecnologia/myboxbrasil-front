@@ -57,8 +57,8 @@ const Period = () => {
               <Segmented
                 {...{ value, onChange }}
                 options={[
-                  { value: true, label: "Sim" },
-                  { value: false, label: "Não" },
+                  { value: 1, label: "Sim" },
+                  { value: 0, label: "Não" },
                 ]}
               />
             </Col>
