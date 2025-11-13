@@ -159,6 +159,15 @@ export default function FaturasAbertas() {
       align: "center",
       render: (item: any) => (
         <Row justify={"center"} style={{ width: "100%" }}>
+          <Col>
+            <Tooltip title="Ver pedido">
+              <TbClipboardText
+                className="actions-button"
+                onClick={() => onLoadOrder(item.id)}
+                size={18}
+              />
+            </Tooltip>
+          </Col>
           {isCustomer && (
             <Col>
               <Tooltip title="Fechar fatura">
@@ -170,15 +179,6 @@ export default function FaturasAbertas() {
               </Tooltip>
             </Col>
           )}
-          <Col>
-            <Tooltip title="Ver pedido">
-              <TbClipboardText
-                className="actions-button"
-                onClick={() => onLoadOrder(item.id)}
-                size={18}
-              />
-            </Tooltip>
-          </Col>
         </Row>
       ),
     },

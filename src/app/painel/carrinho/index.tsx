@@ -311,7 +311,8 @@ const Cart = () => {
 
                       const providerName = products[0].product.provider_name;
                       const providerAllowsPeriodic =
-                        products[0].product.provider_use_periodic_payment === 1;
+                        products[0].product.provider_use_periodic_payment ===
+                        true;
 
                       const existingInvoice = openInvoice?.find(
                         (inv) => inv.provider_id === Number(providerId)
