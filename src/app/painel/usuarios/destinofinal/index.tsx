@@ -23,7 +23,6 @@ import {
   TableReturnButton,
   TableTrashButton,
   TableTrEditButton,
-  TableTrPassword,
   TableTrPhotoButton,
   TableTrRecoverButton,
   TableTrTrashButton,
@@ -41,62 +40,6 @@ const FinalDestinationList = ({ type, path, permission }: PageDefaultProps) => {
   // states
   const [action, setAction] = useState<boolean>(false);
   const [approve, setApprove] = useState<boolean>(false);
-
-  const onLicense = (item: any) => {
-    Modal.confirm({
-      title: 'Mudar situação da licença ambiental para:',
-      icon: <ExclamationCircleOutlined />,
-      cancelText: 'Recusar',
-      okText: 'Aprovar',
-      closable: true,
-      onOk() {
-        message.open({
-          type: 'loading',
-          content: 'Atualizando...',
-          key: 'screen',
-        });
-        POST_API('/user', { environmental_license_verify: 'y' }, item.id)
-          .then((rs) => {
-            if (rs.ok) {
-              message.success({
-                content: 'Situação atualizada',
-                key: 'screen',
-              });
-              setAction(!action);
-            } else {
-              Modal.warning({
-                title: 'Algo deu errado',
-                content: 'Não foi possível atualizar situação.',
-              });
-            }
-          })
-          .catch(POST_CATCH);
-      },
-      onCancel() {
-        message.open({
-          type: 'loading',
-          content: 'Atualizando...',
-          key: 'screen',
-        });
-        POST_API('/user', { environmental_license_verify: 'n' }, item.id)
-          .then((rs) => {
-            if (rs.ok) {
-              message.success({
-                content: 'Situação atualizada',
-                key: 'screen',
-              });
-              setAction(!action);
-            } else {
-              Modal.warning({
-                title: 'Algo deu errado',
-                content: 'Não foi possível atualizar situação.',
-              });
-            }
-          })
-          .catch(POST_CATCH);
-      },
-    });
-  };
 
   useEffect(() => {
     GET_API('/me')
@@ -159,12 +102,10 @@ const FinalDestinationList = ({ type, path, permission }: PageDefaultProps) => {
             )}
             {getProfileType() === 'CITY' && approve && (
               <Tag
-                color={item.municipal_approval === 1 ? 'green' : 'warning'}
+                color={item.municipal_approval_status.color}
                 style={{ width: '100%' }}
               >
-                {item.municipal_approval === 1
-                  ? 'Aprovado'
-                  : 'Recusado / Aguardando'}
+                {item.municipal_approval_status.name}
               </Tag>
             )}
           </Col>
@@ -288,11 +229,12 @@ const FinalDestinationList = ({ type, path, permission }: PageDefaultProps) => {
                   : [
                       {
                         type: 'select',
-                        name: 'municipalApproval',
+                        name: 'municipalApprovalStatus',
                         label: 'Situação',
                         items: [
-                          { value: 1, label: 'Aprovado' },
-                          { value: 0, label: 'Recusado / Aguardando' },
+                          { value: 'waiting', label: 'Aguardando' },
+                          { value: 'approved', label: 'Aprovado' },
+                          { value: 'rejected', label: 'Recusado' },
                         ],
                       },
                     ]

@@ -1,4 +1,4 @@
-/** biome-ignore-all lint/nursery/noImportantStyles: ignorar */ .new-title {
+.new-title {
   color: #fff;
   font-size: 60px;
 }
@@ -9,7 +9,17 @@
   font-weight: 500;
   line-height: 40px;
 }
-
+.img-google {
+  position: absolute;
+  bottom: 7px;
+  left: 16px;
+  z-index: 400;
+  width: 40px;
+  transition: 0.2s;
+}
+.img-google:hover {
+  width: 60px;
+}
 .new-hr {
   height: 3px;
   background: linear-gradient(

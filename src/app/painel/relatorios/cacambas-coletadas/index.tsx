@@ -11,12 +11,12 @@ import {
   Select,
   Statistic,
   Typography,
-} from 'antd';
-import { useEffect, useState } from 'react';
-import CardItem from '@/components/CardItem';
-import LoadItem from '@/components/LoadItem';
-import PageDefault from '@/components/PageDefault';
-import { GET_API } from '@/services';
+} from "antd";
+import { useEffect, useState } from "react";
+import CardItem from "@/components/CardItem";
+import LoadItem from "@/components/LoadItem";
+import PageDefault from "@/components/PageDefault";
+import { GET_API } from "@/services";
 
 export default function RelatorioCacambasColetadas() {
   const [current, setCurrent] = useState(1);
@@ -41,7 +41,7 @@ export default function RelatorioCacambasColetadas() {
 
     GET_API(url).then((response) => {
       if (!response.ok) {
-        Modal.warning({ title: 'Algo deu errado' });
+        Modal.warning({ title: "Algo deu errado" });
         return;
       }
       response.json().then((res) => {
@@ -52,16 +52,15 @@ export default function RelatorioCacambasColetadas() {
     });
   };
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: ignorar
   useEffect(() => {
-    form.setFieldValue('order_by', 'expiration_date');
-    onSend({ order_by: 'expiration_date' });
+    form.setFieldValue("order_by", "expiration_date");
+    onSend({ order_by: "expiration_date" });
   }, [current]);
 
   return (
     <PageDefault
-      items={[{ title: 'Relatório' }, { title: 'Destinação de Resíduos' }]}
-      valid={'rpt.ddr'}
+      items={[{ title: "Relatório" }, { title: "Destinação de Resíduos" }]}
+      valid={"rpt.ddr"}
     >
       <Row gutter={[16, 16]}>
         <Col span={24}>
@@ -70,9 +69,9 @@ export default function RelatorioCacambasColetadas() {
               form={form}
               layout="vertical"
               onFinish={onSend}
-              style={{ width: '100%' }}
+              style={{ width: "100%" }}
             >
-              <Row align={'bottom'} gutter={[8, 16]}>
+              <Row align={"bottom"} gutter={[8, 16]}>
                 <Col lg={4} md={12} xl={3} xs={12}>
                   <Form.Item
                     label="Situação MTR"
@@ -138,9 +137,9 @@ export default function RelatorioCacambasColetadas() {
                   <Col span={24}>
                     <Typography
                       style={{
-                        fontWeight: 'bold',
+                        fontWeight: "bold",
                         fontSize: 18,
-                        color: 'var(--color03)',
+                        color: "var(--color03)",
                       }}
                     >
                       {item.stationary_bucket_code} - Modelo {item.type_name}
@@ -150,7 +149,7 @@ export default function RelatorioCacambasColetadas() {
                     <Statistic
                       style={{ fontSize: 10 }}
                       title="Data coleta"
-                      value={item.withdraw_date}
+                      value={item.withdrawal_date}
                     />
                   </Col>
                   <Col lg={10} md={18} xl={10} xs={16}>
@@ -199,12 +198,12 @@ export default function RelatorioCacambasColetadas() {
                     <Statistic
                       style={{ fontSize: 10 }}
                       title="MTR"
-                      value={item.mtr ? 'Emitido' : 'Não emitido'}
+                      value={item.mtr ? "Emitido" : "Não emitido"}
                     />
                     <Button
                       disabled={!item.mtr}
                       onClick={() => window.open(item.mtr)}
-                      type={item.mtr ? 'primary' : 'default'}
+                      type={item.mtr ? "primary" : "default"}
                     >
                       Visualizar
                     </Button>
@@ -213,12 +212,12 @@ export default function RelatorioCacambasColetadas() {
                     <Statistic
                       style={{ fontSize: 10 }}
                       title="CDF"
-                      value={item.cdf ? 'Emitido' : 'Não emitido'}
+                      value={item.cdf ? "Emitido" : "Não emitido"}
                     />
                     <Button
                       disabled={!item.cdf}
                       onClick={() => window.open(item.cdf)}
-                      type={item.cdf ? 'primary' : 'default'}
+                      type={item.cdf ? "primary" : "default"}
                     >
                       Visualizar
                     </Button>
@@ -229,7 +228,7 @@ export default function RelatorioCacambasColetadas() {
           ))}
         <Col span={24}>
           <CardItem>
-            <Row justify={'space-between'}>
+            <Row justify={"space-between"}>
               <InputNumber
                 defaultValue={page}
                 max={100}
@@ -242,7 +241,7 @@ export default function RelatorioCacambasColetadas() {
                   )
                 }
                 size="small"
-                style={{ width: 150, textAlign: 'right' }}
+                style={{ width: 150, textAlign: "right" }}
                 suffix=" / página"
               />
               <Pagination

@@ -5,136 +5,141 @@ import {
   Outlet,
   Route,
   Routes,
-} from 'react-router-dom';
+} from "react-router-dom";
 // register
-import Register from './app/cadastrese';
+import Register from "./app/cadastrese";
 // login
-import Login from './app/login';
+import Login from "./app/login";
 // panel
-import Panel from './app/painel';
+import Panel from "./app/painel";
 // cart
-import Cart from './app/painel/carrinho';
-import CartView from './app/painel/carrinho/view';
+import Cart from "./app/painel/carrinho";
+import CartView from "./app/painel/carrinho/view";
 // config
-import Config from './app/painel/configuracoes';
+import Config from "./app/painel/configuracoes";
 // dashboard
-import Dashboard from './app/painel/dashboard';
-import FinancialExtrato from './app/painel/financeiro/extrato';
-import FinancialMinhaConta from './app/painel/financeiro/minhasinformacoes';
+import Dashboard from "./app/painel/dashboard";
+import FinancialExtrato from "./app/painel/financeiro/extrato";
+import FinancialMinhaConta from "./app/painel/financeiro/minhasinformacoes";
 // financial
-import FinancialResume from './app/painel/financeiro/resumo';
-import FinancialTransacoes from './app/painel/financeiro/transacoes';
+import FinancialResume from "./app/painel/financeiro/resumo";
+import FinancialTransacoes from "./app/painel/financeiro/transacoes";
 // my profile
-import MyProfile from './app/painel/meuperfil';
+import MyProfile from "./app/painel/meuperfil";
 // notifications
-import Notifications from './app/painel/notificacoes';
+import Notifications from "./app/painel/notificacoes";
 // order
-import Order from './app/painel/pedidos';
-import OrderDetails from './app/painel/pedidos/details';
+import Order from "./app/painel/pedidos";
+import OrderDetails from "./app/painel/pedidos/details";
+import OrderMap from "./app/painel/pedidos/map";
 // place order
-import PlaceOrder from './app/painel/pedircacamba';
-import PlaceOrderStationary from './app/painel/pedircacamba/stationary';
+import PlaceOrder from "./app/painel/pedircacamba";
+import PlaceOrderStationary from "./app/painel/pedircacamba/stationary";
 // stationary bucket
-import StationaryBucketList from './app/painel/produtos/cacambas';
+import StationaryBucketList from "./app/painel/produtos/cacambas";
 // stationary bucket itens
-import StationaryBucketItensForm from './app/painel/produtos/cacambas/itens/form';
+import StationaryBucketItensForm from "./app/painel/produtos/cacambas/itens/form";
 // vehicle
-import VehicleList from './app/painel/veiculos';
-import VehicleForm from './app/painel/veiculos/form';
+import VehicleList from "./app/painel/veiculos";
+import VehicleForm from "./app/painel/veiculos/form";
 // profile
-import Profile from './app/profile';
+import Profile from "./app/profile";
 // components
-import Redirect from './components/Redirect';
+import Redirect from "./components/Redirect";
 
 // stationary bucket gallery
 
-import FinishRegister from './app/concluircadastrase';
-import Forgot from './app/esqueceusenha';
+import FinishRegister from "./app/concluircadastrase";
+import Forgot from "./app/esqueceusenha";
+import PaymentMethodList from "./app/painel/configuracoes-comerciais/formas-de-pagamento";
+import EquipmentTypePage from "./app/painel/configuracoes-comerciais/tipos-de-equipamento";
+import EquipmentTypeForm from "./app/painel/configuracoes-comerciais/tipos-de-equipamento/form";
 // city
-import CityList from './app/painel/dadosdosistema/cidades';
+import CityList from "./app/painel/dadosdosistema/cidades";
 // state
-import StateList from './app/painel/dadosdosistema/estados';
+import StateList from "./app/painel/dadosdosistema/estados";
 // model
-import StationaryBucketModelList from './app/painel/dadosdosistema/modelosdecacamba';
-import StationaryBucketModelItensList from './app/painel/dadosdosistema/modelosdecacamba/cacambas';
-import StationaryBucketModelForm from './app/painel/dadosdosistema/modelosdecacamba/form';
+import StationaryBucketModelList from "./app/painel/dadosdosistema/modelosdecacamba";
+import StationaryBucketModelItensList from "./app/painel/dadosdosistema/modelosdecacamba/cacambas";
+import StationaryBucketModelForm from "./app/painel/dadosdosistema/modelosdecacamba/form";
 // residue class
-import ResidueList from './app/painel/dadosdosistema/residuos';
-import ResidueForm from './app/painel/dadosdosistema/residuos/form';
+import ResidueList from "./app/painel/dadosdosistema/residuos";
+import ResidueForm from "./app/painel/dadosdosistema/residuos/form";
 // data system
 // residue tecnology
-import TecnologyList from './app/painel/dadosdosistema/tecnologiatratamento';
-import TecnologyForm from './app/painel/dadosdosistema/tecnologiatratamento/form';
+import TecnologyList from "./app/painel/dadosdosistema/tecnologiatratamento";
+import TecnologyForm from "./app/painel/dadosdosistema/tecnologiatratamento/form";
 // vehicle type
-import VehicleTypeList from './app/painel/dadosdosistema/tiposdeveiculo';
-import VehicleTypeForm from './app/painel/dadosdosistema/tiposdeveiculo/form';
-import MtrPage from './app/painel/documento/mtr';
-import EmAnaliseList from './app/painel/FuncoesDestinoFinal/Analises';
-import AguardandoRetiradaList from './app/painel/FuncoesLocador/AguardandoRetirada';
-import AguardandoRetiradaMapa from './app/painel/FuncoesLocador/AguardandoRetirada/mapa';
-import EmTransitoDescarteList from './app/painel/FuncoesLocador/EmTransitoDescarte';
-import EmTransitoLocacaoList from './app/painel/FuncoesLocador/EmTransitoLocacao';
-import EmTransitoLocacaoMapa from './app/painel/FuncoesLocador/EmTransitoLocacao/mapa';
-import EntregasPendentesList from './app/painel/FuncoesLocador/EntregasPendentes';
-import EntregasPendentesMapa from './app/painel/FuncoesLocador/EntregasPendentes/mapa';
-import LocadasList from './app/painel/FuncoesLocador/Locadas';
-import OrdemLocacaoList from './app/painel/FuncoesLocador/OrdensLocacao';
-import PedidosDetalhes from './app/painel/FuncoesLocador/Pedidos/Detail';
-
-import PedidosList from './app/painel/FuncoesLocador/Pedidos/List';
-import PedidosMapa from './app/painel/FuncoesLocador/Pedidos/Mapa';
-import MinhasCacambas from './app/painel/FuncoesLocatario/MinhasCacambas';
-import MinhasEntregas from './app/painel/FuncoesMotorista/MinhasEntregas';
-import MinhasEntregasMapa from './app/painel/FuncoesMotorista/MinhasEntregas/mapa';
-import MinhasRetiradas from './app/painel/FuncoesMotorista/MinhasRetiradas';
-import MinhasRetiradasMapa from './app/painel/FuncoesMotorista/MinhasRetiradas/mapa';
-import AcceptList from './app/painel/lgpd/aceites';
-import PrivacyPolicyList from './app/painel/lgpd/politicadeprivacidade';
-import TermOfUseList from './app/painel/lgpd/termosdeuso';
-import ReportList from './app/painel/ocorrencias';
-import ReportForm from './app/painel/ocorrencias/form';
-import ReportView from './app/painel/ocorrencias/view';
-import OrdemLocacaoCDFEmitido from './app/painel/ordenslocacao/cdfemitido';
-import OrdemLocacaoEmAnalise from './app/painel/ordenslocacao/emanalise';
-import OrdemLocacaoEmProcessamento from './app/painel/ordenslocacao/emprocessamento';
-import OrdemLocacaoEmTransito from './app/painel/ordenslocacao/emtransito';
-import OrdemLocacaoEntregaPendente from './app/painel/ordenslocacao/entregapendente';
-import OrdemLocacaoLocada from './app/painel/ordenslocacao/locada';
-import OrdemLocacaoMapa from './app/painel/ordenslocacao/map';
-import StationaryBucketTabs from './app/painel/produtos/cacambas/tabs';
-import RastreamentoPage from './app/painel/rastreamento';
-import RelatorioCacambasColetadas from './app/painel/relatorios/cacambas-coletadas';
-import RelatorioClasseDeResiduos from './app/painel/relatorios/classe-de-residuos';
-import RelatorioLocacoes from './app/painel/relatorios/locacoes';
-import RelatorioLocacoesPorBairro from './app/painel/relatorios/locacoes-por-bairro';
-import RelatorioLocacoesPorObra from './app/painel/relatorios/locacoes-por-obra';
-import RelatorioRankingClientes from './app/painel/relatorios/ranking-clientes';
-import RelatorioSituacaoLocadores from './app/painel/relatorios/situacao-lcoadores';
-import RelatorioVencimentoPrazo from './app/painel/relatorios/vencimento-prazo';
+import VehicleTypeList from "./app/painel/dadosdosistema/tiposdeveiculo";
+import VehicleTypeForm from "./app/painel/dadosdosistema/tiposdeveiculo/form";
+import MtrPage from "./app/painel/documento/mtr";
+import EmAnaliseList from "./app/painel/FuncoesDestinoFinal/Analises";
+import AguardandoRetiradaList from "./app/painel/FuncoesLocador/AguardandoRetirada";
+import AguardandoRetiradaMapa from "./app/painel/FuncoesLocador/AguardandoRetirada/mapa";
+import EmTransitoDescarteList from "./app/painel/FuncoesLocador/EmTransitoDescarte";
+import EmTransitoLocacaoList from "./app/painel/FuncoesLocador/EmTransitoLocacao";
+import EmTransitoLocacaoMapa from "./app/painel/FuncoesLocador/EmTransitoLocacao/mapa";
+import EntregasPendentesList from "./app/painel/FuncoesLocador/EntregasPendentes";
+import EntregasPendentesMapa from "./app/painel/FuncoesLocador/EntregasPendentes/mapa";
+import LocadasList from "./app/painel/FuncoesLocador/Locadas";
+import OrdemLocacaoList from "./app/painel/FuncoesLocador/OrdensLocacao";
+import MinhasCacambas from "./app/painel/FuncoesLocatario/MinhasCacambas";
+import MinhasEntregas from "./app/painel/FuncoesMotorista/MinhasEntregas";
+import MinhasEntregasMapa from "./app/painel/FuncoesMotorista/MinhasEntregas/mapa";
+import MinhasRetiradas from "./app/painel/FuncoesMotorista/MinhasRetiradas";
+import MinhasRetiradasMapa from "./app/painel/FuncoesMotorista/MinhasRetiradas/mapa";
+import FaturasAbertas from "./app/painel/financeiro/faturas-abertas";
+import FaturasFechadas from "./app/painel/financeiro/faturas-fechadas";
+import AcceptList from "./app/painel/lgpd/aceites";
+import PrivacyPolicyList from "./app/painel/lgpd/politicadeprivacidade";
+import TermOfUseList from "./app/painel/lgpd/termosdeuso";
+import MeusGastos from "./app/painel/meus-gastos";
+import ReportList from "./app/painel/ocorrencias";
+import ReportForm from "./app/painel/ocorrencias/form";
+import ReportView from "./app/painel/ocorrencias/view";
+import OrdemLocacaoCDFEmitido from "./app/painel/ordenslocacao/cdfemitido";
+import OrdemLocacaoEmAnalise from "./app/painel/ordenslocacao/emanalise";
+import OrdemLocacaoEmProcessamento from "./app/painel/ordenslocacao/emprocessamento";
+import OrdemLocacaoEmTransito from "./app/painel/ordenslocacao/emtransito";
+import OrdemLocacaoEntregaPendente from "./app/painel/ordenslocacao/entregapendente";
+import OrdemLocacaoLocada from "./app/painel/ordenslocacao/locada";
+import OrdemLocacaoMapa from "./app/painel/ordenslocacao/map";
+import StationaryBucketTabs from "./app/painel/produtos/cacambas/tabs";
+import RastreamentoPage from "./app/painel/rastreamento";
+import RelatorioCacambasColetadas from "./app/painel/relatorios/cacambas-coletadas";
+import RelatorioClasseDeResiduos from "./app/painel/relatorios/classe-de-residuos";
+import RelatorioLocacoes from "./app/painel/relatorios/locacoes";
+import RelatorioLocacoesPorBairro from "./app/painel/relatorios/locacoes-por-bairro";
+import RelatorioLocacoesPorObra from "./app/painel/relatorios/locacoes-por-obra";
+import RelatorioPerformanceMotoristas from "./app/painel/relatorios/performance-motoristas";
+import RelatorioRankingClientes from "./app/painel/relatorios/ranking-clientes";
+import RelatorioSituacaoDestinoFinal from "./app/painel/relatorios/situacao-destino-final";
+import RelatorioSituacaoLocadores from "./app/painel/relatorios/situacao-locadores";
+import RelatorioVencimentoPrazo from "./app/painel/relatorios/vencimento-prazo";
 // users
 // final destination
-import FinalDestinationList from './app/painel/usuarios/destinofinal';
-import FinalDestinationForm from './app/painel/usuarios/destinofinal/form';
-import DestinoValidacaoForm from './app/painel/usuarios/destinofinal/validacao';
+import FinalDestinationList from "./app/painel/usuarios/destinofinal";
+import FinalDestinationForm from "./app/painel/usuarios/destinofinal/form";
+import DestinoValidacaoForm from "./app/painel/usuarios/destinofinal/validacao";
 // team
-import TeamList from './app/painel/usuarios/equipe';
-import TeamForm from './app/painel/usuarios/equipe/form';
-import TaxList from './app/painel/usuarios/fiscais';
-import TaxForm from './app/painel/usuarios/fiscais/form';
+import TeamList from "./app/painel/usuarios/equipe";
+import TeamForm from "./app/painel/usuarios/equipe/form";
+import TaxList from "./app/painel/usuarios/fiscais";
+import TaxForm from "./app/painel/usuarios/fiscais/form";
 // landlord
-import LandlordList from './app/painel/usuarios/locadores';
-import LandlordForm from './app/painel/usuarios/locadores/form';
-import LocadorValidacaoForm from './app/painel/usuarios/locadores/validacao';
+import LandlordList from "./app/painel/usuarios/locadores";
+import LandlordForm from "./app/painel/usuarios/locadores/form";
+import LocadorValidacaoForm from "./app/painel/usuarios/locadores/validacao";
 // tenant
-import TenantList from './app/painel/usuarios/locatarios';
-import TenantForm from './app/painel/usuarios/locatarios/form';
+import TenantList from "./app/painel/usuarios/locatarios";
+import TenantForm from "./app/painel/usuarios/locatarios/form";
 // driver
-import DriverList from './app/painel/usuarios/motorista';
-import DriverForm from './app/painel/usuarios/motorista/form';
-import CityhallList from './app/painel/usuarios/prefeituras';
-import CityhallForm from './app/painel/usuarios/prefeituras/form';
-import CityhallPopular from './app/painel/usuarios/prefeituras/popular';
-import LoadItem from './components/LoadItem';
+import DriverList from "./app/painel/usuarios/motorista";
+import DriverForm from "./app/painel/usuarios/motorista/form";
+import CityhallList from "./app/painel/usuarios/prefeituras";
+import CityhallForm from "./app/painel/usuarios/prefeituras/form";
+import CityhallPopular from "./app/painel/usuarios/prefeituras/popular";
+import LoadItem from "./components/LoadItem";
 
 const RoutesStack = () => {
   return (
@@ -199,6 +204,12 @@ const RoutesStack = () => {
                 />
               }
               path=":ID/detalhes"
+            />
+            <Route
+              element={
+                <OrderMap path="order_location" permission="pdd" type="list" />
+              }
+              path=":ID/mapa"
             />
           </Route>
 
@@ -377,7 +388,7 @@ const RoutesStack = () => {
             element={<LoadItem title="Conteúdo ainda não disponível" />}
             path="produtos&empilhadeiras&cadastros"
           />
-          <Route element={<Outlet />} path="produtos&cacambas&cadastros">
+          <Route element={<Outlet />} path="cacambas">
             <Route
               element={
                 <StationaryBucketList
@@ -528,6 +539,28 @@ const RoutesStack = () => {
             />
           </Route>
           {/* tenant */}
+          <Route element={<Outlet />} path="tipos-de-equipamento">
+            <Route
+              element={
+                <EquipmentTypePage
+                  path="equipment-type"
+                  permission="cat"
+                  type="list"
+                />
+              }
+              path=""
+            />
+            <Route
+              element={
+                <EquipmentTypeForm
+                  path="equipment-type"
+                  permission="cat"
+                  type="edit"
+                />
+              }
+              path=":ID"
+            />
+          </Route>
           <Route element={<Outlet />} path="usuarios&locatarios">
             <Route
               element={
@@ -645,21 +678,36 @@ const RoutesStack = () => {
 
           {/* data system */}
           {/* city */}
-          <Route element={<Outlet />} path="dadossistema&cidades">
+          <Route element={<Outlet />} path="localidades&cidades">
             <Route
               element={<CityList path="city" permission="cdd" type="list" />}
               path=""
             />
           </Route>
+          <Route
+            element={<Outlet />}
+            path="configuracoescomerciais&formasdepagamento"
+          >
+            <Route
+              element={
+                <PaymentMethodList
+                  path="payment-methods"
+                  permission="pym"
+                  type="list"
+                />
+              }
+              path=""
+            />
+          </Route>
           {/* state */}
-          <Route element={<Outlet />} path="dadossistema&estados">
+          <Route element={<Outlet />} path="localidades&estados">
             <Route
               element={<StateList path="state" permission="std" type="list" />}
               path=""
             />
           </Route>
           {/* residue class */}
-          <Route element={<Outlet />} path="dadossistema&residuos">
+          <Route element={<Outlet />} path="configuracoesoperacionais&residuos">
             <Route
               element={
                 <ResidueList path="residue" permission="rsd" type="list" />
@@ -686,7 +734,10 @@ const RoutesStack = () => {
             />
           </Route>
           {/* residue class */}
-          <Route element={<Outlet />} path="dadossistema&modelosdecacamba">
+          <Route
+            element={<Outlet />}
+            path="configuracoesoperacionais&modelosdecacamba"
+          >
             <Route
               element={
                 <StationaryBucketModelList
@@ -739,7 +790,10 @@ const RoutesStack = () => {
             />
           </Route>
           {/* vehicle type */}
-          <Route element={<Outlet />} path="dadossistema&tiposdeveiculos">
+          <Route
+            element={<Outlet />}
+            path="configuracoesoperacionais&tiposdeveiculos"
+          >
             <Route
               element={
                 <VehicleTypeList
@@ -782,7 +836,10 @@ const RoutesStack = () => {
             />
           </Route>
           {/* residue tecnology */}
-          <Route element={<Outlet />} path="dadossistema&tecnologiatratamento">
+          <Route
+            element={<Outlet />}
+            path="configuracoesoperacionais&tecnologiatratamento"
+          >
             <Route
               element={
                 <TecnologyList
@@ -899,39 +956,6 @@ const RoutesStack = () => {
             <Route path="" />
           </Route>
 
-          {/* PEDIDOS CAÇAMBA */}
-          <Route element={<Outlet />} path="pedidoscacamba">
-            <Route
-              element={
-                <PedidosList
-                  path="order_location"
-                  permission="lcc"
-                  type="list"
-                />
-              }
-              path=""
-            />
-            <Route
-              element={
-                <PedidosDetalhes
-                  path="order_location"
-                  permission="lcc"
-                  type="list"
-                />
-              }
-              path=":ID/detalhes"
-            />
-            <Route
-              element={
-                <PedidosMapa
-                  path="order_location"
-                  permission="lcc"
-                  type="list"
-                />
-              }
-              path=":ID/mapa"
-            />
-          </Route>
           {/* ENTREGAS PENDENTES */}
           <Route element={<Outlet />} path="entregaspendentes">
             <Route
@@ -1053,6 +1077,17 @@ const RoutesStack = () => {
             element={<RelatorioSituacaoLocadores />}
             path="relatorios&situacaolocadores"
           />
+          <Route
+            element={<RelatorioSituacaoDestinoFinal />}
+            path="relatorios&situacaodestinofinal"
+          />
+          <Route
+            element={<RelatorioPerformanceMotoristas />}
+            path="relatorios&performancemotoristas"
+          />
+          <Route element={<MeusGastos />} path="gastos&meusgastos" />
+          <Route element={<FaturasAbertas />} path="gastos&faturasabertas" />
+          <Route element={<FaturasFechadas />} path="gastos&faturasfechadas" />
 
           <Route element={<Navigate to="/painel" />} path="*" />
         </Route>

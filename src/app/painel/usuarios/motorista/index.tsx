@@ -1,24 +1,22 @@
 // react libraries
 
-import { Col, Row } from 'antd';
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ProfileTypeEnum } from '@/enums/ProfileTypeEnum';
-import CardItem from '../../../../components/CardItem';
-import PageDefault from '../../../../components/PageDefault';
+import { Col, Row } from "antd";
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import CardItem from "../../../../components/CardItem";
+import PageDefault from "../../../../components/PageDefault";
 // components
-import Table from '../../../../components/Table';
+import Table from "../../../../components/Table";
 import {
   TableNewButton,
   TableReturnButton,
   TableTrashButton,
   TableTrEditButton,
-  TableTrPassword,
   TableTrRecoverButton,
   TableTrTrashButton,
-} from '../../../../components/Table/buttons';
+} from "../../../../components/Table/buttons";
 // services
-import { getProfileType, type PageDefaultProps } from '../../../../services';
+import { getProfileType, type PageDefaultProps } from "../../../../services";
 
 const TeamList = ({ type, path, permission }: PageDefaultProps) => {
   // states
@@ -27,61 +25,61 @@ const TeamList = ({ type, path, permission }: PageDefaultProps) => {
   // table columns
   const column = [
     {
-      title: 'Nome',
-      dataIndex: 'name',
-      table: 'name',
-      width: 'auto',
-      minWidth: '200px',
+      title: "Nome",
+      dataIndex: "name",
+      table: "name",
+      width: "auto",
+      minWidth: "200px",
       sorter: true,
-      align: 'left',
+      align: "left",
       render: null,
     },
     {
-      title: 'E-mail',
-      dataIndex: 'email',
-      table: 'email',
-      width: '300px',
+      title: "E-mail",
+      dataIndex: "email",
+      table: "email",
+      width: "300px",
       sorter: true,
-      align: 'left',
+      align: "left",
       render: null,
     },
     {
-      title: 'Login',
-      dataIndex: 'document_number',
-      table: 'document_number',
-      width: '200px',
+      title: "Login",
+      dataIndex: "document_number",
+      table: "document_number",
+      width: "200px",
       sorter: true,
-      align: 'center',
+      align: "center",
       render: null,
     },
     {
-      title: 'CNH',
-      dataIndex: 'cnh',
-      table: 'cnh',
-      width: '160px',
+      title: "CNH",
+      dataIndex: "cnh",
+      table: "cnh",
+      width: "160px",
       sorter: true,
-      align: 'center',
+      align: "center",
       render: null,
     },
     {
-      title: 'Vencimento CNH',
-      dataIndex: 'cnh_expiration_date_format',
-      table: 'cnh_expiration_date',
-      width: '160px',
+      title: "Vencimento CNH",
+      dataIndex: "cnh_expiration_date_format",
+      table: "cnh_expiration_date",
+      width: "160px",
       sorter: true,
-      align: 'center',
+      align: "center",
       render: null,
     },
     {
-      title: 'Ações',
+      title: "Ações",
       dataIndex: null,
-      width: '100px',
+      width: "100px",
       sorter: false,
-      align: 'center',
+      align: "center",
       hide:
-        getProfileType() === 'ADMIN' || getProfileType() === 'ADMIN_EMPLOYEE',
+        getProfileType() === "ADMIN" || getProfileType() === "ADMIN_EMPLOYEE",
       render: (item: any) => (
-        <Row justify={'center'} style={{ width: '100%' }}>
+        <Row justify={"center"} style={{ width: "100%" }}>
           <TableTrEditButton item={item} permission={permission} type={type} />
           <TableTrTrashButton
             action={() => setAction(!action)}
@@ -106,11 +104,11 @@ const TeamList = ({ type, path, permission }: PageDefaultProps) => {
   return (
     <PageDefault
       items={[
-        { title: <Link to={type === 'list' ? '#' : '..'}>Motorista</Link> },
-        { title: type === 'list' ? 'Lista' : 'Lixeira' },
+        { title: <Link to={type === "list" ? "#" : ".."}>Motorista</Link> },
+        { title: type === "list" ? "Lista" : "Lixeira" },
       ]}
       options={
-        <Row gutter={[8, 8]} justify={'end'}>
+        <Row gutter={[8, 8]} justify={"end"}>
           <TableNewButton permission={permission} type={type} />
           <TableTrashButton permission={permission} type={type} />
           <TableReturnButton permission={permission} type={type} />

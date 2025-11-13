@@ -41,7 +41,7 @@ const PedidosMapa = ({ permission } : PageDefaultProps) => {
             { title: 'Mapa' }
         ]} options={
             <Row justify={'end'} gutter={[8,8]}>
-                <TableReturnButton type={'edit'} permission={'cmb'} />
+                <TableReturnButton type={'list'} permission={true} />
             </Row>
         }>
             { order === null ? <LoadItem /> : (
@@ -50,16 +50,16 @@ const PedidosMapa = ({ permission } : PageDefaultProps) => {
                         <CardItem>
                             <Row gutter={[16,8]}>
                                 <Col xs={24} md={24} style={{overflow: 'hidden !important'}}>
-                                    <MapContainer center={[Number(order.cart_product.address.latitude), Number(order.cart_product.address.longitude)]} zoom={16} scrollWheelZoom={false} style={{width:'100%',height:500}}>
+                                    <MapContainer center={[Number(order.client_latitude), Number(order.client_longitude)]} zoom={16} scrollWheelZoom={false} style={{width:'100%',height:500}}>
                                         <TileLayer
                                             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                                             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                                         />
-                                        <CircleMarker center={[Number(order.cart_product.address.latitude), Number(order.cart_product.address.longitude)]} pathOptions={{ color: 'var(--color01)'}} radius={10}>
-                                            <Popup> {order.cart_product.address.street}, {order.cart_product.address.number} - {order.cart_product.address.district} - {order.cart_product.address.city.name} / {order.cart_product.address.city.state.acronym} </Popup>
+                                        <CircleMarker center={[Number(order.client_latitude), Number(order.client_longitude)]} pathOptions={{ color: 'var(--color01)'}} radius={10}>
+                                            <Popup> {order.client_street}, {order.client_number} - {order.client_district} - {order.client_city.name} / {order.client_city.state.acronym} </Popup>
                                         </CircleMarker>
                                     </MapContainer>
-                                    <Link to={`http://maps.google.com/?daddr=${order.cart_product.address.street}, ${order.cart_product.address.numb}, ${order.cart_product.address.district}, ${order.cart_product.address.city.name}, ${order.cart_product.address.city.state.acronym}`} target="_blank"><img src={google} className="img-google"/></Link>
+                                    <Link to={`http://maps.google.com/?daddr=${order.client_street}, ${order.client_numb}, ${order.client_district}, ${order.client_city.name}, ${order.client_city.state.acronym}`} target="_blank"><img src={google} className="img-google"/></Link>
                                 </Col>
                             </Row>
                         </CardItem>

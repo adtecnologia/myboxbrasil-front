@@ -1,5 +1,5 @@
 /** biome-ignore-all lint/suspicious/noExplicitAny: ignorar */
-import { ExclamationCircleOutlined } from '@ant-design/icons';
+import { ExclamationCircleOutlined } from "@ant-design/icons";
 import {
   Button,
   Col,
@@ -11,19 +11,20 @@ import {
   Tag,
   Tooltip,
   Typography,
-} from 'antd';
-import { useEffect, useState } from 'react';
-import { MdCheckBoxOutlineBlank, MdOutlineCheckBox } from 'react-icons/md';
-import { TbCamera, TbSend2 } from 'react-icons/tb';
-import { CircleMarker, MapContainer, Popup, TileLayer } from 'react-leaflet';
-import CardItem from '../../../components/CardItem';
-import LoadItem from '../../../components/LoadItem';
-import MapFullScreen from '../../../components/MapFullScreen';
+} from "antd";
+import { useEffect, useState } from "react";
+import { MdCheckBoxOutlineBlank, MdOutlineCheckBox } from "react-icons/md";
+import { TbCamera, TbSend2 } from "react-icons/tb";
+import { CircleMarker, MapContainer, Popup, TileLayer } from "react-leaflet";
+import { OrderLocationProductStatusEnum } from "@/enums/order-location-product-status-enum";
+import CardItem from "../../../components/CardItem";
+import LoadItem from "../../../components/LoadItem";
+import MapFullScreen from "../../../components/MapFullScreen";
 // COMPONENTES
-import PageDefault from '../../../components/PageDefault';
-import SelectSearch from '../../../components/SelectSearch';
-import Table from '../../../components/Table';
-import { TableTrMapProductButton } from '../../../components/Table/buttons';
+import PageDefault from "../../../components/PageDefault";
+import SelectSearch from "../../../components/SelectSearch";
+import Table from "../../../components/Table";
+import { TableTrMapProductButton } from "../../../components/Table/buttons";
 // SERVIÇOS
 import {
   GET_API,
@@ -32,7 +33,7 @@ import {
   POST_API,
   POST_CATCH,
   verifyConfig,
-} from '../../../services';
+} from "../../../services";
 
 const OrdemLocacaoLocada = ({ type, path, permission }: PageDefaultProps) => {
   // ESTADOS DO COMPONENTE
@@ -46,12 +47,12 @@ const OrdemLocacaoLocada = ({ type, path, permission }: PageDefaultProps) => {
   const [gallery, setGallery] = useState<any[]>([]);
   const [open, setOpen] = useState<boolean>(false);
 
-  const [destination] = useState<any>('');
-  const [driver] = useState<any>('');
-  const [vehicle] = useState<any>('');
+  const [destination] = useState<any>("");
+  const [driver] = useState<any>("");
+  const [vehicle] = useState<any>("");
   const [typeDestination, setTypeDestination] = useState<
-    '' | 'return_provider' | 'go_to_the_final_destination'
-  >('go_to_the_final_destination');
+    "" | "return_provider" | "go_to_the_final_destination"
+  >("go_to_the_final_destination");
 
   const onLoadMap = () => setLoadMap(!loadMap);
   const onModalGallery = () => setModalGallery(!modalGallery);
@@ -77,16 +78,16 @@ const OrdemLocacaoLocada = ({ type, path, permission }: PageDefaultProps) => {
   // DEFINE COLUNAS DA TABELA
   const column = [
     {
-      title: 'Data Locação',
-      dataIndex: 'DATETIME_UPDATE_FORMAT',
-      table: 'order_locations.created_at',
-      width: '180px',
+      title: "Data Locação",
+      dataIndex: "DATETIME_UPDATE_FORMAT",
+      table: "order_locations.created_at",
+      width: "180px",
       sorter: true,
-      align: 'center',
+      align: "center",
       render: (item: any) => (
-        <Row style={{ width: '100%' }}>
+        <Row style={{ width: "100%" }}>
           <Col span={24}>
-            <Typography style={{ textAlign: 'center' }}>
+            <Typography style={{ textAlign: "center" }}>
               {item.location_date_format}
             </Typography>
             <Typography>
@@ -101,50 +102,50 @@ const OrdemLocacaoLocada = ({ type, path, permission }: PageDefaultProps) => {
       ),
     },
     {
-      title: 'Local locação',
-      dataIndex: 'CLIENT_NAME',
-      table: 'order_locations.id',
-      width: 'auto',
-      minWidth: '300px',
+      title: "Local locação",
+      dataIndex: "CLIENT_NAME",
+      table: "order_locations.id",
+      width: "auto",
+      minWidth: "300px",
       sorter: true,
-      align: 'left',
+      align: "left",
       render: (item: any) => (
-        <Row style={{ width: '100%' }}>
+        <Row style={{ width: "100%" }}>
           <Col span={24}>
-            <Typography>Pedido: n° {item.order_locations_id}</Typography>
-            {getProfileType() === 'LEGAL_SELLER' ||
-            getProfileType() === 'SELLER' ||
-            getProfileType() === 'SELLER_DRIVER' ? (
-              <Typography>{item.order_locations.client.name}</Typography>
+            <Typography>Pedido: n° {item.order_location_id}</Typography>
+            {getProfileType() === "LEGAL_SELLER" ||
+            getProfileType() === "SELLER" ||
+            getProfileType() === "SELLER_DRIVER" ? (
+              <Typography>{item.order_location.client.name}</Typography>
             ) : null}
-            <Typography style={{ color: 'var(--color02)' }}>
-              {item.order_locations.client_street},{' '}
-              {item.order_locations.client_number} -{' '}
-              {item.order_locations.client_district} -{' '}
-              {item.order_locations.client_city?.name} /{' '}
-              {item.order_locations.client_city?.state.acronym}
+            <Typography style={{ color: "var(--color02)" }}>
+              {item.order_location.client_street},{" "}
+              {item.order_location.client_number} -{" "}
+              {item.order_location.client_district} -{" "}
+              {item.order_location.client_city?.name} /{" "}
+              {item.order_location.client_city?.state.acronym}
             </Typography>
           </Col>
         </Row>
       ),
     },
     {
-      title: 'Código Caçamba',
-      dataIndex: 'CODE',
-      table: 'stationary_bucket.CODE',
-      width: '180px',
+      title: "Código Caçamba",
+      dataIndex: "CODE",
+      table: "stationary_bucket.CODE",
+      width: "180px",
       sorter: true,
-      align: 'center',
+      align: "center",
       render: (item: any) => (
-        <Row style={{ width: '100%' }}>
+        <Row style={{ width: "100%" }}>
           <Col span={24}>
-            <Typography style={{ textAlign: 'center' }}>
+            <Typography style={{ textAlign: "center" }}>
               {item.product.code}
             </Typography>
             <Typography
-              style={{ color: 'var(--color02)', textAlign: 'center' }}
+              style={{ color: "var(--color02)", textAlign: "center" }}
             >
-              Modelo{' '}
+              Modelo{" "}
               {item.product.stationary_bucket_group.stationary_bucket_type.name}
             </Typography>
           </Col>
@@ -152,19 +153,19 @@ const OrdemLocacaoLocada = ({ type, path, permission }: PageDefaultProps) => {
       ),
     },
     {
-      title: 'Tempo Restante',
-      dataIndex: 'TIME_LEFT',
-      table: 'timedif',
-      width: '180px',
+      title: "Tempo Restante",
+      dataIndex: "TIME_LEFT",
+      table: "timedif",
+      width: "180px",
       sorter: true,
-      align: 'center',
+      align: "center",
       render: (item: any) => (
-        <Row style={{ width: '100%' }}>
+        <Row style={{ width: "100%" }}>
           <Col span={24}>
             <Typography
               style={{
-                textAlign: 'center',
-                color: item.timedif > -1 ? 'green' : 'red',
+                textAlign: "center",
+                color: item.timedif > -1 ? "green" : "red",
               }}
             >
               {item.timedif} dia(s) de locação
@@ -174,25 +175,25 @@ const OrdemLocacaoLocada = ({ type, path, permission }: PageDefaultProps) => {
       ),
     },
     {
-      title: 'Locação',
-      dataIndex: 'CODE',
-      table: 'stationary_bucket.CODE',
-      width: '180px',
+      title: "Locação",
+      dataIndex: "CODE",
+      table: "stationary_bucket.CODE",
+      width: "180px",
       sorter: false,
-      align: 'center',
+      align: "center",
       render: (item: any) => (
-        <Row justify={'center'} style={{ width: '100%' }}>
-          {item.delivery_location_date ? (
+        <Row justify={"center"} style={{ width: "100%" }}>
+          {item.scheduled_location_date ? (
             <Typography>
               <Tag color="green">
                 {item.driver_location.name} - {item.driver_location.cnh}
               </Tag>
             </Typography>
           ) : null}
-          {item.delivery_location_date ? (
+          {item.scheduled_location_date ? (
             <Typography>
               <Tag color="red">
-                {item.vehicle_location.plate} -{' '}
+                {item.vehicle_location.plate} -{" "}
                 {item.vehicle_location.vehicle_type.name}
               </Tag>
             </Typography>
@@ -201,33 +202,33 @@ const OrdemLocacaoLocada = ({ type, path, permission }: PageDefaultProps) => {
       ),
     },
     {
-      title: 'Retirada',
-      dataIndex: 'CODE',
-      table: 'stationary_bucket.CODE',
-      width: '180px',
+      title: "Retirada",
+      dataIndex: "CODE",
+      table: "stationary_bucket.CODE",
+      width: "180px",
       sorter: false,
-      align: 'center',
+      align: "center",
       render: (item: any) => (
-        <Row justify={'center'} style={{ width: '100%' }}>
+        <Row justify={"center"} style={{ width: "100%" }}>
           <Typography>
-            <Tag style={{ textAlign: 'center' }}>
-              {item.delivery_withdrawl_date
-                ? `Agendado para ${item.delivery_withdrawl_date_format}`
-                : 'Aguardando retirada'}
+            <Tag style={{ textAlign: "center" }}>
+              {item.scheduled_withdrawal_date
+                ? `Agendado para ${item.scheduled_withdrawal_date_format}`
+                : "Aguardando retirada"}
             </Tag>
           </Typography>
-          {item.delivery_withdrawl_date ? (
+          {item.scheduled_withdrawal_date ? (
             <Typography>
               <Tag color="green">
-                {item.driver_withdraw.name} - {item.driver_withdraw.cnh}
+                {item.driver_withdrawal.name} - {item.driver_withdrawal.cnh}
               </Tag>
             </Typography>
           ) : null}
-          {item.delivery_withdrawl_date ? (
+          {item.scheduled_withdrawal_date ? (
             <Typography>
               <Tag color="red">
-                {item.vehicle_withdraw.plate} -{' '}
-                {item.vehicle_withdraw.vehicle_type.name}
+                {item.vehicle_withdrawal.plate} -{" "}
+                {item.vehicle_withdrawal.vehicle_type.name}
               </Tag>
             </Typography>
           ) : null}
@@ -235,16 +236,16 @@ const OrdemLocacaoLocada = ({ type, path, permission }: PageDefaultProps) => {
       ),
     },
     {
-      title: 'Ações',
+      title: "Ações",
       dataIndex: null,
-      width: '100px',
+      width: "100px",
       sorter: false,
-      align: 'center',
+      align: "center",
       render: (item: any) => (
-        <Row justify={'center'} style={{ width: '100%' }}>
-          {getProfileType() === 'LEGAL_SELLER' ||
-          getProfileType() === 'SELLER' ||
-          getProfileType() === 'SELLER_DRIVER' ? (
+        <Row justify={"center"} style={{ width: "100%" }}>
+          {getProfileType() === "LEGAL_SELLER" ||
+          getProfileType() === "SELLER" ||
+          getProfileType() === "SELLER_DRIVER" ? (
             verifyConfig([`${permission}.edit`]) ? (
               productSelect.filter((v) => Number(v.id) === Number(item.id))
                 .length > 0 ? (
@@ -269,7 +270,8 @@ const OrdemLocacaoLocada = ({ type, path, permission }: PageDefaultProps) => {
                 </Col>
               )
             ) : null
-          ) : item.status.code === 'L' && getProfileType() !== 'CITY' ? (
+          ) : item.status.code === OrderLocationProductStatusEnum.RENTED &&
+            getProfileType() !== "CITY" ? (
             <Col>
               <Tooltip title="Pedir retirada">
                 <TbSend2
@@ -280,9 +282,9 @@ const OrdemLocacaoLocada = ({ type, path, permission }: PageDefaultProps) => {
               </Tooltip>
             </Col>
           ) : null}
-          {getProfileType() === 'LEGAL_SELLER' ||
-          getProfileType() === 'SELLER' ||
-          getProfileType() === 'SELLER_DRIVER' ? (
+          {getProfileType() === "LEGAL_SELLER" ||
+          getProfileType() === "SELLER" ||
+          getProfileType() === "SELLER_DRIVER" ? (
             <Col>
               <Tooltip title="Abrir imagens">
                 <TbCamera
@@ -306,19 +308,23 @@ const OrdemLocacaoLocada = ({ type, path, permission }: PageDefaultProps) => {
 
   const pedirRetirada = (item: any) => {
     Modal.confirm({
-      title: 'Pedir retirada desta caçamba?',
+      title: "Pedir retirada desta caçamba?",
       icon: <ExclamationCircleOutlined />,
-      cancelText: 'Não',
-      okText: 'Sim',
+      cancelText: "Não",
+      okText: "Sim",
       onOk() {
-        POST_API('/order_location_product', { status: 'AR' }, item.id)
+        POST_API(
+          "/order_location_product",
+          { status: OrderLocationProductStatusEnum.AWAITING_PICKUP },
+          item.id
+        )
           .then((rs) => {
             setAction(!action);
             if (rs.ok) {
             } else {
               Modal.warning({
-                title: 'Algo deu errado',
-                content: 'Não foi possível pedir retirada',
+                title: "Algo deu errado",
+                content: "Não foi possível pedir retirada",
               });
             }
           })
@@ -331,7 +337,7 @@ const OrdemLocacaoLocada = ({ type, path, permission }: PageDefaultProps) => {
     setGallery([]);
     onModalGallery();
     GET_API(
-      `/order_location_product_gallery?orderLocationProductId=${item.id}&status=L`
+      `/order_location_product_gallery?orderLocationProductId=${item.id}&status=${OrderLocationProductStatusEnum.RENTED}`
     )
       .then((rs) => rs.json())
       .then((res: any) => {
@@ -342,8 +348,7 @@ const OrdemLocacaoLocada = ({ type, path, permission }: PageDefaultProps) => {
 
   // CARREGA DADOS
   const load = () => {
-    form.setFieldValue('type_destination', 'go_to_the_final_destination');
-    GET_API('/address?default=1')
+    GET_API("/address?default=1")
       .then((rs) => rs.json())
       .then((res) => {
         setCoord([res.data[0].latitude, res.data[0].longitude]);
@@ -354,18 +359,17 @@ const OrdemLocacaoLocada = ({ type, path, permission }: PageDefaultProps) => {
   const onSend = (values: any) => {
     setLoadingButton(true);
 
-    values.type_destination = typeDestination;
-    values.status = 'AR';
+    values.status = OrderLocationProductStatusEnum.AWAITING_PICKUP;
 
     try {
       productSelect.forEach((item) => {
-        POST_API('/order_location_product', values, item.id)
+        POST_API("/order_location_product", values, item.id)
           .then((rs) => {
             if (rs.ok) {
             } else {
               Modal.warning({
-                title: 'Algo deu errado',
-                content: 'Não foi possível agendar entrega',
+                title: "Algo deu errado",
+                content: "Não foi possível agendar entrega",
               });
             }
           })
@@ -385,25 +389,25 @@ const OrdemLocacaoLocada = ({ type, path, permission }: PageDefaultProps) => {
   useEffect(() => load(), []);
   useEffect(() => onLoadMap(), [product]);
   useEffect(() => {
-    GET_API('/me')
+    GET_API("/me")
       .then((rs) => {
         if (rs.ok) return rs.json();
-        Modal.warning({ title: 'Algo deu errado', content: rs.statusText });
+        Modal.warning({ title: "Algo deu errado", content: rs.statusText });
       })
       .then((res) => {
-        setTypeDestination('go_to_the_final_destination');
+        setTypeDestination("go_to_the_final_destination");
       })
       .catch(POST_CATCH);
   }, []);
 
   return (
-    <PageDefault items={[{ title: 'Locadas' }]} valid={`${permission}.list`}>
+    <PageDefault items={[{ title: "Locadas" }]} valid={`${permission}.list`}>
       <Row gutter={[16, 16]}>
         <Col
           md={
-            (getProfileType() === 'LEGAL_SELLER' ||
-              getProfileType() === 'SELLER' ||
-              getProfileType() === 'SELLER_DRIVER') &&
+            (getProfileType() === "LEGAL_SELLER" ||
+              getProfileType() === "SELLER" ||
+              getProfileType() === "SELLER_DRIVER") &&
             verifyConfig([`${permission}.edit`])
               ? 16
               : 24
@@ -416,19 +420,19 @@ const OrdemLocacaoLocada = ({ type, path, permission }: PageDefaultProps) => {
                 <MapContainer
                   center={[Number(coord[0]), Number(coord[1])]}
                   scrollWheelZoom={false}
-                  style={{ width: '100%', height: 330 }}
+                  style={{ width: "100%", height: 330 }}
                   zoom={14}
                 >
                   <TileLayer
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                   />
-                  {getProfileType() === 'LEGAL_SELLER' ||
-                  getProfileType() === 'SELLER' ||
-                  getProfileType() === 'SELLER_DRIVER' ? (
+                  {getProfileType() === "LEGAL_SELLER" ||
+                  getProfileType() === "SELLER" ||
+                  getProfileType() === "SELLER_DRIVER" ? (
                     <CircleMarker
                       center={[Number(coord[0]), Number(coord[1])]}
-                      pathOptions={{ color: 'blue' }}
+                      pathOptions={{ color: "blue" }}
                       radius={10}
                     >
                       <Popup> Minha empresa </Popup>
@@ -437,29 +441,29 @@ const OrdemLocacaoLocada = ({ type, path, permission }: PageDefaultProps) => {
                   {product.map((v, i) => (
                     <CircleMarker
                       center={[
-                        Number(v.order_locations.client_latitude),
-                        Number(v.order_locations.client_longitude),
+                        Number(v.order_location.client_latitude),
+                        Number(v.order_location.client_longitude),
                       ]}
                       key={i}
                       pathOptions={{ color: v.status.color }}
                       radius={10}
                     >
                       <Popup>
-                        {' '}
+                        {" "}
                         <Typography
                           style={{
-                            textAlign: 'center',
+                            textAlign: "center",
                             color: v.status.color,
-                            fontSize: '1.2em',
+                            fontSize: "1.2em",
                           }}
                         >
                           {v.status.name}
-                        </Typography>{' '}
-                        <br /> {v.order_locations.client_street},{' '}
-                        {v.order_locations.client_number} -{' '}
-                        {v.order_locations.client_district} -{' '}
-                        {v.order_locations.client_city?.name} /{' '}
-                        {v.order_locations.client_city?.state.acronym}{' '}
+                        </Typography>{" "}
+                        <br /> {v.order_location.client_street},{" "}
+                        {v.order_location.client_number} -{" "}
+                        {v.order_location.client_district} -{" "}
+                        {v.order_location.client_city?.name} /{" "}
+                        {v.order_location.client_city?.state.acronym}{" "}
                       </Popup>
                     </CircleMarker>
                   ))}
@@ -473,19 +477,19 @@ const OrdemLocacaoLocada = ({ type, path, permission }: PageDefaultProps) => {
                 <MapContainer
                   center={[Number(coord[0]), Number(coord[1])]}
                   scrollWheelZoom={false}
-                  style={{ width: '100%', height: 330 }}
+                  style={{ width: "100%", height: 330 }}
                   zoom={14}
                 >
                   <TileLayer
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                   />
-                  {getProfileType() === 'LEGAL_SELLER' ||
-                  getProfileType() === 'SELLER' ||
-                  getProfileType() === 'SELLER_DRIVER' ? (
+                  {getProfileType() === "LEGAL_SELLER" ||
+                  getProfileType() === "SELLER" ||
+                  getProfileType() === "SELLER_DRIVER" ? (
                     <CircleMarker
                       center={[Number(coord[0]), Number(coord[1])]}
-                      pathOptions={{ color: 'blue' }}
+                      pathOptions={{ color: "blue" }}
                       radius={10}
                     >
                       <Popup> Minha empresa </Popup>
@@ -494,29 +498,29 @@ const OrdemLocacaoLocada = ({ type, path, permission }: PageDefaultProps) => {
                   {product.map((v, i) => (
                     <CircleMarker
                       center={[
-                        Number(v.order_locations.client_latitude),
-                        Number(v.order_locations.client_longitude),
+                        Number(v.order_location.client_latitude),
+                        Number(v.order_location.client_longitude),
                       ]}
                       key={i}
                       pathOptions={{ color: v.status.color }}
                       radius={10}
                     >
                       <Popup>
-                        {' '}
+                        {" "}
                         <Typography
                           style={{
-                            textAlign: 'center',
+                            textAlign: "center",
                             color: v.status.color,
-                            fontSize: '1.2em',
+                            fontSize: "1.2em",
                           }}
                         >
                           {v.status.name}
-                        </Typography>{' '}
-                        <br /> {v.order_locations.client_street},{' '}
-                        {v.order_locations.client_number} -{' '}
-                        {v.order_locations.client_district} -{' '}
-                        {v.order_locations.client_city?.name} /{' '}
-                        {v.order_locations.client_city?.state.acronym}{' '}
+                        </Typography>{" "}
+                        <br /> {v.order_location.client_street},{" "}
+                        {v.order_location.client_number} -{" "}
+                        {v.order_location.client_district} -{" "}
+                        {v.order_location.client_city?.name} /{" "}
+                        {v.order_location.client_city?.state.acronym}{" "}
                       </Popup>
                     </CircleMarker>
                   ))}
@@ -532,9 +536,9 @@ const OrdemLocacaoLocada = ({ type, path, permission }: PageDefaultProps) => {
             )}
           </CardItem>
         </Col>
-        {(getProfileType() === 'LEGAL_SELLER' ||
-          getProfileType() === 'SELLER' ||
-          getProfileType() === 'SELLER_DRIVER') &&
+        {(getProfileType() === "LEGAL_SELLER" ||
+          getProfileType() === "SELLER" ||
+          getProfileType() === "SELLER_DRIVER") &&
         verifyConfig([`${permission}.edit`]) ? (
           <Col md={verifyConfig([`${permission}.edit`]) ? 8 : 24} xs={24}>
             <CardItem
@@ -545,13 +549,13 @@ const OrdemLocacaoLocada = ({ type, path, permission }: PageDefaultProps) => {
                   <Col span={8}>
                     <Form.Item
                       label="Data retirada"
-                      name="delivery_withdrawl_date"
+                      name="scheduled_withdrawal_date"
                       rules={[
-                        { required: true, message: 'Campo obrigatório!' },
+                        { required: true, message: "Campo obrigatório!" },
                       ]}
                     >
                       <Input
-                        max={'9999-12-31'}
+                        max={"9999-12-31"}
                         min={new Date().toISOString().slice(0, 10)}
                         type="date"
                       />
@@ -560,55 +564,55 @@ const OrdemLocacaoLocada = ({ type, path, permission }: PageDefaultProps) => {
                   <Col span={16}>
                     <Form.Item
                       label="Veículo"
-                      name="withdraw_vehicle_id"
+                      name="withdrawal_vehicle_id"
                       rules={[
-                        { required: true, message: 'Campo obrigatório!' },
+                        { required: true, message: "Campo obrigatório!" },
                       ]}
                     >
                       <SelectSearch
                         change={(v: any) =>
-                          form.setFieldValue('withdraw_vehicle_id', v?.value)
+                          form.setFieldValue("withdrawal_vehicle_id", v?.value)
                         }
                         effect={vehicle}
-                        labelField={['plate', 'vehicle_type.name']}
+                        labelField={["plate", "vehicle_type.name"]}
                         placeholder="Placa - Tipo"
                         url="/vehicle"
-                        value={form.getFieldValue('withdraw_vehicle_id')}
+                        value={form.getFieldValue("withdrawal_vehicle_id")}
                       />
                     </Form.Item>
                   </Col>
                 </Row>
                 <Form.Item
                   label="Motorista"
-                  name="withdraw_driver_id"
-                  rules={[{ required: true, message: 'Campo obrigatório!' }]}
+                  name="withdrawal_driver_id"
+                  rules={[{ required: true, message: "Campo obrigatório!" }]}
                 >
                   <SelectSearch
                     change={(v: any) =>
-                      form.setFieldValue('withdraw_driver_id', v?.value)
+                      form.setFieldValue("withdrawal_driver_id", v?.value)
                     }
                     effect={driver}
-                    labelField={['name', 'cnh']}
+                    labelField={["name", "cnh"]}
                     placeholder="Nome - CNH"
                     url="/driver"
-                    value={form.getFieldValue('withdraw_driver_id')}
+                    value={form.getFieldValue("withdrawal_driver_id")}
                   />
                 </Form.Item>
-                {typeDestination === 'go_to_the_final_destination' ? (
+                {typeDestination === "go_to_the_final_destination" ? (
                   <Form.Item
                     label="Destino final"
                     name="destination_id"
-                    rules={[{ required: true, message: 'Campo obrigatório!' }]}
+                    rules={[{ required: true, message: "Campo obrigatório!" }]}
                   >
                     <SelectSearch
                       change={(v: any) =>
-                        form.setFieldValue('destination_id', v?.value)
+                        form.setFieldValue("destination_id", v?.value)
                       }
                       effect={destination}
-                      labelField={['name', 'document_number']}
+                      labelField={["name", "document_number"]}
                       placeholder="Nome - Documento"
                       url="/final_destination"
-                      value={form.getFieldValue('destination_id')}
+                      value={form.getFieldValue("destination_id")}
                     />
                   </Form.Item>
                 ) : null}
@@ -631,9 +635,15 @@ const OrdemLocacaoLocada = ({ type, path, permission }: PageDefaultProps) => {
             <Table
               action={action}
               column={column}
-              defaultFilter={{ statusIn: 'L,AR,ETR' }}
+              defaultFilter={{
+                statusIn: [
+                  OrderLocationProductStatusEnum.RENTED,
+                  OrderLocationProductStatusEnum.AWAITING_PICKUP,
+                  OrderLocationProductStatusEnum.IN_TRANSIT_TO_PICKUP,
+                ],
+              }}
               getList={setProduct}
-              path={'order_location_product'}
+              path={"order_location_product"}
               type={type}
             />
           </CardItem>
@@ -663,7 +673,11 @@ const OrdemLocacaoLocada = ({ type, path, permission }: PageDefaultProps) => {
       <MapFullScreen
         open={open}
         setOpen={setOpen}
-        startStatus={['L', 'AR', 'ETR']}
+        startStatus={[
+          OrderLocationProductStatusEnum.RENTED,
+          OrderLocationProductStatusEnum.AWAITING_PICKUP,
+          OrderLocationProductStatusEnum.IN_TRANSIT_TO_PICKUP,
+        ]}
       />
     </PageDefault>
   );

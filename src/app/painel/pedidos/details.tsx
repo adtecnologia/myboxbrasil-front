@@ -13,22 +13,22 @@ import {
   Row,
   Tag,
   Typography,
-} from 'antd';
-import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
-import CardItem from '../../../components/CardItem';
-import LoadItem from '../../../components/LoadItem';
+} from "antd";
+import { useEffect, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import CardItem from "../../../components/CardItem";
+import LoadItem from "../../../components/LoadItem";
 // components
-import PageDefault from '../../../components/PageDefault';
-import { TableReturnButton } from '../../../components/Table/buttons';
+import PageDefault from "../../../components/PageDefault";
+import { TableReturnButton } from "../../../components/Table/buttons";
 
 // css
-import './style.css';
+import "./style.css";
 
 // icons
-import { ExclamationCircleOutlined } from '@ant-design/icons';
-import { IoSearch } from 'react-icons/io5';
-
+import { ExclamationCircleOutlined } from "@ant-design/icons";
+import { IoSearch } from "react-icons/io5";
+import { OrderLocationStatusEnum } from "@/enums/order-location-status-enum";
 // services
 import {
   GET_API,
@@ -38,7 +38,7 @@ import {
   POST_API,
   POST_CATCH,
   verifyConfig,
-} from '../../../services';
+} from "../../../services";
 
 const OrderDetails = ({ type, path, permission }: PageDefaultProps) => {
   // RESPONSAVEL PELA ROTA
@@ -52,7 +52,7 @@ const OrderDetails = ({ type, path, permission }: PageDefaultProps) => {
   const [loadButton, setLoadButton] = useState<any>(true);
   const [loadSelect, setLoadSelect] = useState<any>(false);
   const [image, setImage] = useState<any>(null);
-  const [search, setSearch] = useState<any>('');
+  const [search, setSearch] = useState<any>("");
   const [cacamba, setCacamba] = useState<any[]>([]);
   const [cacambaSelect, setCacambaSelect] = useState<string[]>([]);
   const [verify, setVerify] = useState<number>(0);
@@ -69,15 +69,15 @@ const OrderDetails = ({ type, path, permission }: PageDefaultProps) => {
         .then((rs) => rs.json())
         .then((res) => {
           setOrder(res.data);
-          if (!(res.data.cart_product.product.gallery.length > 0)) {
-            res.data.cart_product.product.gallery = [{ url: IMAGE_NOT_FOUND }];
+          if (!(res.data.product.gallery.length > 0)) {
+            res.data.product.gallery = [{ url: IMAGE_NOT_FOUND }];
           }
           var temp: any = [];
           res.data.items.forEach((v: any) => {
             temp.push(v.product.id);
           });
           setCacambaSelect(temp);
-          setImage(res.data.cart_product.product.gallery[0].url);
+          setImage(res.data.product.gallery[0].url);
           setVerify(Number(res.data.items.length));
         });
     }, 500);
@@ -86,21 +86,25 @@ const OrderDetails = ({ type, path, permission }: PageDefaultProps) => {
   // AÇÃO DE ACEITE
   const onAccept = () => {
     Modal.confirm({
-      title: 'Aceitar pedido?',
+      title: "Aceitar pedido?",
       icon: <ExclamationCircleOutlined />,
-      cancelText: 'Não',
-      okText: 'Sim',
+      cancelText: "Não",
+      okText: "Sim",
       onOk() {
         setLoad(true);
-        POST_API('/order_location', { status: 'PA' }, ID)
+        POST_API(
+          "/order_location",
+          { status: OrderLocationStatusEnum.ACCEPTED },
+          ID
+        )
           .then((rs) => {
             if (rs.ok) {
-              message.success({ content: 'Pedido aceito', key: 'screen' });
-              navigate('..');
+              message.success({ content: "Pedido aceito", key: "screen" });
+              navigate("..");
             } else {
               Modal.warning({
-                title: 'Algo deu errado',
-                content: 'Não foi possível aceitar pedido',
+                title: "Algo deu errado",
+                content: "Não foi possível aceitar pedido",
               });
             }
           })
@@ -114,36 +118,40 @@ const OrderDetails = ({ type, path, permission }: PageDefaultProps) => {
   // AÇÃO DE RECUSA
   const onRecuse = () => {
     Modal.confirm({
-      title: 'Cancelar pedido?',
+      title: "Cancelar pedido?",
       icon: <ExclamationCircleOutlined />,
-      cancelText: 'Não',
-      okText: 'Sim',
+      cancelText: "Não",
+      okText: "Sim",
       onOk() {
         setLoad(true);
         POST_API(`/order_location/${ID}/refund`, {})
           .then((rs) => {
             if (rs.ok) {
-              POST_API('/order_location', { status: 'PC' }, ID)
+              POST_API(
+                "/order_location",
+                { status: OrderLocationStatusEnum.CANCELED },
+                ID
+              )
                 .then((rs) => {
                   if (rs.ok) {
                     message.success({
                       content:
-                        'Pedido cancelado. Por favor, aguarde enquanto providenciamos o estorno da sua compra.',
-                      key: 'screen',
+                        "Pedido cancelado. Por favor, aguarde enquanto providenciamos o estorno da sua compra.",
+                      key: "screen",
                     });
-                    navigate('..');
+                    navigate("..");
                   } else {
                     Modal.warning({
-                      title: 'Algo deu errado',
-                      content: 'Não foi possível cancelar pedido',
+                      title: "Algo deu errado",
+                      content: "Não foi possível cancelar pedido",
                     });
                   }
                 })
                 .catch(POST_CATCH);
             } else
               Modal.warning({
-                title: 'Algo deu errado',
-                content: 'Não foi possível cancelar pedido',
+                title: "Algo deu errado",
+                content: "Não foi possível cancelar pedido",
               });
           })
           .catch(POST_CATCH)
@@ -157,7 +165,7 @@ const OrderDetails = ({ type, path, permission }: PageDefaultProps) => {
   const onSearch = () => {
     setLoadButton(true);
     GET_API(
-      `/stationary_bucket?group_id=${order.cart_product.product.id}&status=D&search=${search}`
+      `/stationary_bucket?group_id=${order.product.id}&isAvailable=1&search=${search}`
     )
       .then((rs) => rs.json())
       .then((res) => {
@@ -183,19 +191,19 @@ const OrderDetails = ({ type, path, permission }: PageDefaultProps) => {
   };
 
   const onOrderProduct = () => {
-    if (!(verify < order.cart_product.quantity)) {
+    if (!(verify < order.quantity)) {
       setLoadSelect(true);
-      POST_API('/order_location_product', {
+      POST_API("/order_location_product", {
         order_location_id: ID,
         products: cacambaSelect,
       })
         .then((rs) => {
           if (rs.ok) {
-            message.success('Salvo com sucesso!');
+            message.success("Salvo com sucesso!");
             setOpen(false);
             onView();
           } else {
-            Modal.warning({ title: 'Algo deu errado', content: rs.statusText });
+            Modal.warning({ title: "Algo deu errado", content: rs.statusText });
           }
         })
         .catch(POST_CATCH)
@@ -213,11 +221,11 @@ const OrderDetails = ({ type, path, permission }: PageDefaultProps) => {
     <PageDefault
       items={[
         { title: <Link to="/painel/pedidos">Pedidos</Link> },
-        { title: 'Detalhes' },
+        { title: "Detalhes" },
       ]}
       options={
-        <Row gutter={[8, 8]} justify={'end'}>
-          <TableReturnButton permission={true} type={'list'} />
+        <Row gutter={[8, 8]} justify={"end"}>
+          <TableReturnButton permission={true} type={"list"} />
         </Row>
       }
       valid={`${permission}.${type}`}
@@ -229,53 +237,50 @@ const OrderDetails = ({ type, path, permission }: PageDefaultProps) => {
           <Col span={24}>
             <CardItem>
               <Row gutter={[16, 8]}>
-                <Col md={10} style={{ overflow: 'hidden !important' }} xs={24}>
+                <Col md={10} style={{ overflow: "hidden !important" }} xs={24}>
                   <Row gutter={[2, 2]}>
                     <Col span={4}>
                       <Row gutter={[2, 2]}>
-                        {order.cart_product.product.gallery.map(
-                          (v: any, i: any) => (
-                            <Col key={i} span={24}>
-                              <Image
-                                onClick={() => setImage(v.url)}
-                                preview={false}
-                                src={v.url}
-                                style={{
-                                  cursor: 'pointer',
-                                  borderRadius: '8px',
-                                }}
-                                width={'100%'}
-                              />
-                            </Col>
-                          )
-                        )}
+                        {order.product.gallery.map((v: any, i: any) => (
+                          <Col key={i} span={24}>
+                            <Image
+                              onClick={() => setImage(v.url)}
+                              preview={false}
+                              src={v.url}
+                              style={{
+                                cursor: "pointer",
+                                borderRadius: "8px",
+                              }}
+                              width={"100%"}
+                            />
+                          </Col>
+                        ))}
                       </Row>
                     </Col>
                     <Col span={20}>
                       <Image
                         src={image}
-                        style={{ borderRadius: '8px' }}
-                        width={'100%'}
+                        style={{ borderRadius: "8px" }}
+                        width={"100%"}
                       />
                     </Col>
                   </Row>
                 </Col>
                 <Col md={14} xs={24}>
                   <Typography className="cacamba-name">
-                    Modelo{' '}
-                    {order.cart_product.product.stationary_bucket_type.name}
+                    Modelo {order.product.stationary_bucket_type.name}
                   </Typography>
                   <Row gutter={[8, 8]}>
                     <Col md={8} xs={24}>
                       <Typography className="cacamba-title">Estoque</Typography>
                       <Typography className="cacamba-desc">
-                        <span>{order.cart_product.product.stock}</span> cacambas
+                        <span>{order.product.stock}</span> cacambas
                       </Typography>
                       <Typography className="cacamba-title">
                         Quantidade pedida
                       </Typography>
                       <Typography className="cacamba-desc">
-                        <span>{order.cart_product.quantity}</span> cacambas
+                        <span>{order.quantity}</span> cacambas
                       </Typography>
                     </Col>
                     <Col md={8} xs={12}>
@@ -283,15 +288,14 @@ const OrderDetails = ({ type, path, permission }: PageDefaultProps) => {
                         Detalhes
                       </Typography>
                       <Typography className="cacamba-desc">
-                        <span>Tipo de tampa:</span>{' '}
-                        {order.cart_product.product.type_lid_name}
+                        <span>Tipo de tampa:</span>{" "}
+                        {order.product.type_lid_name}
                       </Typography>
                       <Typography className="cacamba-desc">
-                        <span>Cor:</span> {order.cart_product.product.color}
+                        <span>Cor:</span> {order.product.color}
                       </Typography>
                       <Typography className="cacamba-desc">
-                        <span>Material:</span>{' '}
-                        {order.cart_product.product.material}
+                        <span>Material:</span> {order.product.material}
                       </Typography>
                     </Col>
                     <Col md={8} xs={12}>
@@ -299,25 +303,16 @@ const OrderDetails = ({ type, path, permission }: PageDefaultProps) => {
                         Dimensões
                       </Typography>
                       <Typography className="cacamba-desc">
-                        <span>Comprimento:</span>{' '}
-                        {
-                          order.cart_product.product.stationary_bucket_type
-                            .letter_a_name
-                        }
+                        <span>Comprimento:</span>{" "}
+                        {order.product.stationary_bucket_type.letter_a_name}
                       </Typography>
                       <Typography className="cacamba-desc">
-                        <span>Largura:</span>{' '}
-                        {
-                          order.cart_product.product.stationary_bucket_type
-                            .letter_b_name
-                        }
+                        <span>Largura:</span>{" "}
+                        {order.product.stationary_bucket_type.letter_b_name}
                       </Typography>
                       <Typography className="cacamba-desc">
-                        <span>Altura:</span>{' '}
-                        {
-                          order.cart_product.product.stationary_bucket_type
-                            .letter_c_name
-                        }
+                        <span>Altura:</span>{" "}
+                        {order.product.stationary_bucket_type.letter_c_name}
                       </Typography>
                     </Col>
                   </Row>
@@ -326,17 +321,17 @@ const OrderDetails = ({ type, path, permission }: PageDefaultProps) => {
                     Tipo de locação
                   </Typography>
                   <Row gutter={[8, 8]}>
-                    {order.cart_product.type_local === 'E' ? (
+                    {order.type_local === "E" ? (
                       <Col>
-                        <Tag className={'mf-tag active'}>
-                          Locação Externa | até {order.cart_product.days} dias
+                        <Tag className={"mf-tag active"}>
+                          Locação Externa | até {order.days} dias
                         </Tag>
                       </Col>
                     ) : null}
-                    {order.cart_product.type_local === 'I' ? (
+                    {order.type_local === "I" ? (
                       <Col>
-                        <Tag className={'mf-tag active'}>
-                          Locação Interna | até {order.cart_product.days} dias
+                        <Tag className={"mf-tag active"}>
+                          Locação Interna | até {order.days} dias
                         </Tag>
                       </Col>
                     ) : null}
@@ -346,7 +341,7 @@ const OrderDetails = ({ type, path, permission }: PageDefaultProps) => {
                     Classes de resíduo
                   </Typography>
                   <Row gutter={[8, 8]}>
-                    {order.cart_product.residues.map((value: any, key: any) => (
+                    {order.residues.map((value: any, key: any) => (
                       <Col key={key}>
                         <Tag color="var(--color01)">{value.name}</Tag>
                       </Col>
@@ -357,11 +352,9 @@ const OrderDetails = ({ type, path, permission }: PageDefaultProps) => {
                     Endereço de entrega
                   </Typography>
                   <Typography className="cacamba-address">
-                    {order.cart_product.address.street},{' '}
-                    {order.cart_product.address.number} -{' '}
-                    {order.cart_product.address.district} -{' '}
-                    {order.cart_product.address.city.name} /{' '}
-                    {order.cart_product.address.city.state.acronym}
+                    {order.client_street}, {order.client_number} -{" "}
+                    {order.client_district} - {order.client_city.name} /{" "}
+                    {order.client_city.state.acronym}
                   </Typography>
 
                   <Row gutter={[8, 8]}>
@@ -373,9 +366,9 @@ const OrderDetails = ({ type, path, permission }: PageDefaultProps) => {
                         <span>R$ {Number(order.total).toLocaleString()}</span>
                       </Typography>
                     </Col>
-                    {getProfileType() === 'SELLER' ||
-                    getProfileType() === 'LEGAL_SELLER' ||
-                    getProfileType() === 'SELLER_EMPLOYEE' ? (
+                    {getProfileType() === "SELLER" ||
+                    getProfileType() === "LEGAL_SELLER" ||
+                    getProfileType() === "SELLER_EMPLOYEE" ? (
                       <Col md={8} xs={24}>
                         <Typography className="cacamba-title">
                           Valor à receber
@@ -388,81 +381,78 @@ const OrderDetails = ({ type, path, permission }: PageDefaultProps) => {
                   </Row>
 
                   <Typography className="cacamba-title">Caçambas</Typography>
-                  {(getProfileType() === 'SELLER' ||
-                    getProfileType() === 'LEGAL_SELLER' ||
-                    getProfileType() === 'SELLER_EMPLOYEE') &&
+                  {(getProfileType() === "SELLER" ||
+                    getProfileType() === "LEGAL_SELLER" ||
+                    getProfileType() === "SELLER_EMPLOYEE") &&
                   verifyConfig([`${permission}.edit`]) &&
-                  order.status.code === 'AR' ? (
+                  order.status.code === OrderLocationStatusEnum.PENDING ? (
                     <Typography className="cacamba-address" onClick={onOpen}>
                       Selecionar caçambas
                     </Typography>
                   ) : null}
-                  {(getProfileType() === 'SELLER' ||
-                    getProfileType() === 'LEGAL_SELLER' ||
-                    getProfileType() === 'SELLER_EMPLOYEE') &&
+                  {(getProfileType() === "SELLER" ||
+                    getProfileType() === "LEGAL_SELLER" ||
+                    getProfileType() === "SELLER_EMPLOYEE") &&
                   verifyConfig([`${permission}.edit`]) &&
-                  order.status.code === 'AR'
+                  order.status.code === OrderLocationStatusEnum.PENDING
                     ? order.items.map((v: any, i: any) => (
                         <Typography className="cacamba-desc" key={i}>
-                          <span>{v.product.code}</span> - Aguardando confirmação
-                          do pedido
+                          <span>{v.product}</span> - Aguardando confirmação do
+                          pedido
                         </Typography>
                       ))
                     : null}
-                  {(getProfileType() === 'SELLER' ||
-                    getProfileType() === 'LEGAL_SELLER' ||
-                    getProfileType() === 'SELLER_EMPLOYEE') &&
+                  {(getProfileType() === "SELLER" ||
+                    getProfileType() === "LEGAL_SELLER" ||
+                    getProfileType() === "SELLER_EMPLOYEE") &&
                   verifyConfig([`${permission}.edit`]) &&
-                  order.status.code === 'PA'
+                  order.status.code === OrderLocationStatusEnum.ACCEPTED
                     ? order.items.map((v: any, i: any) => (
                         <Typography className="cacamba-desc" key={i}>
-                          <span>{v.product.code}</span> -{' '}
-                          {v.product.status.name}
+                          <span>{v.product}</span> - {v.status.name}
                         </Typography>
                       ))
                     : null}
-                  {(getProfileType() === 'CUSTOMER' ||
-                    getProfileType() === 'LEGAL_CUSTOMER' ||
-                    getProfileType() === 'CUSTOMER_EMPLOYEE' ||
-                    getProfileType() === 'ADMIN' ||
-                    getProfileType() === 'ADMIN_EMPLOYEE') &&
-                  order.status.code === 'AR' ? (
+                  {(getProfileType() === "CUSTOMER" ||
+                    getProfileType() === "LEGAL_CUSTOMER" ||
+                    getProfileType() === "CUSTOMER_EMPLOYEE" ||
+                    getProfileType() === "ADMIN" ||
+                    getProfileType() === "ADMIN_EMPLOYEE") &&
+                  order.status.code === OrderLocationStatusEnum.PENDING ? (
                     order.items.lenght > 0 ? (
                       order.items.map((v: any, i: any) => (
                         <Typography className="cacamba-desc" key={i}>
-                          <span>{v.product.code}</span> -{' '}
-                          {v.product.status.name}
+                          <span>{v.product}</span> - {v.status.name}
                         </Typography>
                       ))
                     ) : (
                       <Typography>Nenhuma caçamba selecionada</Typography>
                     )
                   ) : null}
-                  {(getProfileType() === 'CUSTOMER' ||
-                    getProfileType() === 'LEGAL_CUSTOMER' ||
-                    getProfileType() === 'CUSTOMER_EMPLOYEE' ||
-                    getProfileType() === 'ADMIN' ||
-                    getProfileType() === 'ADMIN_EMPLOYEE') &&
-                  order.status.code === 'PA'
+                  {(getProfileType() === "CUSTOMER" ||
+                    getProfileType() === "LEGAL_CUSTOMER" ||
+                    getProfileType() === "CUSTOMER_EMPLOYEE" ||
+                    getProfileType() === "ADMIN" ||
+                    getProfileType() === "ADMIN_EMPLOYEE") &&
+                  order.status.code === OrderLocationStatusEnum.ACCEPTED
                     ? order.items.map((v: any, i: any) => (
                         <Typography className="cacamba-desc" key={i}>
-                          <span>{v.product.code}</span> -{' '}
-                          {v.product.status.name}
+                          <span>{v.product}</span> - {v.status.name}
                         </Typography>
                       ))
                     : null}
                 </Col>
 
-                {(getProfileType() === 'SELLER' ||
-                  getProfileType() === 'LEGAL_SELLER' ||
-                  getProfileType() === 'SELLER_EMPLOYEE') &&
+                {(getProfileType() === "SELLER" ||
+                  getProfileType() === "LEGAL_SELLER" ||
+                  getProfileType() === "SELLER_EMPLOYEE") &&
                 verifyConfig([`${permission}.edit`]) &&
-                order.status.code === 'AR' ? (
+                order.status.code === OrderLocationStatusEnum.PENDING ? (
                   <Col
                     md={{ offset: 12, span: 12 }}
                     xs={{ offset: 0, span: 24 }}
                   >
-                    <Row gutter={[8, 8]} justify={'end'}>
+                    <Row gutter={[8, 8]} justify={"end"}>
                       {/* <Col md={12} xs={12}>
                                                 <Button type="default"  block onClick={onRecuse} loading={load}>Recusar pedido</Button>
                                             </Col> */}
@@ -471,7 +461,7 @@ const OrderDetails = ({ type, path, permission }: PageDefaultProps) => {
                           block
                           disabled={
                             Number(order.items.length) !==
-                            Number(order.cart_product.quantity)
+                            Number(order.quantity)
                           }
                           loading={load}
                           onClick={onAccept}
@@ -483,19 +473,20 @@ const OrderDetails = ({ type, path, permission }: PageDefaultProps) => {
                     </Row>
                   </Col>
                 ) : null}
-                {(getProfileType() === 'CUSTOMER' ||
-                  getProfileType() === 'LEGAL_CUSTOMER' ||
-                  getProfileType() === 'CUSTOMER_EMPLOYEE') &&
+                {(getProfileType() === "CUSTOMER" ||
+                  getProfileType() === "LEGAL_CUSTOMER" ||
+                  getProfileType() === "CUSTOMER_EMPLOYEE") &&
                 verifyConfig([`${permission}.edit`]) &&
-                order.status.code === 'AR' ? (
+                order.status.code === OrderLocationStatusEnum.PENDING ? (
                   <Col
                     md={{ offset: 12, span: 12 }}
                     xs={{ offset: 0, span: 24 }}
                   >
-                    <Row gutter={[8, 8]} justify={'end'}>
+                    <Row gutter={[8, 8]} justify={"end"}>
                       <Col md={12} xs={12}>
                         <Button
                           block
+                          disabled={true}
                           loading={load}
                           onClick={onRecuse}
                           type="default"
@@ -533,13 +524,12 @@ const OrderDetails = ({ type, path, permission }: PageDefaultProps) => {
                         <Checkbox
                           defaultChecked={cacambaSelect.indexOf(v.id) !== -1}
                           disabled={
-                            Number(verify) >=
-                              Number(order.cart_product.quantity) &&
+                            Number(verify) >= Number(order.quantity) &&
                             !(cacambaSelect.indexOf(v.id) !== -1)
                           }
                           onChange={(value) => onCacambaSelect(v.id, value)}
                         >
-                          <Typography className={'ad-title'}>
+                          <Typography className={"ad-title"}>
                             {v.code}
                           </Typography>
                         </Checkbox>
@@ -547,13 +537,12 @@ const OrderDetails = ({ type, path, permission }: PageDefaultProps) => {
                         <Checkbox
                           defaultChecked={cacambaSelect.indexOf(v.id) !== -1}
                           disabled={
-                            Number(verify) >=
-                              Number(order.cart_product.quantity) &&
+                            Number(verify) >= Number(order.quantity) &&
                             !(cacambaSelect.indexOf(v.id) !== -1)
                           }
                           onChange={(value) => onCacambaSelect(v.id, value)}
                         >
-                          <Typography className={'ad-title'}>
+                          <Typography className={"ad-title"}>
                             {v.code}
                           </Typography>
                         </Checkbox>
@@ -569,7 +558,7 @@ const OrderDetails = ({ type, path, permission }: PageDefaultProps) => {
               <Col span={24}>
                 <Button
                   block
-                  disabled={verify < order.cart_product.quantity}
+                  disabled={verify < order.quantity}
                   loading={loadSelect}
                   onClick={onOrderProduct}
                   type="primary"

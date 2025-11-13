@@ -1,6 +1,6 @@
 // BIBLIOTECAS REACT
 
-import { ExclamationCircleOutlined } from '@ant-design/icons';
+import { ExclamationCircleOutlined } from "@ant-design/icons";
 import {
   Button,
   type ButtonProps,
@@ -12,8 +12,8 @@ import {
   Tooltip,
   Typography,
   Upload,
-} from 'antd';
-import { LiaDumpsterSolid } from 'react-icons/lia';
+} from "antd";
+import { LiaDumpsterSolid } from "react-icons/lia";
 
 // ICONES
 import {
@@ -30,8 +30,8 @@ import {
   TbShoppingCart,
   TbTrash,
   TbX,
-} from 'react-icons/tb';
-import { Link } from 'react-router-dom';
+} from "react-icons/tb";
+import { Link } from "react-router-dom";
 // SERVIÇOS
 import {
   DELETE_API,
@@ -41,17 +41,17 @@ import {
   POST_CATCH,
   UPLOAD_API,
   verifyConfig,
-} from '../../services';
+} from "../../services";
 
 // LOGO
 const logo = `${import.meta.env.VITE_URL_ASSETS}/1.png`;
 
-import ImgCrop from 'antd-img-crop';
-import html2canvas from 'html2canvas';
+import ImgCrop from "antd-img-crop";
+import html2canvas from "html2canvas";
 
 // INTERFACE
 interface TableButtonInterface {
-  type: 'list' | 'trash' | 'add' | 'edit';
+  type: "list" | "trash" | "add" | "edit";
   permission: string | boolean;
   item?: any;
   path?: string;
@@ -67,14 +67,14 @@ export const TableNewButton = ({
   link,
   buttonStyles,
 }: TableButtonInterface) => {
-  if (type === 'list' && verifyConfig([`${permission}.add`])) {
+  if (type === "list" && verifyConfig([`${permission}.add`])) {
     return (
       <Col>
-        <Link to={link || 'novo'}>
+        <Link to={link || "novo"}>
           <Button
             className="page-default-button-primary"
             size="small"
-            type={'primary'}
+            type={"primary"}
           >
             adicionar
           </Button>
@@ -91,14 +91,14 @@ export const TableNewDocButton = ({
   link,
   buttonStyles,
 }: TableButtonInterface) => {
-  if (type === 'list' && verifyConfig([`${permission}.add`])) {
+  if (type === "list" && verifyConfig([`${permission}.add`])) {
     return (
       <Col>
-        <Link to={link || 'novo'}>
+        <Link to={link || "novo"}>
           <Button
             className="page-default-button-primary"
             size="small"
-            type={'primary'}
+            type={"primary"}
           >
             atualizar documento
           </Button>
@@ -115,14 +115,14 @@ export const TableTrashButton = ({
   link,
   buttonStyles,
 }: TableButtonInterface) => {
-  if (type === 'list' && verifyConfig([`${permission}.trash`])) {
+  if (type === "list" && verifyConfig([`${permission}.trash`])) {
     return (
       <Col>
-        <Link to={link || 'lixeira'}>
+        <Link to={link || "lixeira"}>
           <Button
             className="page-default-button"
             size="small"
-            type={buttonStyles?.type || 'default'}
+            type={buttonStyles?.type || "default"}
           >
             lixeira
           </Button>
@@ -140,17 +140,17 @@ export const TableReturnButton = ({
   buttonStyles,
 }: TableButtonInterface) => {
   if (
-    ((type === 'trash' || type === 'add' || type === 'edit') &&
+    ((type === "trash" || type === "add" || type === "edit") &&
       verifyConfig([`${permission}.list`])) ||
     permission === true
   ) {
     return (
       <Col>
-        <Link to={link || '..'}>
+        <Link to={link || ".."}>
           <Button
             className="page-default-button"
             size="small"
-            type={buttonStyles?.type || 'default'}
+            type={buttonStyles?.type || "default"}
           >
             voltar
           </Button>
@@ -166,7 +166,7 @@ export const TableTrEditButton = ({
   permission,
   item,
 }: TableButtonInterface) => {
-  if (type === 'list' && verifyConfig([`${permission}.edit`])) {
+  if (type === "list" && verifyConfig([`${permission}.edit`])) {
     return (
       <Col>
         <Link to={String(item.id)}>
@@ -185,10 +185,10 @@ export const TableTrCacambaButton = ({
   permission,
   item,
 }: TableButtonInterface) => {
-  if (type === 'list' && verifyConfig([`${permission}.list`])) {
+  if (type === "list" && verifyConfig([`${permission}.list`])) {
     return (
       <Col>
-        <Link to={String(item.id) + '/cacambas'}>
+        <Link to={String(item.id) + "/cacambas"}>
           <Popover content="Caçambas" trigger="hover">
             <LiaDumpsterSolid className="actions-button" size={23} />
           </Popover>
@@ -204,7 +204,7 @@ export const TableTrLiberarAcessoButton = ({
   permission,
   item,
 }: TableButtonInterface) => {
-  if (type === 'list' && verifyConfig([`${permission}.edit`])) {
+  if (type === "list" && verifyConfig([`${permission}.edit`])) {
     return (
       <Col>
         <Link to={String(item.id)}>
@@ -223,10 +223,10 @@ export const TableTrCartButton = ({
   permission,
   item,
 }: TableButtonInterface) => {
-  if (type === 'list' && verifyConfig([`${permission}.list`])) {
+  if (type === "list" && verifyConfig([`${permission}.list`])) {
     return (
       <Col>
-        <Link to={String(item.id) + '/itens'}>
+        <Link to={String(item.id) + "/itens"}>
           <Tooltip title="Caçambas">
             <TbShoppingCart className="actions-button" size={18} />
           </Tooltip>
@@ -245,17 +245,17 @@ export const TableTrPhotoButton = ({
 }: TableButtonInterface) => {
   const onChangePic = (value: any) => {
     if (value.file.response?.url) {
-      POST_API('/user', { photo: value.file.response?.url }, item.id)
+      POST_API("/user", { photo: value.file.response?.url }, item.id)
         .then((rs) => {
           if (rs.ok) return rs.json();
-          Modal.warning({ title: 'Algo deu errado', content: rs.statusText });
+          Modal.warning({ title: "Algo deu errado", content: rs.statusText });
         })
         .then(action())
         .catch(POST_CATCH);
     }
   };
 
-  if (type === 'list' && verifyConfig([`${permission}.edit`])) {
+  if (type === "list" && verifyConfig([`${permission}.edit`])) {
     return (
       <Col>
         <ImgCrop
@@ -267,7 +267,7 @@ export const TableTrPhotoButton = ({
             accept="image/jpg,image/jpeg,image/png"
             action={UPLOAD_API}
             headers={{
-              Authorization: 'Bearer ' + getToken(),
+              Authorization: "Bearer " + getToken(),
               Profile: getProfileID(),
             }}
             maxCount={1}
@@ -291,10 +291,10 @@ export const TableTrGalleryButton = ({
   permission,
   item,
 }: TableButtonInterface) => {
-  if (type === 'list') {
+  if (type === "list") {
     return (
       <Col>
-        <Link to={String(item.id) + '/galeria'}>
+        <Link to={String(item.id) + "/galeria"}>
           <Tooltip title="Galeria">
             <TbPhoto className="actions-button" size={18} />
           </Tooltip>
@@ -310,11 +310,11 @@ export const TableTrDetailButton = ({
   permission,
   item,
 }: TableButtonInterface) => {
-  if (type === 'list') {
+  if (type === "list") {
     return (
       <Col>
         <Tooltip title="Detalhes">
-          <Link to={String(item.id) + '/detalhes'}>
+          <Link to={String(item.id) + "/detalhes"}>
             <TbList className="actions-button" size={18} />
           </Link>
         </Tooltip>
@@ -329,11 +329,11 @@ export const TableTrMapButton = ({
   permission,
   item,
 }: TableButtonInterface) => {
-  if (type === 'list') {
+  if (type === "list") {
     return (
       <Col>
         <Tooltip title="Mapa">
-          <Link to={String(item.id) + '/mapa'}>
+          <Link to={String(item.id) + "/mapa"}>
             <TbMapPinExclamation className="actions-button" size={18} />
           </Link>
         </Tooltip>
@@ -349,15 +349,15 @@ export const TableTrMapProductButton = ({
   newId = null,
   item,
 }: TableButtonInterface) => {
-  if (type === 'list') {
+  if (type === "list") {
     return (
       <Col>
         <Tooltip title="Mapa">
           <Link
             to={
               newId
-                ? String(newId) + '/mapa'
-                : String(item.order_locations_id) + '/mapa'
+                ? String(newId) + "/mapa"
+                : String(item.order_location_id) + "/mapa"
             }
           >
             <TbMapPinExclamation className="actions-button" size={18} />
@@ -385,18 +385,18 @@ export const TableTrQrCodeButton = ({ type, item }: TableButtonInterface) => {
           </center>
         </div>
       ) : (
-        'QRcode não cadastrado'
+        "QRcode não cadastrado"
       ),
       icon: <></>,
-      cancelText: 'Fechar',
-      okText: 'Download',
+      cancelText: "Fechar",
+      okText: "Download",
       okButtonProps: { disabled: !item.code },
       onOk: () => {
-        const div: any = document.getElementById('myqrcode');
+        const div: any = document.getElementById("myqrcode");
         html2canvas(div).then((canvas) => {
-          const link = document.createElement('a');
-          link.href = canvas.toDataURL('image/png');
-          link.download = item.code + ' QRCode.png';
+          const link = document.createElement("a");
+          link.href = canvas.toDataURL("image/png");
+          link.download = item.code + " QRCode.png";
           link.click();
           link.remove();
         });
@@ -404,7 +404,7 @@ export const TableTrQrCodeButton = ({ type, item }: TableButtonInterface) => {
     });
   };
 
-  if (type === 'list') {
+  if (type === "list") {
     return (
       <Col>
         <Tooltip title="QR Code">
@@ -425,28 +425,28 @@ export const TableTrTrashButton = ({
 }: TableButtonInterface) => {
   const onAction = () => {
     Modal.confirm({
-      title: 'Deletar registro?',
+      title: "Deletar registro?",
       icon: <ExclamationCircleOutlined />,
-      cancelText: 'Não',
-      okText: 'Sim',
+      cancelText: "Não",
+      okText: "Sim",
       onOk() {
         message.open({
-          type: 'loading',
-          content: 'Deletando...',
-          key: 'screen',
+          type: "loading",
+          content: "Deletando...",
+          key: "screen",
         });
         DELETE_API(`/${path}/${item.id}`)
           .then((rs) => {
             if (rs.ok) {
               message.success({
-                content: 'Deletado com sucesso',
-                key: 'screen',
+                content: "Deletado com sucesso",
+                key: "screen",
               });
               action();
             } else {
               Modal.warning({
-                title: 'Algo deu errado',
-                content: 'Não foi possível deletar registro.',
+                title: "Algo deu errado",
+                content: "Não foi possível deletar registro.",
               });
             }
           })
@@ -456,7 +456,7 @@ export const TableTrTrashButton = ({
     });
   };
 
-  if (type === 'list' && verifyConfig([`${permission}.del`])) {
+  if (type === "list" && verifyConfig([`${permission}.del`])) {
     return (
       <Col>
         <Popover content="Deletar" trigger="hover">
@@ -478,23 +478,23 @@ export const TableTrCancelButton = ({
   // AÇÃO DE DELETE
   const onAction = () => {
     Modal.confirm({
-      title: 'Cancelar pedido?',
+      title: "Cancelar pedido?",
       icon: <ExclamationCircleOutlined />,
-      cancelText: 'Não',
-      okText: 'Sim',
+      cancelText: "Não",
+      okText: "Sim",
       onOk() {
         POST_API(`/${path}/cancel.php`, {
           token: getToken(),
           id: item.id,
-          type: 'del',
+          type: "del",
         })
           .then((rs) => rs.json())
           .then((res) => {
             if (res.return) {
-              message.success({ content: res.msg, key: 'screen' });
+              message.success({ content: res.msg, key: "screen" });
               action();
             } else {
-              Modal.warning({ title: 'Algo deu errado', content: res.msg });
+              Modal.warning({ title: "Algo deu errado", content: res.msg });
             }
           })
           .catch(POST_CATCH);
@@ -504,9 +504,9 @@ export const TableTrCancelButton = ({
   };
 
   if (
-    type === 'list' &&
+    type === "list" &&
     verifyConfig([`${permission}.edit`]) &&
-    item.STATUS == 'AR'
+    item.STATUS == "AR"
   ) {
     return (
       <Col>
@@ -527,23 +527,23 @@ export const TableTrRecuseButton = ({
   // AÇÃO DE DELETE
   const onAction = () => {
     Modal.confirm({
-      title: 'Recusar pedido?',
+      title: "Recusar pedido?",
       icon: <ExclamationCircleOutlined />,
-      cancelText: 'Não',
-      okText: 'Sim',
+      cancelText: "Não",
+      okText: "Sim",
       onOk() {
         POST_API(`/${path}/recuse.php`, {
           token: getToken(),
           id: item.id,
-          type: 'del',
+          type: "del",
         })
           .then((rs) => rs.json())
           .then((res) => {
             if (res.return) {
-              message.success({ content: res.msg, key: 'screen' });
+              message.success({ content: res.msg, key: "screen" });
               action();
             } else {
-              Modal.warning({ title: 'Algo deu errado', content: res.msg });
+              Modal.warning({ title: "Algo deu errado", content: res.msg });
             }
           })
           .catch(POST_CATCH);
@@ -553,9 +553,9 @@ export const TableTrRecuseButton = ({
   };
 
   if (
-    type === 'list' &&
+    type === "list" &&
     verifyConfig([`${permission}.edit`]) &&
-    item.STATUS == 'AR'
+    item.STATUS == "AR"
   ) {
     return (
       <Col>
@@ -580,23 +580,23 @@ export const TableTrAcceptButton = ({
   // AÇÃO DE DELETE
   const onAction = () => {
     Modal.confirm({
-      title: 'Aceitar pedido?',
+      title: "Aceitar pedido?",
       icon: <ExclamationCircleOutlined />,
-      cancelText: 'Não',
-      okText: 'Sim',
+      cancelText: "Não",
+      okText: "Sim",
       onOk() {
         POST_API(`/${path}/accept.php`, {
           token: getToken(),
           id: item.id,
-          type: 'del',
+          type: "del",
         })
           .then((rs) => rs.json())
           .then((res) => {
             if (res.return) {
-              message.success({ content: res.msg, key: 'screen' });
+              message.success({ content: res.msg, key: "screen" });
               action();
             } else {
-              Modal.warning({ title: 'Algo deu errado', content: res.msg });
+              Modal.warning({ title: "Algo deu errado", content: res.msg });
             }
           })
           .catch(POST_CATCH);
@@ -606,9 +606,9 @@ export const TableTrAcceptButton = ({
   };
 
   if (
-    type === 'list' &&
+    type === "list" &&
     verifyConfig([`${permission}.edit`]) &&
-    item.STATUS == 'AR'
+    item.STATUS == "AR"
   ) {
     return (
       <Col>
@@ -629,10 +629,10 @@ export const TableTrRecoverButton = ({
   // AÇÃO DE RECOVER
   const onAction = () => {
     Modal.confirm({
-      title: 'Recuperar registro?',
+      title: "Recuperar registro?",
       icon: <ExclamationCircleOutlined />,
-      cancelText: 'Não',
-      okText: 'Sim',
+      cancelText: "Não",
+      okText: "Sim",
       onOk() {
         POST_API(`/${path}`, { recover: 1 }, item.id)
           .then((rs) => {
@@ -640,12 +640,12 @@ export const TableTrRecoverButton = ({
               return rs.json();
             }
             Modal.warning({
-              title: 'Algo deu errado',
+              title: "Algo deu errado",
               content: rs.statusText,
             });
           })
           .then((data) => {
-            message.success({ content: 'Registro recuperado', key: 'screen' });
+            message.success({ content: "Registro recuperado", key: "screen" });
             action();
           })
           .catch(POST_CATCH);
@@ -654,7 +654,7 @@ export const TableTrRecoverButton = ({
     });
   };
 
-  if (type === 'trash' && verifyConfig([`${permission}.rec`])) {
+  if (type === "trash" && verifyConfig([`${permission}.rec`])) {
     return (
       <Col>
         <Tooltip title="Recuperar">
@@ -679,19 +679,19 @@ export const TableTrPassword = ({
   // AÇÃO RESTAURAR SENHA
   const onAction = () => {
     Modal.confirm({
-      title: 'Restaurar senha?',
+      title: "Restaurar senha?",
       icon: <ExclamationCircleOutlined />,
-      cancelText: 'Não',
-      okText: 'Sim',
+      cancelText: "Não",
+      okText: "Sim",
       onOk() {
         POST_API(`/${path}/recpass.php`, { token: getToken(), id: item.id })
           .then((rs) => rs.json())
           .then((res) => {
             if (res.return) {
-              message.success({ content: res.msg, key: 'screen' });
+              message.success({ content: res.msg, key: "screen" });
               action();
             } else {
-              Modal.warning({ title: 'Algo deu errado', content: res.msg });
+              Modal.warning({ title: "Algo deu errado", content: res.msg });
             }
           })
           .catch(POST_CATCH);
@@ -700,7 +700,7 @@ export const TableTrPassword = ({
     });
   };
 
-  if (type === 'list') {
+  if (type === "list") {
     return (
       <Col>
         <Tooltip title="Redefinir senha">

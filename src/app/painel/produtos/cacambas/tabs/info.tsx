@@ -13,12 +13,12 @@ import {
   Select,
   Switch,
   Typography,
-} from 'antd';
-import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+} from "antd";
+import { useEffect, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 // components
-import LoadItem from '@/components/LoadItem';
-import SelectSearch from '@/components/SelectSearch';
+import LoadItem from "@/components/LoadItem";
+import SelectSearch from "@/components/SelectSearch";
 // services
 import {
   cleanData,
@@ -26,10 +26,10 @@ import {
   type PageDefaultProps,
   POST_API,
   POST_CATCH,
-} from '@/services';
+} from "@/services";
 
 interface StationaryBucketFormProps
-  extends Omit<PageDefaultProps, 'permission'> {
+  extends Omit<PageDefaultProps, "permission"> {
   nextTab: () => void;
 }
 
@@ -48,7 +48,7 @@ const StationaryBucketForm = ({
   const [load, setLoad] = useState(true);
   const [loadButton, setLoadButton] = useState(false);
   const [model, setModel] = useState<any>(null);
-  const [typeLocal, setTypeLocal] = useState<string>('B');
+  const [typeLocal, setTypeLocal] = useState<string>("B");
   const [residue, setResidue] = useState<any>([]);
   const [residueSelect, setResidueSelect] = useState<any[]>([]);
   const [loadResidue, setLoadResidue] = useState<boolean>(true);
@@ -59,14 +59,14 @@ const StationaryBucketForm = ({
   // VERIFICA "NOVO" OU "EDITAR"
   useEffect(() => {
     renderResidue();
-    if (type === 'add') {
+    if (type === "add") {
       setLoad(false);
     } else {
       setLoad(true);
       GET_API(`/${path}/${ID}`)
         .then((rs) => {
           if (!rs.ok) {
-            Modal.warning({ title: 'Algo deu errado', content: rs.statusText });
+            Modal.warning({ title: "Algo deu errado", content: rs.statusText });
           }
           return rs.json();
         })
@@ -91,10 +91,10 @@ const StationaryBucketForm = ({
   // CARREGA RESIDUOS
   const renderResidue = () => {
     setLoadResidue(true);
-    GET_API('/me')
+    GET_API("/me")
       .then((rs) => rs.json())
       .then((res) => {
-        GET_API('/residue_user/' + res.data.id)
+        GET_API("/residue_user/" + res.data.id)
           .then((rs) => rs.json())
           .then((res) => {
             setResidue(res.data);
@@ -108,7 +108,7 @@ const StationaryBucketForm = ({
   // FUNÇÃO SALVAR
   const onSend = (values: any) => {
     if (!(residueSelect.length > 0)) {
-      message.warning('Por favor selecione pelo menos um resíduo.');
+      message.warning("Por favor selecione pelo menos um resíduo.");
       return;
     }
     setLoadButton(true);
@@ -118,17 +118,15 @@ const StationaryBucketForm = ({
         if (rs.ok) {
           const response = await rs.json();
 
-          message.success('Salvo com sucesso!');
+          message.success("Salvo com sucesso!");
 
-          if (type === 'add') {
-            navigate(
-              `/painel/produtos&cacambas&cadastros/${response.data?.id}`
-            );
+          if (type === "add") {
+            navigate(`/painel/cacambas/${response.data?.id}`);
           } else {
             nextTab();
           }
         } else {
-          Modal.warning({ title: 'Algo deu errado', content: rs.statusText });
+          Modal.warning({ title: "Algo deu errado", content: rs.statusText });
         }
       })
       .catch(POST_CATCH)
@@ -152,21 +150,21 @@ const StationaryBucketForm = ({
   return (
     <Form form={form} layout="vertical" onFinish={onSend}>
       <Row gutter={[8, 8]}>
-        <Col md={2} xs={10}>
+        <Col md={6} xs={10}>
           <Form.Item
             label="Modelo"
             name="stationary_bucket_type_id"
-            rules={[{ required: true, message: 'Campo obrigatório!' }]}
+            rules={[{ required: true, message: "Campo obrigatório!" }]}
           >
             <SelectSearch
               change={(v: any) => {
-                form.setFieldValue('stationary_bucket_type_id', v.value);
+                form.setFieldValue("stationary_bucket_type_id", v.value);
               }}
               effect={model}
               labelField="name"
               placeholder="Modelo"
               url="/stationary_bucket_type"
-              value={form.getFieldValue('stationary_bucket_type_id')}
+              value={form.getFieldValue("stationary_bucket_type_id")}
             />
           </Form.Item>
         </Col>
@@ -174,7 +172,7 @@ const StationaryBucketForm = ({
           <Form.Item
             label="Material"
             name="material"
-            rules={[{ required: true, message: 'Campo obrigatório!' }]}
+            rules={[{ required: true, message: "Campo obrigatório!" }]}
           >
             <Input placeholder="Material" />
           </Form.Item>
@@ -183,12 +181,12 @@ const StationaryBucketForm = ({
           <Form.Item
             label="Peso"
             name="weight"
-            rules={[{ required: true, message: 'Campo obrigatório!' }]}
+            rules={[{ required: true, message: "Campo obrigatório!" }]}
           >
             <Input
               addonAfter="kg"
               placeholder="Peso"
-              style={{ width: '100%' }}
+              style={{ width: "100%" }}
               type="number"
             />
           </Form.Item>
@@ -197,21 +195,21 @@ const StationaryBucketForm = ({
           <Form.Item
             label="Cores"
             name="color"
-            rules={[{ required: true, message: 'Campo obrigatório!' }]}
+            rules={[{ required: true, message: "Campo obrigatório!" }]}
           >
             <Input placeholder="Cores" />
           </Form.Item>
         </Col>
-        <Col md={10} xs={24}>
+        <Col md={8} xs={24}>
           <Form.Item
             label="Tipo de Tampa"
             name="type_lid"
-            rules={[{ required: true, message: 'Campo obrigatório!' }]}
+            rules={[{ required: true, message: "Campo obrigatório!" }]}
           >
             <Radio.Group>
-              <Radio value={'A'}>Tampa Articulada</Radio>
-              <Radio value={'C'}>Tampa Corrediça</Radio>
-              <Radio value={'S'}>Sem Tampa</Radio>
+              <Radio value={"A"}>Tampa Articulada</Radio>
+              <Radio value={"C"}>Tampa Corrediça</Radio>
+              <Radio value={"S"}>Sem Tampa</Radio>
             </Radio.Group>
           </Form.Item>
         </Col>
@@ -219,22 +217,22 @@ const StationaryBucketForm = ({
           <Form.Item
             label="Tipo de Locação"
             name="type_local"
-            rules={[{ required: true, message: 'Campo obrigatório!' }]}
+            rules={[{ required: true, message: "Campo obrigatório!" }]}
           >
             <Select onChange={setTypeLocal}>
-              <Select.Option value={'B'}>Externa e Interna</Select.Option>
-              <Select.Option value={'E'}>Somente Externa</Select.Option>
-              <Select.Option value={'I'}>Somente Interna</Select.Option>
+              <Select.Option value={"B"}>Externa e Interna</Select.Option>
+              <Select.Option value={"E"}>Somente Externa</Select.Option>
+              <Select.Option value={"I"}>Somente Interna</Select.Option>
             </Select>
           </Form.Item>
         </Col>
-        {typeLocal === 'B' || typeLocal === 'E' ? (
+        {typeLocal === "B" || typeLocal === "E" ? (
           <>
             <Col md={4} xs={10}>
               <Form.Item
                 label="Dias Locação Externa"
                 name="days_external"
-                rules={[{ required: true, message: 'Campo obrigatório!' }]}
+                rules={[{ required: true, message: "Campo obrigatório!" }]}
               >
                 <Input
                   min={1}
@@ -247,27 +245,27 @@ const StationaryBucketForm = ({
               <Form.Item
                 label="Preço Locação Externa"
                 name="price_external"
-                rules={[{ required: true, message: 'Campo obrigatório!' }]}
+                rules={[{ required: true, message: "Campo obrigatório!" }]}
               >
                 <InputNumber
                   addonBefore="R$"
                   min={1}
                   placeholder="Preço Locação Externa"
-                  step={'0.01'}
-                  style={{ width: '100%' }}
+                  step={"0.01"}
+                  style={{ width: "100%" }}
                   type="number"
                 />
               </Form.Item>
             </Col>
           </>
         ) : null}
-        {typeLocal === 'B' || typeLocal === 'I' ? (
+        {typeLocal === "B" || typeLocal === "I" ? (
           <>
             <Col md={4} xs={10}>
               <Form.Item
                 label="Dias Locação Interna"
                 name="days_internal"
-                rules={[{ required: true, message: 'Campo obrigatório!' }]}
+                rules={[{ required: true, message: "Campo obrigatório!" }]}
               >
                 <Input
                   min={1}
@@ -280,14 +278,14 @@ const StationaryBucketForm = ({
               <Form.Item
                 label="Preço Locação Interna"
                 name="price_internal"
-                rules={[{ required: true, message: 'Campo obrigatório!' }]}
+                rules={[{ required: true, message: "Campo obrigatório!" }]}
               >
                 <InputNumber
                   addonBefore="R$"
                   min={1}
                   placeholder="Preço Locação Interna"
-                  step={'0.01'}
-                  style={{ width: '100%' }}
+                  step={"0.01"}
+                  style={{ width: "100%" }}
                   type="number"
                 />
               </Form.Item>
@@ -321,7 +319,7 @@ const StationaryBucketForm = ({
               />
             ) : (
               <Typography>
-                Nenhum resíduo cadastrado.{' '}
+                Nenhum resíduo cadastrado.{" "}
                 <Link target="_blank" to="/painel/configuracoes">
                   Cadastre aqui!
                 </Link>
@@ -334,13 +332,13 @@ const StationaryBucketForm = ({
             htmlType="submit"
             loading={loadButton}
             shape="round"
-            style={{ float: 'right', marginLeft: 6 }}
+            style={{ float: "right", marginLeft: 6 }}
             type="primary"
           >
             Salvar e avançar
           </Button>
-          <Link to={'..'}>
-            <Button shape="round" style={{ float: 'right' }} type="default">
+          <Link to={".."}>
+            <Button shape="round" style={{ float: "right" }} type="default">
               Cancelar
             </Button>
           </Link>

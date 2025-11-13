@@ -38,7 +38,11 @@ const DestinoValidacaoForm = ({ path, permission }: PageDefaultProps) => {
       .then(() => {
         POST_API(
           '/user',
-          { municipal_approval: 0, profile_type: 'final_destination' },
+          {
+            municipal_approval_status: 'rejected',
+            municipal_approved_reason: values.message,
+            profile_type: 'final_destination',
+          },
           ID
         );
         setVisible(false);
@@ -60,7 +64,10 @@ const DestinoValidacaoForm = ({ path, permission }: PageDefaultProps) => {
         setLoadButton(true);
         POST_API(
           '/user',
-          { municipal_approval: 1, profile_type: 'final_destination' },
+          {
+            municipal_approval_status: 'approved',
+            profile_type: 'final_destination',
+          },
           ID
         )
           .then((rs) => rs.json())
@@ -73,20 +80,6 @@ const DestinoValidacaoForm = ({ path, permission }: PageDefaultProps) => {
       },
     });
     setLoadButton(true);
-
-    // POST_API('/user', { ...values }, ID)
-    //   .then((rs) => {
-    //     if (rs.ok) {
-    //       return rs.json();
-    //     }
-    //     Modal.warning({ title: 'Algo deu errado', content: rs.statusText });
-    //   })
-    //   .then(() => {
-    //     message.success('Salvo com sucesso!');
-    //     navigate('..');
-    //   })
-    //   .catch(POST_CATCH)
-    //   .finally(() => setLoadButton(false));
   };
 
   // valid params

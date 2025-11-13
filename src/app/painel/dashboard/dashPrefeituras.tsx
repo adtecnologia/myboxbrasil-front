@@ -1,14 +1,10 @@
 // react libraries
+/** biome-ignore-all lint/suspicious/noExplicitAny: ignorar */
 
 import { Col, List, Modal, Row, Tag, Typography } from 'antd';
 import { useEffect, useState } from 'react';
 // icons
-import {
-  IoBusinessOutline,
-  IoCardOutline,
-  IoCartOutline,
-  IoPeopleOutline,
-} from 'react-icons/io5';
+import { IoCartOutline, IoPeopleOutline } from 'react-icons/io5';
 import { TbShoppingCartPin } from 'react-icons/tb';
 import { Link, useNavigate } from 'react-router-dom';
 // components
@@ -16,8 +12,6 @@ import CardItem from '../../../components/CardItem';
 import CardKPISmall from '../../../components/CardKPISmall';
 import GraphCacambasPorMes from '../../../components/Graphics/graphCacambasPorMes';
 import GraphMapaCacambasLocadas from '../../../components/Graphics/graphMapaCacambasLocadas';
-import GraphMunicipiosComMaisPedidos from '../../../components/Graphics/graphMunicipiosComMaisPedidos';
-import GraphPedidos from '../../../components/Graphics/graphPedidos';
 import GraphUsuariosPorMes from '../../../components/Graphics/graphUsuariosPorMes';
 import LoadItem from '../../../components/LoadItem';
 // services
@@ -34,8 +28,10 @@ const DashPrefeituras = ({ filters }: DashPrefeiturasInterface) => {
 
   // states
   const [locadores, setLocadores] = useState<number>(-1);
+  const [locadoresApprove, setLocadoresApprove] = useState<number>(0);
   const [locatarios, setLocatarios] = useState<number>(-1);
   const [destinoFinal, setDestinoFinal] = useState<number>(-1);
+  const [destinoFinalApprove, setDestinoFinalApprove] = useState<number>(0);
   const [locadas, setLocadas] = useState<number>(-1);
   const [fiscais, setFiscais] = useState<number>(-1);
   const [cacambas, setCacambas] = useState<number>(-1);
@@ -45,6 +41,7 @@ const DashPrefeituras = ({ filters }: DashPrefeiturasInterface) => {
   const [openDetail, setOpenDetail] = useState<boolean>(false);
   const [loadingDetail, setLoadingDetail] = useState<boolean>(true);
   const [dataDetail, setDataDetail] = useState<any[]>([]);
+  const [approvalWait, setApprovalWait] = useState<boolean>(false);
 
   // carrega fiscais
   useEffect(() => {
@@ -61,6 +58,11 @@ const DashPrefeituras = ({ filters }: DashPrefeiturasInterface) => {
     )
       .then((rs) => rs.json())
       .then((res) => setLocadores(res.meta.total));
+    GET_API(
+      `/user?provider=1&municipalApprovalStatus=waiting&ref=${filters.filterAno.value}-${filters.filterMes.value}`
+    )
+      .then((rs) => rs.json())
+      .then((res) => setLocadoresApprove(res.meta.total));
   }, [filters]);
   // carrega locatarios
   useEffect(() => {
@@ -79,6 +81,11 @@ const DashPrefeituras = ({ filters }: DashPrefeiturasInterface) => {
     )
       .then((rs) => rs.json())
       .then((res) => setDestinoFinal(res.meta.total));
+    GET_API(
+      `/user?finalDestination=1&municipalApprovalStatus=waiting&ref=${filters.filterAno.value}-${filters.filterMes.value}`
+    )
+      .then((rs) => rs.json())
+      .then((res) => setDestinoFinalApprove(res.meta.total));
   }, [filters]);
   // carrega caçambas
   useEffect(() => {
@@ -111,22 +118,24 @@ const DashPrefeituras = ({ filters }: DashPrefeiturasInterface) => {
         .finally(() => setOpenCacambasLoading(false));
   }, [openCacambas]);
 
-  const onOpenDetail = (status?: string) => {
-    setLoadingDetail(true);
-    setOpenDetail(true);
-    GET_API(
-      `/dashboard/productbytype?status=${status}&ref=${filters.filterAno.value}-${filters.filterMes.value}`
-    )
-      .then((rs) => rs.json())
-      .then((res) => setDataDetail(res.data))
-      .finally(() => setLoadingDetail(false));
-  };
-
   const onCloseDetail = () => {
     setLoadingDetail(true);
     setOpenDetail(false);
     setDataDetail([]);
   };
+
+  useEffect(() => {
+    GET_API('/me')
+      .then((rs) => {
+        if (rs.ok) {
+          return rs.json();
+        }
+        Modal.warning({ title: 'Algo deu errado', content: rs.statusText });
+      })
+      .then((res) => {
+        setApprovalWait(res.data.address.city.municipal_approval);
+      });
+  }, []);
 
   return (
     <Row gutter={[16, 16]}>
@@ -156,6 +165,10 @@ const DashPrefeituras = ({ filters }: DashPrefeiturasInterface) => {
       </Col>
       <Col lg={4} md={12} sm={12} xl={4} xs={24}>
         <CardKPISmall
+          alert={true}
+          alertOnClick={() => navigate('/painel/usuarios&locadores')}
+          alertText="Há registros aguardando aprovação"
+          alertValue={locadoresApprove}
           icon={<IoPeopleOutline className="card-kpi-small-icon" />}
           onClick={() => navigate('/painel/usuarios&locadores')}
           title="Locadores"
@@ -171,12 +184,17 @@ const DashPrefeituras = ({ filters }: DashPrefeiturasInterface) => {
       </Col>
       <Col lg={4} md={12} sm={12} xl={4} xs={24}>
         <CardKPISmall
+          alert={true}
+          alertOnClick={() => navigate('/painel/usuarios&destinofinal')}
+          alertText="Há registros aguardando aprovação"
+          alertValue={destinoFinalApprove}
           icon={<IoPeopleOutline className="card-kpi-small-icon" />}
           onClick={() => navigate('/painel/usuarios&destinofinal')}
           title="Destino final"
           value={destinoFinal}
         />
       </Col>
+      
       <Col span={24}>
         <CardItem title={''}>
           <GraphMapaCacambasLocadas height="20em" />

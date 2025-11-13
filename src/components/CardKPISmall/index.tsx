@@ -1,9 +1,14 @@
 // BIBLIOTECAS REACT
-import { Col, Row, Typography } from 'antd';
+/** biome-ignore-all lint/suspicious/noExplicitAny: ignorar */
+/** biome-ignore-all lint/a11y/noStaticElementInteractions: ignorar */
+/** biome-ignore-all lint/a11y/useKeyWithClickEvents: ignorar */
+/** biome-ignore-all lint/nursery/noNoninteractiveElementInteractions: ignorar */
+import { Col, Row, Tooltip, Typography } from 'antd';
 
 // CSS
 import './styles.css';
 import type { MouseEventHandler } from 'react';
+import { IoWarning } from 'react-icons/io5';
 import { Oval } from 'react-loader-spinner';
 
 // INTERFACE
@@ -13,9 +18,23 @@ interface CardKPIInterface {
   value: any;
   onClick?: MouseEventHandler;
   type?: string;
+  alert?: boolean;
+  alertOnClick?: MouseEventHandler;
+  alertText?: string;
+  alertValue?: number;
 }
 
-const CardKPI = ({ title, icon, value, onClick, type }: CardKPIInterface) => {
+const CardKPI = ({
+  title,
+  icon,
+  value,
+  onClick,
+  type,
+  alert,
+  alertOnClick,
+  alertText,
+  alertValue,
+}: CardKPIInterface) => {
   return (
     <div
       className={`card-kpi-small ${onClick ? 'card-kpi-small-is-button' : ''} ${type}`}
@@ -33,9 +52,28 @@ const CardKPI = ({ title, icon, value, onClick, type }: CardKPIInterface) => {
           >
             {value !== -1 ? (
               <Col>
-                <Typography className="card-kpi-small-value">
-                  {value}
-                </Typography>
+                <Row align={'middle'} gutter={[8, 8]}>
+                  <Col>
+                    <Typography className="card-kpi-small-value">
+                      {value}
+                    </Typography>
+                  </Col>
+                  {alert &&
+                    alertValue !== undefined &&
+                    alertValue > 0 &&
+                    alertText && (
+                      <Col>
+                        <Tooltip placement="top" title={alertText}>
+                          <IoWarning
+                            color="orange"
+                            onClick={alertOnClick}
+                            size={25}
+                            style={{ marginTop: 8, cursor: 'pointer' }}
+                          />
+                        </Tooltip>
+                      </Col>
+                    )}
+                </Row>
               </Col>
             ) : (
               <Col>

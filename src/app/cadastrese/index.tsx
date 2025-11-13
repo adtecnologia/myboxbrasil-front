@@ -1,6 +1,5 @@
 // react libraries
 /** biome-ignore-all lint/suspicious/noExplicitAny: ignorar */
-/** biome-ignore-all lint/nursery/noNoninteractiveElementInteractions: ignorar */
 /** biome-ignore-all lint/a11y/noStaticElementInteractions: ignorar */
 /** biome-ignore-all lint/a11y/useKeyWithClickEvents: ignorar */
 /** biome-ignore-all lint/performance/noImgElement: ignorar */
@@ -19,16 +18,15 @@ import {
   Tabs,
   Typography,
   Upload,
-} from 'antd';
-import { useState } from 'react';
-import { fromAddress } from 'react-geocode';
-import { Link, useNavigate } from 'react-router-dom';
-import { InputMaskCorrect } from '../../components/InputMask';
+} from "antd";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { InputMaskCorrect } from "../../components/InputMask";
 // components
-import SelectSearch from '../../components/SelectSearch';
+import SelectSearch from "../../components/SelectSearch";
 
 // css
-import './style.css';
+import "./style.css";
 
 // images
 const logo = `${import.meta.env.VITE_URL_ASSETS}/mybox-gestao-inteligente-de-cacambas.png`;
@@ -36,10 +34,10 @@ const customer = `${import.meta.env.VITE_URL_ASSETS}/cadastro/customer.png`;
 const seller = `${import.meta.env.VITE_URL_ASSETS}/cadastro/seller.png`;
 const finalDestination = `${import.meta.env.VITE_URL_ASSETS}/cadastro/final_destination.png`;
 
-import PdfViewerComponent from '@/components/PdfComponent';
-import { MAX_UPLOAD_FILE } from '@/utils/max-file-upload';
+import PdfViewerComponent from "@/components/PdfComponent";
+import { MAX_UPLOAD_FILE } from "@/utils/max-file-upload";
 // services
-import { GET_API, getUPLOADAPI, POST_API } from '../../services';
+import { GET_API, getUPLOADAPI, POST_API } from "../../services";
 
 const Register = () => {
   // router
@@ -52,12 +50,12 @@ const Register = () => {
   const [city, setCity] = useState<any>(null);
   const [bank] = useState<any>(null);
   const [type, setType] = useState<
-    '' | 'customer' | 'seller' | 'final_destination'
-  >('');
-  const [doc, setDoc] = useState<string>('cpf');
-  const [docAccount, setDocAccount] = useState<string>('cpf');
-  const [cityName, setCityName] = useState<string>('');
-  const [stateAcronym, setStateAcronym] = useState<string>('');
+    "" | "customer" | "seller" | "final_destination"
+  >("");
+  const [doc, setDoc] = useState<string>("cpf");
+  const [docAccount, setDocAccount] = useState<string>("cpf");
+  const [cityName, setCityName] = useState<string>("");
+  const [stateAcronym, setStateAcronym] = useState<string>("");
   const [modalTermos, setModalTermos] = useState<boolean>(false);
   const [modalPolitica, setModalPolitica] = useState<boolean>(false);
   const [termoData, setTermoData] = useState<any>();
@@ -71,7 +69,7 @@ const Register = () => {
   const [form] = Form.useForm();
 
   const onAceiteTermos = () => {
-    GET_API('/term_of_use/latest')
+    GET_API("/term_of_use/latest")
       .then((rs) => rs.json())
       .then((res) => {
         setLoading(false);
@@ -81,7 +79,7 @@ const Register = () => {
   };
 
   const onAceitePolitica = () => {
-    GET_API('/privacy_policy/latest')
+    GET_API("/privacy_policy/latest")
       .then((rs) => rs.json())
       .then((res) => {
         setLoading(false);
@@ -108,9 +106,13 @@ const Register = () => {
 
     // busca latitude e longitude
     const address = `${values?.street}, ${values?.number} - ${values?.district} - ${cityName} / ${stateAcronym}`;
-    fromAddress(address)
-      .then(({ results }) => {
-        const { lat, lng } = results[0].geometry.location;
+    GET_API(`/geocode?address=${address}`)
+      .then((rs) => rs.json())
+      .then((response) => {
+        const { lat, lng } = response;
+
+        values.latitude = lat;
+        values.longitude = lng;
 
         values.latitude = lat;
         values.longitude = lng;
@@ -118,8 +120,10 @@ const Register = () => {
         values.term_of_use_id = termoData.id;
         values.privacy_policy_id = politicaData.id;
 
+        values.environmental_license =
+          values.environmental_license?.file?.response?.url;
         // salva dados
-        POST_API('/register', {
+        POST_API("/register", {
           ...values,
           profile_type: String(type).toLocaleUpperCase(),
         })
@@ -128,26 +132,26 @@ const Register = () => {
               return rs.json();
             }
             return rs.json().then((res) => {
-              setTermoAceite('');
-              setPoliticaAceite('');
+              setTermoAceite("");
+              setPoliticaAceite("");
               message.error(res.message);
               return Promise.reject();
             });
           })
           .then(() => {
-            navigate('/login');
+            navigate("/login");
             Modal.success({
-              title: 'Sucesso',
+              title: "Sucesso",
               content:
-                'Sua conta foi criada com sucesso! Por favor, verique seu e-mail para definir sua senha.',
+                "Sua conta foi criada com sucesso! Por favor, verique seu e-mail para definir sua senha.",
             });
           })
           .finally(() => setLoading(false));
       })
       .catch(() =>
         Modal.warning({
-          title: 'Algo deu errado',
-          content: 'Não foi possível encontrar endereço',
+          title: "Algo deu errado",
+          content: "Não foi possível encontrar endereço",
         })
       );
   };
@@ -155,38 +159,38 @@ const Register = () => {
   // pesquisa endereço pelo cep
   const onCEP = () => {
     if (
-      form.getFieldValue('zip_code') &&
-      String(form.getFieldValue('zip_code')).length > 8
+      form.getFieldValue("zip_code") &&
+      String(form.getFieldValue("zip_code")).length > 8
     ) {
       setLoadCEP(true);
-      GET_API(`/cep/${form.getFieldValue('zip_code')}`)
+      GET_API(`/cep/${form.getFieldValue("zip_code")}`)
         .then((rs) => {
           if (rs.ok) {
             return rs.json();
           }
-          Modal.warning({ title: 'Algo deu errado', content: rs.statusText });
+          Modal.warning({ title: "Algo deu errado", content: rs.statusText });
         })
         .then((res) => {
           if (res.erro) {
             Modal.warning({
-              title: 'Algo deu errado',
-              content: 'CEP não encontrado',
+              title: "Algo deu errado",
+              content: "CEP não encontrado",
             });
           } else {
-            form.setFieldValue('street', res.logradouro);
-            form.setFieldValue('district', res.bairro);
+            form.setFieldValue("street", res.logradouro);
+            form.setFieldValue("district", res.bairro);
             setStateAcronym(res.uf);
             setCityName(res.localidade);
             setCity({
-              search: '',
+              search: "",
               filters: { uf: res.uf, city: res.localidade },
             });
           }
         })
         .catch(() => {
           Modal.warning({
-            title: 'Algo deu errado',
-            content: 'CEP não encontrado',
+            title: "Algo deu errado",
+            content: "CEP não encontrado",
           });
         })
         .finally(() => setLoadCEP(false));
@@ -195,31 +199,31 @@ const Register = () => {
 
   const onChangeTab = async (key?: string) => {
     let valid = key ?? tabKey + 1;
-    if (Number(valid) === 3 && doc === 'cpf') {
+    if (Number(valid) === 3 && doc === "cpf") {
       valid = Number(valid) + 1;
     }
     if (Number(valid) > Number(tabKey)) {
       if (Number(valid) === 2) {
         await form.validateFields([
-          'document_number',
-          'name',
-          'email',
-          'secondary_phone',
+          "document_number",
+          "name",
+          "email",
+          "secondary_phone",
         ]);
       }
       if (Number(valid) === 3) {
         await form.validateFields([
-          'zip_code',
-          'street',
-          'number',
-          'district',
-          'city_id',
+          "zip_code",
+          "street",
+          "number",
+          "district",
+          "city_id",
         ]);
       }
       if (Number(valid) === 5) {
         await form.validateFields([
-          'environmental_license',
-          'environmental_license_expiration',
+          "environmental_license",
+          "environmental_license_expiration",
         ]);
       }
     }
@@ -232,7 +236,7 @@ const Register = () => {
         form={form}
         layout="vertical"
         onFinish={onSend}
-        style={{ width: '100%' }}
+        style={{ width: "100%" }}
       >
         <Typography className="card-title">Preencha seus dados</Typography>
         <center>
@@ -241,8 +245,8 @@ const Register = () => {
             className="segmented-cell"
             onChange={(v) => setDoc(v)}
             options={[
-              { label: 'Pessoa física', value: 'cpf' },
-              { label: 'Pessoa jurídica', value: 'cnpj' },
+              { label: "Pessoa física", value: "cpf" },
+              { label: "Pessoa jurídica", value: "cnpj" },
             ]}
             style={{ marginBottom: 6 }}
             value={doc}
@@ -253,48 +257,48 @@ const Register = () => {
             className="segmented-desk"
             onChange={(v) => setDoc(v)}
             options={[
-              { label: 'Pessoa física', value: 'cpf' },
-              { label: 'Pessoa jurídica', value: 'cnpj' },
+              { label: "Pessoa física", value: "cpf" },
+              { label: "Pessoa jurídica", value: "cnpj" },
             ]}
             style={{ marginBottom: 6 }}
             value={doc}
           />
         </center>
         <Tabs activeKey={String(tabKey)}>
-          <Tabs.TabPane forceRender key={'1'} tab="Seus dados">
+          <Tabs.TabPane forceRender key={"1"} tab="Seus dados">
             <Row className="card-register-fields" gutter={[8, 8]}>
               <Col md={5} xs={24}>
                 <Form.Item
                   label="Login"
                   name="document_number"
-                  rules={[{ required: true, message: 'Campo obrigatório!' }]}
+                  rules={[{ required: true, message: "Campo obrigatório!" }]}
                 >
                   <InputMaskCorrect
                     autoComplete="off"
                     mask={
-                      doc === 'cpf' ? '999.999.999-99' : '99.999.999/9999-99'
+                      doc === "cpf" ? "999.999.999-99" : "99.999.999/9999-99"
                     }
-                    maskChar={''}
+                    maskChar={""}
                   >
                     {() => (
                       <Input
-                        maxLength={doc === 'cpf' ? 14 : 18}
+                        maxLength={doc === "cpf" ? 14 : 18}
                         placeholder={
-                          doc === 'cpf' ? 'Digite seu CPF' : 'Digite seu CNPJ'
+                          doc === "cpf" ? "Digite seu CPF" : "Digite seu CNPJ"
                         }
                       />
                     )}
                   </InputMaskCorrect>
                 </Form.Item>
               </Col>
-              {doc === 'cnpj' && (
+              {doc === "cnpj" && (
                 <>
                   <Col md={10} xs={24}>
                     <Form.Item
                       label="Razão Social"
                       name="name"
                       rules={[
-                        { required: true, message: 'Campo obrigatório!' },
+                        { required: true, message: "Campo obrigatório!" },
                       ]}
                     >
                       <Input placeholder="Razão Social" />
@@ -307,12 +311,12 @@ const Register = () => {
                   </Col>
                 </>
               )}
-              {doc === 'cpf' && (
+              {doc === "cpf" && (
                 <Col md={19} xs={24}>
                   <Form.Item
                     label="Nome"
                     name="name"
-                    rules={[{ required: true, message: 'Campo obrigatório!' }]}
+                    rules={[{ required: true, message: "Campo obrigatório!" }]}
                   >
                     <Input placeholder="Nome" />
                   </Form.Item>
@@ -323,8 +327,8 @@ const Register = () => {
                   label="E-mail Principal"
                   name="email"
                   rules={[
-                    { required: true, message: 'Campo obrigatório!' },
-                    { type: 'email', message: 'Insira um e-mail válido' },
+                    { required: true, message: "Campo obrigatório!" },
+                    { type: "email", message: "Insira um e-mail válido" },
                   ]}
                 >
                   <Input placeholder="E-mail Principal" />
@@ -339,12 +343,12 @@ const Register = () => {
                 <Form.Item
                   label="Celular"
                   name="secondary_phone"
-                  rules={[{ required: true, message: 'Campo obrigatório!' }]}
+                  rules={[{ required: true, message: "Campo obrigatório!" }]}
                 >
                   <InputMaskCorrect
                     autoComplete="off"
-                    mask={'(99) 99999-9999'}
-                    maskChar={''}
+                    mask={"(99) 99999-9999"}
+                    maskChar={""}
                   >
                     {() => <Input maxLength={15} placeholder="Celular" />}
                   </InputMaskCorrect>
@@ -354,8 +358,8 @@ const Register = () => {
                 <Form.Item label="Telefone" name="phone">
                   <InputMaskCorrect
                     autoComplete="off"
-                    mask={'(99) 9999-9999'}
-                    maskChar={''}
+                    mask={"(99) 9999-9999"}
+                    maskChar={""}
                   >
                     {() => <Input maxLength={14} placeholder="Telefone" />}
                   </InputMaskCorrect>
@@ -363,18 +367,18 @@ const Register = () => {
               </Col>
             </Row>
           </Tabs.TabPane>
-          <Tabs.TabPane forceRender key={'2'} tab="Endereço">
+          <Tabs.TabPane forceRender key={"2"} tab="Endereço">
             <Row className="card-register-fields" gutter={[8, 8]}>
               <Col md={3} xs={24}>
                 <Form.Item
                   label="CEP"
                   name="zip_code"
-                  rules={[{ required: true, message: 'Campo obrigatório!' }]}
+                  rules={[{ required: true, message: "Campo obrigatório!" }]}
                 >
                   <InputMaskCorrect
                     autoComplete="off"
-                    mask={'99999-999'}
-                    maskChar={''}
+                    mask={"99999-999"}
+                    maskChar={""}
                     maxLength={9}
                     onBlur={onCEP}
                   >
@@ -386,7 +390,7 @@ const Register = () => {
                 <Form.Item
                   label="Logradouro"
                   name="street"
-                  rules={[{ required: true, message: 'Campo obrigatório!' }]}
+                  rules={[{ required: true, message: "Campo obrigatório!" }]}
                 >
                   <Input disabled={loadCEP} placeholder="Logradouro" />
                 </Form.Item>
@@ -395,7 +399,7 @@ const Register = () => {
                 <Form.Item
                   label="Número"
                   name="number"
-                  rules={[{ required: true, message: 'Campo obrigatório!' }]}
+                  rules={[{ required: true, message: "Campo obrigatório!" }]}
                 >
                   <Input disabled={loadCEP} placeholder="Número" />
                 </Form.Item>
@@ -409,7 +413,7 @@ const Register = () => {
                 <Form.Item
                   label="Bairro"
                   name="district"
-                  rules={[{ required: true, message: 'Campo obrigatório!' }]}
+                  rules={[{ required: true, message: "Campo obrigatório!" }]}
                 >
                   <Input disabled={loadCEP} placeholder="Bairro" />
                 </Form.Item>
@@ -418,22 +422,22 @@ const Register = () => {
                 <Form.Item
                   label="Cidade - Estado"
                   name="city_id"
-                  rules={[{ required: true, message: 'Campo obrigatório!' }]}
+                  rules={[{ required: true, message: "Campo obrigatório!" }]}
                 >
                   <SelectSearch
-                    change={(v: any) => form.setFieldValue('city_id', v.value)}
+                    change={(v: any) => form.setFieldValue("city_id", v.value)}
                     disabled={loadCEP}
                     effect={city}
-                    labelField={['name', 'state.acronym']}
+                    labelField={["name", "state.acronym"]}
                     placeholder="Cidade"
                     url="/city"
-                    value={form.getFieldValue('city_id')}
+                    value={form.getFieldValue("city_id")}
                   />
                 </Form.Item>
               </Col>
             </Row>
           </Tabs.TabPane>
-          {doc === 'cnpj' && (
+          {doc === "cnpj" && (
             <Tabs.TabPane forceRender key={3} tab="Responsável">
               <Row className="card-register-fields" gutter={[8, 8]}>
                 <Col md={8} xs={24}>
@@ -448,13 +452,13 @@ const Register = () => {
                   >
                     <InputMaskCorrect
                       autoComplete="off"
-                      mask={'999.999.999-99'}
-                      maskChar={''}
+                      mask={"999.999.999-99"}
+                      maskChar={""}
                     >
                       {() => (
                         <Input
                           maxLength={14}
-                          placeholder={'Responsável - CPF'}
+                          placeholder={"Responsável - CPF"}
                         />
                       )}
                     </InputMaskCorrect>
@@ -499,8 +503,8 @@ const Register = () => {
                   >
                     <InputMaskCorrect
                       autoComplete="off"
-                      mask={'(99) 99999-9999'}
-                      maskChar={''}
+                      mask={"(99) 99999-9999"}
+                      maskChar={""}
                     >
                       {() => (
                         <Input
@@ -518,8 +522,8 @@ const Register = () => {
                   >
                     <InputMaskCorrect
                       autoComplete="off"
-                      mask={'(99) 9999-9999'}
-                      maskChar={''}
+                      mask={"(99) 9999-9999"}
+                      maskChar={""}
                     >
                       {() => (
                         <Input
@@ -533,31 +537,31 @@ const Register = () => {
               </Row>
             </Tabs.TabPane>
           )}
-          {type !== 'customer' && (
+          {type !== "customer" && (
             <Tabs.TabPane forceRender key={4} tab="Licença ambiental">
               <Row className="card-register-fields" gutter={[8, 8]}>
                 <Col md={20} xs={24}>
                   <Form.Item
                     label="Licença ambiental"
                     name="environmental_license"
-                    rules={[{ required: true, message: 'Campo obrigatório!' }]}
+                    rules={[{ required: true, message: "Campo obrigatório!" }]}
                   >
                     <Upload
                       accept="application/pdf"
                       action={getUPLOADAPI}
                       beforeUpload={(file) => {
-                        const isPDF = file.type === 'application/pdf';
+                        const isPDF = file.type === "application/pdf";
                         const isLt5M =
                           file.size / 1024 / 1024 < MAX_UPLOAD_FILE;
 
                         if (!isPDF) {
-                          message.error('Apenas arquivos PDF são permitidos.');
+                          message.error("Apenas arquivos PDF são permitidos.");
                           return Upload.LIST_IGNORE; // <- não envia
                         }
 
                         if (!isLt5M) {
                           message.error(
-                            'Tamanho do arquivo maior do que o permitido (5MB).'
+                            "Tamanho do arquivo maior do que o permitido (5MB)."
                           );
                           return Upload.LIST_IGNORE; // <- não envia
                         }
@@ -580,7 +584,7 @@ const Register = () => {
                   <Form.Item
                     label="Validade"
                     name="environmental_license_expiration"
-                    rules={[{ required: true, message: 'Campo obrigatório!' }]}
+                    rules={[{ required: true, message: "Campo obrigatório!" }]}
                   >
                     <Input placeholder="Validade" type="date" />
                   </Form.Item>
@@ -588,7 +592,7 @@ const Register = () => {
               </Row>
             </Tabs.TabPane>
           )}
-          {type === 'seller' && (
+          {(type === "seller" || type === "final_destination") && (
             <Tabs.TabPane forceRender key={5} tab="Conta corrente">
               <Row className="card-register-fields" gutter={[8, 8]}>
                 <Col
@@ -614,7 +618,7 @@ const Register = () => {
                         label="Pessoa"
                         name="person"
                         rules={[
-                          { required: true, message: 'Campo obrigatório!' },
+                          { required: true, message: "Campo obrigatório!" },
                         ]}
                       >
                         <Select onChange={setDocAccount} placeholder="Pessoa">
@@ -625,28 +629,28 @@ const Register = () => {
                     </Col>
                     <Col md={5} xs={24}>
                       <Form.Item
-                        label={docAccount === 'cpf' ? 'CPF' : 'CNPJ'}
+                        label={docAccount === "cpf" ? "CPF" : "CNPJ"}
                         name="owner_name"
                         rules={[
-                          { required: true, message: 'Campo obrigatório!' },
+                          { required: true, message: "Campo obrigatório!" },
                         ]}
                       >
                         <InputMaskCorrect
                           autoComplete="off"
                           mask={
-                            docAccount === 'cpf'
-                              ? '999.999.999-99'
-                              : '99.999.999/9999-99'
+                            docAccount === "cpf"
+                              ? "999.999.999-99"
+                              : "99.999.999/9999-99"
                           }
-                          maskChar={''}
+                          maskChar={""}
                         >
                           {() => (
                             <Input
-                              maxLength={docAccount === 'cpf' ? 14 : 18}
+                              maxLength={docAccount === "cpf" ? 14 : 18}
                               placeholder={
-                                docAccount === 'cpf'
-                                  ? 'Digite seu CPF'
-                                  : 'Digite seu CNPJ'
+                                docAccount === "cpf"
+                                  ? "Digite seu CPF"
+                                  : "Digite seu CNPJ"
                               }
                             />
                           )}
@@ -658,7 +662,7 @@ const Register = () => {
                         label="Titular"
                         name="owner_document"
                         rules={[
-                          { required: true, message: 'Campo obrigatório!' },
+                          { required: true, message: "Campo obrigatório!" },
                         ]}
                       >
                         <Input placeholder="Nome" type="text" />
@@ -667,20 +671,20 @@ const Register = () => {
                     <Col md={4} xs={24}>
                       <Form.Item
                         label={
-                          docAccount === 'cpf'
-                            ? 'Data nascimento'
-                            : 'Data abertura'
+                          docAccount === "cpf"
+                            ? "Data nascimento"
+                            : "Data abertura"
                         }
                         name="owner_birthdate"
                         rules={[
-                          { required: true, message: 'Campo obrigatório!' },
+                          { required: true, message: "Campo obrigatório!" },
                         ]}
                       >
                         <Input
                           placeholder={
-                            docAccount === 'cpf'
-                              ? 'Data nascimento'
-                              : 'Data abertura'
+                            docAccount === "cpf"
+                              ? "Data nascimento"
+                              : "Data abertura"
                           }
                           type="date"
                         />
@@ -688,21 +692,21 @@ const Register = () => {
                     </Col>
                     <Col md={24} xs={24}>
                       <Form.Item
-                        label={'Banco'}
+                        label={"Banco"}
                         name="bank_id"
                         rules={[
-                          { required: true, message: 'Campo obrigatório!' },
+                          { required: true, message: "Campo obrigatório!" },
                         ]}
                       >
                         <SelectSearch
                           change={(v: any) =>
-                            form.setFieldValue('bank_id', v.value)
+                            form.setFieldValue("bank_id", v.value)
                           }
                           effect={bank}
-                          labelField={['code', 'name']}
+                          labelField={["code", "name"]}
                           placeholder="Banco"
                           url="/bank"
-                          value={form.getFieldValue('bank_id')}
+                          value={form.getFieldValue("bank_id")}
                         />
                       </Form.Item>
                     </Col>
@@ -711,7 +715,7 @@ const Register = () => {
                         label="Tipo de conta"
                         name="account_type"
                         rules={[
-                          { required: true, message: 'Campo obrigatório!' },
+                          { required: true, message: "Campo obrigatório!" },
                         ]}
                       >
                         <Select placeholder="Tipo de conta">
@@ -735,7 +739,7 @@ const Register = () => {
                         label="Agência - número"
                         name="agency_number"
                         rules={[
-                          { required: true, message: 'Campo obrigatório!' },
+                          { required: true, message: "Campo obrigatório!" },
                         ]}
                       >
                         <Input placeholder="Agência - número" type="text" />
@@ -746,7 +750,7 @@ const Register = () => {
                         label="Agência - dígito"
                         name="agency_vd"
                         rules={[
-                          { required: true, message: 'Campo obrigatório!' },
+                          { required: true, message: "Campo obrigatório!" },
                         ]}
                       >
                         <Input placeholder="Agência - dígito" type="text" />
@@ -757,7 +761,7 @@ const Register = () => {
                         label="Conta - número"
                         name="account_number"
                         rules={[
-                          { required: true, message: 'Campo obrigatório!' },
+                          { required: true, message: "Campo obrigatório!" },
                         ]}
                       >
                         <Input placeholder="Conta - número" type="text" />
@@ -768,7 +772,7 @@ const Register = () => {
                         label="Conta - dígito"
                         name="account_vd"
                         rules={[
-                          { required: true, message: 'Campo obrigatório!' },
+                          { required: true, message: "Campo obrigatório!" },
                         ]}
                       >
                         <Input placeholder="Conta - dígito" type="text" />
@@ -780,10 +784,10 @@ const Register = () => {
             </Tabs.TabPane>
           )}
         </Tabs>
-        {((type === 'customer' && doc === 'cpf' && tabKey === 2) ||
-          (type === 'customer' && doc === 'cnpj' && tabKey === 3) ||
-          (type === 'seller' && tabKey === 5) ||
-          (type === 'final_destination' && tabKey === 4)) && (
+        {((type === "customer" && doc === "cpf" && tabKey === 2) ||
+          (type === "customer" && doc === "cnpj" && tabKey === 3) ||
+          (type === "seller" && tabKey === 5) ||
+          (type === "final_destination" && tabKey === 4)) && (
           <Button
             className="button-register"
             htmlType="submit"
@@ -793,10 +797,10 @@ const Register = () => {
             Criar conta
           </Button>
         )}
-        {((type === 'customer' && doc === 'cpf' && tabKey < 2) ||
-          (type === 'customer' && doc === 'cnpj' && tabKey < 3) ||
-          (type === 'seller' && tabKey < 5) ||
-          (type === 'final_destination' && tabKey < 4)) && (
+        {((type === "customer" && doc === "cpf" && tabKey < 2) ||
+          (type === "customer" && doc === "cnpj" && tabKey < 3) ||
+          (type === "seller" && tabKey < 5) ||
+          (type === "final_destination" && tabKey < 4)) && (
           <Button
             className="button-register"
             onClick={() => onChangeTab()}
@@ -809,7 +813,7 @@ const Register = () => {
           <Button
             className="button-register"
             onClick={() =>
-              setTabKey(tabKey === 4 && doc === 'cpf' ? tabKey - 2 : tabKey - 1)
+              setTabKey(tabKey === 4 && doc === "cpf" ? tabKey - 2 : tabKey - 1)
             }
             style={{ marginRight: 10 }}
             type="default"
@@ -831,8 +835,8 @@ const Register = () => {
           </Col>
           <Col span={24}>
             <div
-              className={`pd-register ${type === 'customer' ? 'active' : ''}`}
-              onClick={() => setType('customer')}
+              className={`pd-register ${type === "customer" ? "active" : ""}`}
+              onClick={() => setType("customer")}
               style={{ backgroundImage: `url(${customer})` }}
             >
               <div className="pd-register-pele" />
@@ -845,8 +849,8 @@ const Register = () => {
           </Col>
           <Col span={24}>
             <div
-              className={`pd-register ${type === 'seller' ? 'active' : ''}`}
-              onClick={() => setType('seller')}
+              className={`pd-register ${type === "seller" ? "active" : ""}`}
+              onClick={() => setType("seller")}
               style={{ backgroundImage: `url(${seller})` }}
             >
               <div className="pd-register-pele" />
@@ -859,8 +863,8 @@ const Register = () => {
           </Col>
           <Col span={24}>
             <div
-              className={`pd-register ${type === 'final_destination' ? 'active' : ''}`}
-              onClick={() => setType('final_destination')}
+              className={`pd-register ${type === "final_destination" ? "active" : ""}`}
+              onClick={() => setType("final_destination")}
               style={{ backgroundImage: `url(${finalDestination})` }}
             >
               <div className="pd-register-pele" />
@@ -870,10 +874,10 @@ const Register = () => {
             </div>
           </Col>
           <Col span={24}>
-            <Link to={'/login'}>
+            <Link to={"/login"}>
               <Button
                 className="button-register"
-                key={'loginback'}
+                key={"loginback"}
                 shape="round"
                 type="link"
               >
@@ -884,15 +888,15 @@ const Register = () => {
         </Row>
       </Col>
       <Col className="card-register-div" lg={18} xl={18}>
-        <div className={`card-register ${type ? '' : 'hide'}`}>
+        <div className={`card-register ${type ? "" : "hide"}`}>
           <FormTab />
         </div>
       </Col>
 
       <Drawer
         className="drawer-register"
-        height={'100vh'}
-        onClose={() => setType('')}
+        height={"100vh"}
+        onClose={() => setType("")}
         open={!!type}
         placement="bottom"
         title="Preencha seus dados"
@@ -909,14 +913,14 @@ const Register = () => {
       >
         <Typography className="title-termo">Termos de uso</Typography>
         <PdfViewerComponent fileUrl={termoData?.document} />
-        <Row gutter={[8, 8]} justify={'center'} style={{ marginTop: 10 }}>
+        <Row gutter={[8, 8]} justify={"center"} style={{ marginTop: 10 }}>
           <Col>
             <Button
               onClick={() =>
                 Modal.warning({
-                  title: 'Atenção!',
+                  title: "Atenção!",
                   content:
-                    'Aceitar os termos de uso é obrigatório para utilizar nossos serviços. Sem essa concordância, não será possível continuar.',
+                    "Aceitar os termos de uso é obrigatório para utilizar nossos serviços. Sem essa concordância, não será possível continuar.",
                 })
               }
               type="default"
@@ -932,7 +936,7 @@ const Register = () => {
                 const formatted = now
                   .toISOString()
                   .slice(0, 19)
-                  .replace('T', ' ');
+                  .replace("T", " ");
                 setTermoAceite(formatted);
                 setTimeout(() => {
                   onSend({ ...dadosEnviados, term_of_use_accept: formatted });
@@ -955,14 +959,14 @@ const Register = () => {
       >
         <Typography className="title-termo">Política de privacidade</Typography>
         <PdfViewerComponent fileUrl={politicaData?.document} />
-        <Row gutter={[8, 8]} justify={'center'} style={{ marginTop: 10 }}>
+        <Row gutter={[8, 8]} justify={"center"} style={{ marginTop: 10 }}>
           <Col>
             <Button
               onClick={() =>
                 Modal.warning({
-                  title: 'Atenção!',
+                  title: "Atenção!",
                   content:
-                    'Aceitar a política de privacidade é obrigatório para utilizar nossos serviços. Sem essa concordância, não será possível continuar.',
+                    "Aceitar a política de privacidade é obrigatório para utilizar nossos serviços. Sem essa concordância, não será possível continuar.",
                 })
               }
               type="default"
@@ -978,7 +982,7 @@ const Register = () => {
                 const formatted = now
                   .toISOString()
                   .slice(0, 19)
-                  .replace('T', ' ');
+                  .replace("T", " ");
                 setPoliticaAceite(formatted);
                 setTimeout(() => {
                   onSend({

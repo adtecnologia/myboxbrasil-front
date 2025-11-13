@@ -145,7 +145,7 @@ const ModalFiltros = ( { open, close, action = () => {}, disabled } : ModalFiltr
                                     <Col onClick={() => setOrder('PE')}><div className={`mf-bt-ordem ${ order === 'PE' ? 'active' : '' }`}><BsCurrencyDollar className="mf-ic-ordem"/></div><br/><Typography className={`mf-tx-ordem ${ order === 'PE' ? 'active' : '' }`}>Menor Preço</Typography></Col>
                                     <Col onClick={() => setOrder('PI')}><div className={`mf-bt-ordem ${ order === 'PI' ? 'active' : '' }`}><BsCurrencyDollar className="mf-ic-ordem"/></div><br/><Typography className={`mf-tx-ordem ${ order === 'PI' ? 'active' : '' }`}>Maior Preço</Typography></Col>
                                     {/* <Col onClick={() => setOrder('A')}><div className={`mf-bt-ordem ${ order === 'A' ? 'active' : '' }`}><BsStar className="mf-ic-ordem"/></div><br/><Typography className={`mf-tx-ordem ${ order === 'A' ? 'active' : '' }`}>Avaliação</Typography></Col> */}
-                                    <Col onClick={() => setOrder('D')}><div className={`mf-bt-ordem ${ order === 'D' ? 'active' : '' }`}><BsPinMap className="mf-ic-ordem"/></div><br/><Typography className={`mf-tx-ordem ${ order === 'D' ? 'active' : '' }`}>Menor Distância</Typography></Col>
+                                    {/*<Col onClick={() => setOrder('D')}><div className={`mf-bt-ordem ${ order === 'D' ? 'active' : '' }`}><BsPinMap className="mf-ic-ordem"/></div><br/><Typography className={`mf-tx-ordem ${ order === 'D' ? 'active' : '' }`}>Menor Distância</Typography></Col>*/}
                                 </Row>
                             </Col>
                             <Col span={24}>

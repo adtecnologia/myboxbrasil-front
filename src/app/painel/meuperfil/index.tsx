@@ -14,29 +14,28 @@ import {
   Tag,
   Typography,
   Upload,
-} from 'antd';
-import ImgCrop from 'antd-img-crop';
-import { useEffect, useState } from 'react';
-import { fromAddress } from 'react-geocode';
+} from "antd";
+import ImgCrop from "antd-img-crop";
+import { useEffect, useState } from "react";
 
 // components
-import CardItem from '../../../components/CardItem';
-import { InputMaskCorrect } from '../../../components/InputMask';
-import LoadItem from '../../../components/LoadItem';
-import PageDefault from '../../../components/PageDefault';
-import SelectSearch from '../../../components/SelectSearch';
+import CardItem from "../../../components/CardItem";
+import { InputMaskCorrect } from "../../../components/InputMask";
+import LoadItem from "../../../components/LoadItem";
+import PageDefault from "../../../components/PageDefault";
+import SelectSearch from "../../../components/SelectSearch";
 
 // css
-import './styles.css';
+import "./styles.css";
 
 // icons
 import {
   IoCameraOutline,
   IoIdCardOutline,
   IoLockOpenOutline,
-} from 'react-icons/io5';
-import { Link } from 'react-router-dom';
-import { MAX_UPLOAD_FILE } from '@/utils/max-file-upload';
+} from "react-icons/io5";
+import { Link } from "react-router-dom";
+import { MAX_UPLOAD_FILE } from "@/utils/max-file-upload";
 // services
 import {
   cleanData,
@@ -49,19 +48,19 @@ import {
   getUPLOADAPI,
   POST_API,
   POST_CATCH,
-} from '../../../services';
+} from "../../../services";
 
 const MyProfile = () => {
   // states
   const [user, setUser] = useState<any>(null);
-  const [doc, setDoc] = useState<string>('');
+  const [doc, setDoc] = useState<string>("");
   const [loadButton, setLoadButton] = useState<boolean>(false);
   const [loadPassButton, setLoadPassButton] = useState<boolean>(false);
   const [loadCEP, setLoadCEP] = useState(false);
   const [city, setCity] = useState<any>(null);
-  const [cityName, setCityName] = useState<any>('');
-  const [stateAcronym, setStateAcronym] = useState<any>('');
-  const [docAccount, setDocAccount] = useState<string>('cpf');
+  const [cityName, setCityName] = useState<any>("");
+  const [stateAcronym, setStateAcronym] = useState<any>("");
+  const [docAccount, setDocAccount] = useState<string>("cpf");
   const [deleteVisible, setDeleteVisible] = useState<boolean>(false);
   const [delete2Visible, setDelete2Visible] = useState<boolean>(false);
   const [deleteLoading, setDeleteLoading] = useState<boolean>(false);
@@ -74,14 +73,14 @@ const MyProfile = () => {
   // update photo
   const onChangePic = (value: any) => {
     if (value.file.response?.url) {
-      message.loading({ content: 'Atualizando foto', key: 'picture' });
-      POST_API('/me', { photo: value.file.response?.url })
+      message.loading({ content: "Atualizando foto", key: "picture" });
+      POST_API("/me", { photo: value.file.response?.url })
         .then((rs) => {
           if (rs.ok) {
             load();
-            message.success({ content: 'Foto atualizada', key: 'picture' });
+            message.success({ content: "Foto atualizada", key: "picture" });
           } else {
-            message.success({ content: 'Algo deu errado', key: 'picture' });
+            message.success({ content: "Algo deu errado", key: "picture" });
           }
         })
         .catch(POST_CATCH);
@@ -90,55 +89,56 @@ const MyProfile = () => {
 
   // update data
   const onSend = (values: any) => {
-    message.loading({ content: 'Atualizando dados', key: 'picture' });
+    message.loading({ content: "Atualizando dados", key: "picture" });
 
     if (
-      getProfileType() === 'CUSTOMER_EMPLOYEE' ||
-      getProfileType() === 'SELLER_EMPLOYEE' ||
-      getProfileType() === 'SELLER_DRIVER' ||
-      getProfileType() === 'ADMIN_EMPLOYEE' ||
-      getProfileType() === 'FINAL_DESTINATION_EMPLOYEE' ||
-      getProfileType() === 'CITY_EMPLOYEE' ||
-      getProfileType() === 'TAX'
+      getProfileType() === "CUSTOMER_EMPLOYEE" ||
+      getProfileType() === "SELLER_EMPLOYEE" ||
+      getProfileType() === "SELLER_DRIVER" ||
+      getProfileType() === "ADMIN_EMPLOYEE" ||
+      getProfileType() === "FINAL_DESTINATION_EMPLOYEE" ||
+      getProfileType() === "CITY_EMPLOYEE" ||
+      getProfileType() === "TAX"
     ) {
-      POST_API('/me', values)
+      POST_API("/me", values)
         .then((rs) => {
           if (rs.ok) {
             load();
-            message.success({ content: 'Dados atualizados', key: 'picture' });
+            message.success({ content: "Dados atualizados", key: "picture" });
           } else
-            message.success({ content: 'Algo deu errado', key: 'picture' });
+            message.success({ content: "Algo deu errado", key: "picture" });
         })
         .catch(POST_CATCH)
         .finally(() => setLoadButton(false));
     } else {
       const address = `${values?.zip_code} ${values?.street}, ${values?.number} - ${values?.district} - ${cityName} / ${stateAcronym}`;
-      fromAddress(address)
-        .then(({ results }) => {
+      GET_API(`/geocode?address=${address}`)
+        .then((rs) => rs.json())
+        .then((response) => {
+          const { lat, lng } = response;
           setLoadButton(true);
-          const { lat, lng } = results[0].geometry.location;
 
           values.latitude = lat;
           values.longitude = lng;
 
-          POST_API('/me', values)
+          POST_API("/me", values)
             .then((rs) => {
               if (rs.ok) {
                 load();
                 message.success({
-                  content: 'Dados atualizados',
-                  key: 'picture',
+                  content: "Dados atualizados",
+                  key: "picture",
                 });
               } else
-                message.success({ content: 'Algo deu errado', key: 'picture' });
+                message.success({ content: "Algo deu errado", key: "picture" });
             })
             .catch(POST_CATCH)
             .finally(() => setLoadButton(false));
         })
         .catch(() =>
           Modal.warning({
-            title: 'Algo deu errado',
-            content: 'Não foi possível encontrar endereço',
+            title: "Algo deu errado",
+            content: "Não foi possível encontrar endereço",
           })
         );
     }
@@ -154,15 +154,15 @@ const MyProfile = () => {
         if (rs.ok) {
           rs.json().then((res) => {
             Modal.success({
-              title: 'Sucesso',
-              content: 'Senha alterada com sucesso!',
+              title: "Sucesso",
+              content: "Senha alterada com sucesso!",
             });
             formPass.resetFields();
           });
         } else
           Modal.warning({
-            title: 'Algo deu errado',
-            content: 'Senha atual inválida!',
+            title: "Algo deu errado",
+            content: "Senha atual inválida!",
           });
       })
       .catch(POST_CATCH)
@@ -172,10 +172,10 @@ const MyProfile = () => {
   // load data
   const load = () => {
     setUser(null);
-    GET_API('/me')
+    GET_API("/me")
       .then((rs) => {
         if (rs.ok) return rs.json();
-        Modal.warning({ title: 'Algo deu errado', content: rs.statusText });
+        Modal.warning({ title: "Algo deu errado", content: rs.statusText });
       })
       .then((res) => {
         form.setFieldsValue(cleanData(res.data));
@@ -186,11 +186,11 @@ const MyProfile = () => {
         setDoc(res.data.document_type);
         setDocAccount(res.data.checking_account_person);
         if (res.data.address?.zip_code) {
-          form.setFieldValue('zip_code', res.data.address.zip_code);
-          form.setFieldValue('street', res.data.address.street);
-          form.setFieldValue('number', res.data.address.number);
-          form.setFieldValue('complement', res.data.address.complement);
-          form.setFieldValue('district', res.data.address.district);
+          form.setFieldValue("zip_code", res.data.address.zip_code);
+          form.setFieldValue("street", res.data.address.street);
+          form.setFieldValue("number", res.data.address.number);
+          form.setFieldValue("complement", res.data.address.complement);
+          form.setFieldValue("district", res.data.address.district);
           setCity({ ID: res.data.address.city.id });
           setStateAcronym(res.data.address.city.state.acronym);
           setCityName(res.data.address.city.name);
@@ -202,14 +202,14 @@ const MyProfile = () => {
   // load address
   const onCEP = () => {
     setLoadCEP(true);
-    GET_API(`/cep/${form.getFieldValue('zip_code')}`)
+    GET_API(`/cep/${form.getFieldValue("zip_code")}`)
       .then((rs) => {
         if (rs.ok) return rs.json();
-        Modal.warning({ title: 'Algo deu errado', content: rs.statusText });
+        Modal.warning({ title: "Algo deu errado", content: rs.statusText });
       })
       .then((res) => {
-        form.setFieldValue('street', res.logradouro);
-        form.setFieldValue('district', res.bairro);
+        form.setFieldValue("street", res.logradouro);
+        form.setFieldValue("district", res.bairro);
         setStateAcronym(res.uf);
         setCityName(res.localidade);
         setCity({ search: res.localidade, filters: { uf: res.uf } });
@@ -229,25 +229,25 @@ const MyProfile = () => {
 
   const onDeleteConfirm = () => {
     Modal.confirm({
-      title: 'Esse processo é irreversível!',
-      content: 'Tem certeza que deseja deletar sua conta permanentemente?',
+      title: "Esse processo é irreversível!",
+      content: "Tem certeza que deseja deletar sua conta permanentemente?",
       onCancel: () => null,
-      cancelText: 'Não',
-      okText: 'Sim, quero deletar minha conta',
+      cancelText: "Não",
+      okText: "Sim, quero deletar minha conta",
       onOk: () => formDelete.submit(),
     });
   };
 
   const onDelete = (values: any) => {
     setDeleteLoading(true);
-    POST_API('/delete-account', values)
+    POST_API("/delete-account", values)
       .then((rs) => {
         if (rs.ok) {
-          message.success('Conta deletada com sucesso.');
+          message.success("Conta deletada com sucesso.");
           delToken();
-          window.location.href = '/';
+          window.location.href = "/";
         } else {
-          Modal.warning({ title: 'Algo deu errado', content: rs.statusText });
+          Modal.warning({ title: "Algo deu errado", content: rs.statusText });
         }
       })
       .catch(POST_CATCH)
@@ -255,15 +255,15 @@ const MyProfile = () => {
   };
 
   return (
-    <PageDefault items={[{ title: 'Meu Perfil' }]} valid={true}>
+    <PageDefault items={[{ title: "Meu Perfil" }]} valid={true}>
       {user ? (
         <Row className="mp-row" gutter={[16, 16]}>
-          <Col className="mp-col" flex={'24em'}>
+          <Col className="mp-col" flex={"24em"}>
             <CardItem>
               <Row
-                align={'middle'}
-                justify={'center'}
-                style={{ flexDirection: 'column' }}
+                align={"middle"}
+                justify={"center"}
+                style={{ flexDirection: "column" }}
               >
                 <Col>
                   <Avatar className="mp-avatar" src={`${user.photo}`} />
@@ -280,20 +280,20 @@ const MyProfile = () => {
                       const isLt5M = file.size / 1024 / 1024 < MAX_UPLOAD_FILE;
 
                       const isValidImage =
-                        file.type === 'image/jpeg' ||
-                        file.type === 'image/jpg' ||
-                        file.type === 'image/png';
+                        file.type === "image/jpeg" ||
+                        file.type === "image/jpg" ||
+                        file.type === "image/png";
 
                       if (!isValidImage) {
                         message.error(
-                          'Apenas arquivos JPG, JPEG ou PNG são permitidos.'
+                          "Apenas arquivos JPG, JPEG ou PNG são permitidos."
                         );
                         return Upload.LIST_IGNORE;
                       }
 
                       if (!isLt5M) {
                         message.error(
-                          'Tamanho do arquivo maior do que o permitido (5MB).'
+                          "Tamanho do arquivo maior do que o permitido (5MB)."
                         );
                         return Upload.LIST_IGNORE; // <- não envia
                       }
@@ -324,34 +324,34 @@ const MyProfile = () => {
                 </Col>
               </Row>
             </CardItem>
-            <div style={{ marginTop: '1.2em' }} />
+            <div style={{ marginTop: "1.2em" }} />
             <CardItem title="Mudar senha">
               <Form form={formPass} layout="vertical" onFinish={onSendPass}>
                 <Form.Item
                   label="Senha Atual"
                   name="old_password"
-                  rules={[{ required: true, message: 'Campo obrigatório!' }]}
+                  rules={[{ required: true, message: "Campo obrigatório!" }]}
                 >
                   <Input.Password placeholder="Senha Atual" />
                 </Form.Item>
                 <Form.Item
                   label="Senha Nova"
                   name="password"
-                  rules={[{ required: true, message: 'Campo obrigatório!' }]}
+                  rules={[{ required: true, message: "Campo obrigatório!" }]}
                 >
                   <Input.Password placeholder="Senha Nova" />
                 </Form.Item>
                 <Button
                   htmlType="submit"
                   loading={loadPassButton}
-                  style={{ float: 'right', marginLeft: 6 }}
+                  style={{ float: "right", marginLeft: 6 }}
                   type="primary"
                 >
                   Alterar
                 </Button>
               </Form>
             </CardItem>
-            <div style={{ marginTop: '1.2em' }} />
+            <div style={{ marginTop: "1.2em" }} />
             <CardItem title="Deletar minha conta">
               <Button
                 block
@@ -362,7 +362,7 @@ const MyProfile = () => {
               </Button>
             </CardItem>
           </Col>
-          <Col flex={'auto'}>
+          <Col flex={"auto"}>
             <CardItem>
               <Form form={form} layout="vertical" onFinish={onSend}>
                 <Row gutter={[8, 8]}>
@@ -371,15 +371,15 @@ const MyProfile = () => {
                       label="Tipo Pessoa"
                       name="document_type"
                       rules={[
-                        { required: true, message: 'Campo obrigatório!' },
+                        { required: true, message: "Campo obrigatório!" },
                       ]}
                     >
                       <Radio.Group
                         disabled={true}
                         onChange={(e) => setDoc(e.target.value)}
                       >
-                        <Radio value={'cpf'}>Física</Radio>
-                        <Radio value={'cnpj'}>Jurídica</Radio>
+                        <Radio value={"cpf"}>Física</Radio>
+                        <Radio value={"cnpj"}>Jurídica</Radio>
                       </Radio.Group>
                     </Form.Item>
                   </Col>
@@ -388,43 +388,43 @@ const MyProfile = () => {
                       label="Login"
                       name="document_number"
                       rules={[
-                        { required: true, message: 'Campo obrigatório!' },
+                        { required: true, message: "Campo obrigatório!" },
                       ]}
                     >
                       <InputMaskCorrect
                         autoComplete="off"
                         disabled={true}
                         mask={
-                          doc === 'cpf'
-                            ? '999.999.999-99'
-                            : '99.999.999/9999-99'
+                          doc === "cpf"
+                            ? "999.999.999-99"
+                            : "99.999.999/9999-99"
                         }
-                        maskChar={''}
+                        maskChar={""}
                       >
                         {() => (
                           <Input
                             disabled={true}
-                            maxLength={doc === 'cpf' ? 14 : 18}
-                            placeholder={doc === 'cpf' ? 'CPF' : 'CNPJ'}
+                            maxLength={doc === "cpf" ? 14 : 18}
+                            placeholder={doc === "cpf" ? "CPF" : "CNPJ"}
                           />
                         )}
                       </InputMaskCorrect>
                     </Form.Item>
                   </Col>
-                  <Col md={doc === 'cnpj' ? 8 : 16} xs={24}>
+                  <Col md={doc === "cnpj" ? 8 : 16} xs={24}>
                     <Form.Item
-                      label={doc === 'cnpj' ? 'Razão Social' : 'Nome'}
+                      label={doc === "cnpj" ? "Razão Social" : "Nome"}
                       name="name"
                       rules={[
-                        { required: true, message: 'Campo obrigatório!' },
+                        { required: true, message: "Campo obrigatório!" },
                       ]}
                     >
                       <Input
-                        placeholder={doc === 'cnpj' ? 'Razão Social' : 'Nome'}
+                        placeholder={doc === "cnpj" ? "Razão Social" : "Nome"}
                       />
                     </Form.Item>
                   </Col>
-                  {doc === 'cnpj' ? (
+                  {doc === "cnpj" ? (
                     <Col md={8} xs={24}>
                       <Form.Item label="Nome Fantasia" name="fantasy_name">
                         <Input placeholder="Nome Fantasia" />
@@ -436,7 +436,7 @@ const MyProfile = () => {
                       label="E-mail Principal"
                       name="email"
                       rules={[
-                        { required: true, message: 'Campo obrigatório!' },
+                        { required: true, message: "Campo obrigatório!" },
                       ]}
                     >
                       <Input placeholder="E-mail Principal" type="email" />
@@ -452,13 +452,13 @@ const MyProfile = () => {
                       label="Celular"
                       name="secondary_phone"
                       rules={[
-                        { required: true, message: 'Campo obrigatório!' },
+                        { required: true, message: "Campo obrigatório!" },
                       ]}
                     >
                       <InputMaskCorrect
                         autoComplete="off"
-                        mask={'(99) 99999-9999'}
-                        maskChar={''}
+                        mask={"(99) 99999-9999"}
+                        maskChar={""}
                       >
                         {() => <Input maxLength={15} placeholder="Celular" />}
                       </InputMaskCorrect>
@@ -468,8 +468,8 @@ const MyProfile = () => {
                     <Form.Item label="Telefone" name="phone">
                       <InputMaskCorrect
                         autoComplete="off"
-                        mask={'(99) 9999-9999'}
-                        maskChar={''}
+                        mask={"(99) 9999-9999"}
+                        maskChar={""}
                       >
                         {() => <Input maxLength={14} placeholder="Telefone" />}
                       </InputMaskCorrect>
@@ -486,7 +486,7 @@ const MyProfile = () => {
                       />
                     </Form.Item>
                   </Col>
-                  {doc === 'cnpj' ? (
+                  {doc === "cnpj" ? (
                     <>
                       <Col md={8} xs={24}>
                         <Form.Item
@@ -503,13 +503,13 @@ const MyProfile = () => {
                         >
                           <InputMaskCorrect
                             autoComplete="off"
-                            mask={'999.999.999-99'}
-                            maskChar={''}
+                            mask={"999.999.999-99"}
+                            maskChar={""}
                           >
                             {() => (
                               <Input
                                 maxLength={14}
-                                placeholder={'Responsável - CPF'}
+                                placeholder={"Responsável - CPF"}
                               />
                             )}
                           </InputMaskCorrect>
@@ -554,8 +554,8 @@ const MyProfile = () => {
                         >
                           <InputMaskCorrect
                             autoComplete="off"
-                            mask={'(99) 9999-9999'}
-                            maskChar={''}
+                            mask={"(99) 9999-9999"}
+                            maskChar={""}
                           >
                             {() => (
                               <Input
@@ -573,8 +573,8 @@ const MyProfile = () => {
                         >
                           <InputMaskCorrect
                             autoComplete="off"
-                            mask={'(99) 99999-9999'}
-                            maskChar={''}
+                            mask={"(99) 99999-9999"}
+                            maskChar={""}
                           >
                             {() => (
                               <Input
@@ -587,26 +587,26 @@ const MyProfile = () => {
                       </Col>
                     </>
                   ) : null}
-                  {getProfileType() === 'CUSTOMER_EMPLOYEE' ||
-                  getProfileType() === 'SELLER_EMPLOYEE' ||
-                  getProfileType() === 'SELLER_DRIVER' ||
-                  getProfileType() === 'ADMIN_EMPLOYEE' ||
-                  getProfileType() === 'FINAL_DESTINATION_EMPLOYEE' ||
-                  getProfileType() === 'CITY_EMPLOYEE' ||
-                  getProfileType() === 'TAX' ? null : (
+                  {getProfileType() === "CUSTOMER_EMPLOYEE" ||
+                  getProfileType() === "SELLER_EMPLOYEE" ||
+                  getProfileType() === "SELLER_DRIVER" ||
+                  getProfileType() === "ADMIN_EMPLOYEE" ||
+                  getProfileType() === "FINAL_DESTINATION_EMPLOYEE" ||
+                  getProfileType() === "CITY_EMPLOYEE" ||
+                  getProfileType() === "TAX" ? null : (
                     <>
                       <Col md={3} xs={24}>
                         <Form.Item
                           label="CEP"
                           name="zip_code"
                           rules={[
-                            { required: true, message: 'Campo obrigatório!' },
+                            { required: true, message: "Campo obrigatório!" },
                           ]}
                         >
                           <InputMaskCorrect
                             autoComplete="off"
-                            mask={'99999-999'}
-                            maskChar={''}
+                            mask={"99999-999"}
+                            maskChar={""}
                             onBlur={onCEP}
                           >
                             {() => <Input maxLength={9} placeholder="CEP" />}
@@ -618,7 +618,7 @@ const MyProfile = () => {
                           label="Logradouro"
                           name="street"
                           rules={[
-                            { required: true, message: 'Campo obrigatório!' },
+                            { required: true, message: "Campo obrigatório!" },
                           ]}
                         >
                           <Input disabled={loadCEP} placeholder="Logradouro" />
@@ -629,7 +629,7 @@ const MyProfile = () => {
                           label="Número"
                           name="number"
                           rules={[
-                            { required: true, message: 'Campo obrigatório!' },
+                            { required: true, message: "Campo obrigatório!" },
                           ]}
                         >
                           <Input disabled={loadCEP} placeholder="Número" />
@@ -645,7 +645,7 @@ const MyProfile = () => {
                           label="Bairro"
                           name="district"
                           rules={[
-                            { required: true, message: 'Campo obrigatório!' },
+                            { required: true, message: "Campo obrigatório!" },
                           ]}
                         >
                           <Input disabled={loadCEP} placeholder="Bairro" />
@@ -656,19 +656,19 @@ const MyProfile = () => {
                           label="Cidade - Estado"
                           name="city_id"
                           rules={[
-                            { required: true, message: 'Campo obrigatório!' },
+                            { required: true, message: "Campo obrigatório!" },
                           ]}
                         >
                           <SelectSearch
                             change={(v: any) =>
-                              form.setFieldValue('city_id', v.value)
+                              form.setFieldValue("city_id", v.value)
                             }
                             disabled={loadCEP}
                             effect={city}
-                            labelField={['name', 'state.acronym']}
+                            labelField={["name", "state.acronym"]}
                             placeholder="Cidade"
                             url="/city"
-                            value={form.getFieldValue('city_id')}
+                            value={form.getFieldValue("city_id")}
                           />
                         </Form.Item>
                       </Col>
@@ -678,7 +678,7 @@ const MyProfile = () => {
                     <Button
                       htmlType="submit"
                       loading={loadButton}
-                      style={{ float: 'right', marginLeft: 6 }}
+                      style={{ float: "right", marginLeft: 6 }}
                       type="primary"
                     >
                       Salvar
@@ -709,14 +709,14 @@ const MyProfile = () => {
               conforme determina a Lei Geral de Proteção de Dados (LGPD).
             </Typography>
             <Typography style={{ marginBottom: 10 }}>
-              <strong>Atenção:</strong> a exclusão é definitiva e{' '}
+              <strong>Atenção:</strong> a exclusão é definitiva e{" "}
               <strong>não poderá ser desfeita</strong>.
             </Typography>
             <Link
               target="_blank"
               to="https://myboxbrasil.com/deletar-minha-conta"
             >
-              <Typography style={{ color: 'var(--color03)' }}>
+              <Typography style={{ color: "var(--color03)" }}>
                 Clique aqui para saber mais!
               </Typography>
             </Link>
@@ -732,8 +732,8 @@ const MyProfile = () => {
         open={delete2Visible}
         title="Para prosseguir, preencha seus dados de login"
       >
-        <Row gutter={[8, 8]} justify={'center'}>
-          <Col flex={'300px'}>
+        <Row gutter={[8, 8]} justify={"center"}>
+          <Col flex={"300px"}>
             <Form
               form={formDelete}
               layout="vertical"
@@ -741,21 +741,21 @@ const MyProfile = () => {
               style={{ marginTop: 20 }}
             >
               <Form.Item
-                label={doc === 'cpf' ? 'Seu CPF' : 'Seu CNPJ'}
+                label={doc === "cpf" ? "Seu CPF" : "Seu CNPJ"}
                 name="document_number"
-                rules={[{ required: true, message: 'Campo obrigatório!' }]}
+                rules={[{ required: true, message: "Campo obrigatório!" }]}
               >
                 <InputMaskCorrect
                   autoComplete="off"
-                  mask={doc === 'cpf' ? '999.999.999-99' : '99.999.999/9999-99'}
-                  maskChar={''}
+                  mask={doc === "cpf" ? "999.999.999-99" : "99.999.999/9999-99"}
+                  maskChar={""}
                 >
                   {() => (
                     <Input
                       addonBefore={<IoIdCardOutline />}
-                      maxLength={doc === 'cpf' ? 14 : 18}
+                      maxLength={doc === "cpf" ? 14 : 18}
                       placeholder={
-                        doc === 'cpf' ? 'Digite seu CPF' : 'Digite seu CNPJ'
+                        doc === "cpf" ? "Digite seu CPF" : "Digite seu CNPJ"
                       }
                       size="large"
                     />
@@ -765,7 +765,7 @@ const MyProfile = () => {
               <Form.Item
                 label="Sua senha"
                 name="password"
-                rules={[{ required: true, message: 'Campo obrigatório!' }]}
+                rules={[{ required: true, message: "Campo obrigatório!" }]}
               >
                 <Input.Password
                   addonBefore={<IoLockOpenOutline />}

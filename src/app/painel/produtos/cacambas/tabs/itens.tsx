@@ -1,6 +1,3 @@
-// BIBLIOTECAS REACT
-
-import { ExclamationCircleOutlined } from '@ant-design/icons';
 import { Button, Col, Form, Input, Modal, message, Row, Tag } from 'antd';
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
@@ -8,7 +5,6 @@ import { useParams } from 'react-router-dom';
 // COMPONENTES
 import Table from '../../../../../components/Table';
 import {
-  TableNewButton,
   TableTrEditButton,
   TableTrQrCodeButton,
   TableTrRecoverButton,
@@ -42,33 +38,6 @@ const StationaryBucketItensList = ({
   const [open, setOpen] = useState(false);
   const [load, setLoad] = useState(false);
 
-  const updateStationary = (item: any) => {
-    Modal.confirm({
-      title: "Mudar situação da caçamba para 'Disponível'?",
-      icon: <ExclamationCircleOutlined />,
-      cancelText: 'Não',
-      okText: 'Sim',
-      onOk() {
-        POST_API('/stationary_bucket', { status: 'D' }, item.id)
-          .then((rs) => {
-            if (rs.ok) {
-              setAction(!action);
-              Modal.success({
-                title: 'Sucesso',
-                content: 'Caçamba atualizada com sucesso',
-              });
-            } else {
-              Modal.warning({
-                title: 'Algo deu errado',
-                content: 'Não foi possível atualizar caçamba',
-              });
-            }
-          })
-          .catch(POST_CATCH);
-      },
-    });
-  };
-
   // DEFINE COLUNAS DA TABELA
   const column = [
     {
@@ -82,25 +51,41 @@ const StationaryBucketItensList = ({
       render: null,
     },
     {
-      title: 'Situação',
-      dataIndex: 'status_name',
-      table: 'status',
-      width: '200px',
+      title: 'Disponível?',
+      dataIndex: 'is_available',
+      table: 'is_available',
+      width: '140px',
       sorter: true,
       align: 'center',
       render: (item: any) => (
         <Row justify={'center'} style={{ width: '100%' }}>
           <Tag
-            color={item.status.color}
-            onClick={() =>
-              item.status.code === 'ML' ? updateStationary(item) : null
-            }
+            color={item.is_available.color}
             style={{
               margin: 0,
-              cursor: item.status.code === 'ML' ? 'pointer' : 'default',
             }}
           >
-            {item.status.name}
+            {item.is_available.name}
+          </Tag>
+        </Row>
+      ),
+    },
+    {
+      title: 'Em manutenção?',
+      dataIndex: 'is_under_maintenance',
+      table: 'is_under_maintenance',
+      width: '160px',
+      sorter: true,
+      align: 'center',
+      render: (item: any) => (
+        <Row justify={'center'} style={{ width: '100%' }}>
+          <Tag
+            color={item.is_under_maintenance.color}
+            style={{
+              margin: 0,
+            }}
+          >
+            {item.is_under_maintenance.name}
           </Tag>
         </Row>
       ),
@@ -198,15 +183,20 @@ const StationaryBucketItensList = ({
         useFilter={[
           {
             type: 'select',
-            name: 'status',
-            label: 'Situação',
+            name: 'isAvailable',
+            label: 'Disponível',
             items: [
-              { value: 'D', label: 'Disponível' },
-              { value: 'EP', label: 'Entrega pendente' },
-              { value: 'ETL', label: 'Em trânsito para locação' },
-              { value: 'L', label: 'Locada' },
-              { value: 'AR', label: 'Aguardando retirada' },
-              { value: 'ETR', label: 'Em trânsito para descarte' },
+              { value: 1, label: 'Sim' },
+              { value: 0, label: 'Não' },
+            ],
+          },
+          {
+            type: 'select',
+            name: 'isUnderMaintenance',
+            label: 'Em manutenção',
+            items: [
+              { value: 1, label: 'Sim' },
+              { value: 0, label: 'Não' },
             ],
           },
         ]}
