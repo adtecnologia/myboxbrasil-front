@@ -3,8 +3,8 @@ import { getProfileType } from "@/services";
 import type { MenuItemProps } from ".";
 
 const mySpentItems: MenuItemProps = {
-  key: "gastos",
-  label: "Meus gastos",
+  key: "despesas",
+  label: "Despesas",
   icon: <IoCashOutline />,
   disabled: !(
     getProfileType() === "CUSTOMER" ||
@@ -12,14 +12,14 @@ const mySpentItems: MenuItemProps = {
     getProfileType() === "CUSTOMER_EMPLOYEE"
   ),
   children: [
-    { key: "gastos&meusgastos", label: "Meus gastos", disabled: false },
+    { key: "despesas", label: "Despesas", disabled: false },
     {
-      key: "gastos&faturasabertas",
+      key: "despesas&faturasabertas",
       label: "Faturas em aberto",
       disabled: false,
     },
     {
-      key: "gastos&faturasfechadas",
+      key: "despesas&faturasfechadas",
       label: "Faturas em fechadas",
       disabled: false,
     },

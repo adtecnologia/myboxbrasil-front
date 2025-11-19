@@ -95,6 +95,8 @@ import OrdemLocacaoEntregaPendente from "./app/painel/ordenslocacao/entregapende
 import OrdemLocacaoLocada from "./app/painel/ordenslocacao/locada";
 import OrdemLocacaoMapa from "./app/painel/ordenslocacao/map";
 import StationaryBucketTabs from "./app/painel/produtos/cacambas/tabs";
+import EquipmentList from "./app/painel/produtos/equipamentos";
+import EquipmentTabs from "./app/painel/produtos/equipamentos/tabs";
 import RastreamentoPage from "./app/painel/rastreamento";
 import RelatorioCacambasColetadas from "./app/painel/relatorios/cacambas-coletadas";
 import RelatorioClasseDeResiduos from "./app/painel/relatorios/classe-de-residuos";
@@ -378,6 +380,18 @@ const RoutesStack = () => {
             element={<LoadItem title="Conteúdo ainda não disponível" />}
             path="produtos&empilhadeiras&cadastros"
           />
+          <Route element={<Outlet />} path="equipamentos">
+            <Route
+              element={
+                <EquipmentList path="equipment" permission="cmb" type="list" />
+              }
+              path=""
+            />
+            <Route
+              element={<EquipmentTabs path="" permission="cmb" type="add" />}
+              path="novo"
+            />
+          </Route>
           <Route element={<Outlet />} path="cacambas">
             <Route
               element={
@@ -970,9 +984,12 @@ const RoutesStack = () => {
             element={<RelatorioPerformanceMotoristas />}
             path="relatorios&performancemotoristas"
           />
-          <Route element={<MeusGastos />} path="gastos&meusgastos" />
-          <Route element={<FaturasAbertas />} path="gastos&faturasabertas" />
-          <Route element={<FaturasFechadas />} path="gastos&faturasfechadas" />
+          <Route element={<MeusGastos />} path="despesas" />
+          <Route element={<FaturasAbertas />} path="despesas&faturasabertas" />
+          <Route
+            element={<FaturasFechadas />}
+            path="despesas&faturasfechadas"
+          />
 
           <Route element={<Navigate to="/painel" />} path="*" />
         </Route>

@@ -55,26 +55,26 @@ const DashCustomer = ({ filters }: DashCustomerInterface) => {
       <Col lg={8} md={12} sm={12} xl={8} xs={24}>
         <CardKPISmall
           icon={<TbCalendarDollar className="card-kpi-small-icon" />}
-          title={`Gasto acumulado ${filters.filterMes.label}/${filters.filterAno.value}`}
+          title={`Despesa acumulado ${filters.filterMes.label}/${filters.filterAno.value}`}
           value={gastoMes}
         />
       </Col>
       <Col lg={8} md={12} sm={12} xl={8} xs={24}>
         <CardKPISmall
           icon={<TbMapPinDollar className="card-kpi-small-icon" />}
-          title={`Gasto acumulado ${filters.filterAno.value}`}
+          title={`Despesa acumulada ${filters.filterAno.value}`}
           value={gastoAno}
         />
       </Col>
       <Col lg={8} md={24} sm={24} xl={8} xs={24}>
         <CardKPISmall
           icon={<TbClockDollar className="card-kpi-small-icon" />}
-          title="Gasto acumulado total"
+          title="Despesa acumulada total"
           value={gastoTotal}
         />
       </Col>
       <Col md={24} xs={24}>
-        <CardItem title={`Gasto por mês / ${filters.filterAno.label}`}>
+        <CardItem title={`Despesa por mês / ${filters.filterAno.label}`}>
           <GraphPedidosCustomer filters={filters} height="20em" />
         </CardItem>
       </Col>

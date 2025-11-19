@@ -9,7 +9,7 @@ import { GET_API, POST_API, POST_CATCH } from "../../../services";
 
 const Period = () => {
   // state
-  const [value, setValue] = useState();
+  const [value, setValue] = useState<number>();
 
   // function save
   const onChange = (use_periodic_payment: number) => {
@@ -31,7 +31,7 @@ const Period = () => {
     GET_API("/me")
       .then((rs) => rs.json())
       .then((res) => {
-        setValue(res.data.use_periodic_payment);
+        setValue(Number(res.data.use_periodic_payment));
       })
       .catch(POST_CATCH);
   };
@@ -45,11 +45,12 @@ const Period = () => {
       <Row gutter={[12, 12]}>
         <Col flex={"auto"}>
           <Typography className="card-meta-title">
-            Aceitar pagamentos no boletão?
+            Aceitar agrupamento de pedidos?
           </Typography>
         </Col>
         <Col span={24}>
           <Row
+            align={"middle"}
             justify={"space-between"}
             style={{ flexWrap: "nowrap", width: "100%" }}
           >

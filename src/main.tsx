@@ -13,6 +13,7 @@ import "leaflet/dist/leaflet.css";
 
 import "react-credit-cards-2/dist/es/styles-compiled.css";
 import "react-leaflet-fullscreen/styles.css";
+import "react-draft-wysiwyg/dist/react-draft-wysiwyg.css";
 import React from "react";
 
 import App from "./App";

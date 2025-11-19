@@ -21,7 +21,6 @@ import CardItem from "@/components/CardItem";
 import CardKPISmall from "@/components/CardKPISmall";
 import PageDefault from "@/components/PageDefault";
 import Table from "@/components/Table";
-import { BillingTypeStatusEnum } from "@/enums/billing-type-enum";
 import { InvoicePaymentStatusEnum } from "@/enums/invoice-payment-status-enum";
 import { GET_API, POST_API, POST_CATCH } from "@/services";
 
@@ -261,21 +260,15 @@ const Financeiro = () => {
             </Tooltip>
           </Col>
 
-          {item.invoice.payment_status.code !==
-            InvoicePaymentStatusEnum.REFUNDED &&
-            item.invoice.payment_method.key ===
-              BillingTypeStatusEnum.CREDIT_CARD &&
-            item.invoice.anticipation_requested === 0 && (
-              <Col>
-                <Tooltip title="Pedir antecipação">
-                  <TbClock
-                    className="actions-button"
-                    onClick={() => onSimulateAntecipation(item)}
-                    size={18}
-                  />
-                </Tooltip>
-              </Col>
-            )}
+          <Col>
+            <Tooltip title="Pedir antecipação">
+              <TbClock
+                className="actions-button"
+                onClick={() => onSimulateAntecipation(item)}
+                size={18}
+              />
+            </Tooltip>
+          </Col>
         </Row>
       ),
     },

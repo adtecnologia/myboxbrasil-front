@@ -51,7 +51,7 @@ import html2canvas from "html2canvas";
 
 // INTERFACE
 interface TableButtonInterface {
-  type: "list" | "trash" | "add" | "edit";
+  type?: "list" | "trash" | "add" | "edit";
   permission: string | boolean;
   item?: any;
   path?: string;
@@ -68,6 +68,28 @@ export const TableNewButton = ({
   buttonStyles,
 }: TableButtonInterface) => {
   if (type === "list" && verifyConfig([`${permission}.add`])) {
+    return (
+      <Col>
+        <Link to={link || "novo"}>
+          <Button
+            className="page-default-button-primary"
+            size="small"
+            type={"primary"}
+          >
+            adicionar
+          </Button>
+        </Link>
+      </Col>
+    );
+  }
+  return null;
+};
+
+export const TableNewButtonNew = ({
+  permission,
+  link,
+}: TableButtonInterface) => {
+  if (verifyConfig([permission as string])) {
     return (
       <Col>
         <Link to={link || "novo"}>

@@ -40,7 +40,7 @@ export default function MeusGastos() {
     <PageDefault
       items={[
         {
-          title: "Meus gastos",
+          title: "Despesas",
         },
       ]}
       options={

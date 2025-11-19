@@ -26,12 +26,12 @@ const financialItems: MenuItemProps = {
     { key: "financeiro&transacoes", label: "Transações", disabled: false },
     { key: "financeiro&extrato", label: "Extrato", disabled: false },
     {
-      key: "gastos&faturasabertas",
+      key: "despesas&faturasabertas",
       label: "Faturas em aberto",
       disabled: false,
     },
     {
-      key: "gastos&faturasfechadas",
+      key: "despesas&faturasfechadas",
       label: "Faturas em fechadas",
       disabled: false,
     },
