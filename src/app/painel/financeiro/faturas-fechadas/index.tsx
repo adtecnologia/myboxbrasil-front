@@ -17,6 +17,7 @@ export default function FaturasFechadas() {
   const [action] = useState<boolean>(false);
   const [open, setOpen] = useState<boolean>(false);
   const [order, setOrder] = useState<any[]>([]);
+  const profileType = getProfileType();
 
   const isSeller =
     getProfileType() === "SELLER" ||
@@ -223,6 +224,24 @@ export default function FaturasFechadas() {
               defaultFilter={{ status: "closed" }}
               path={"invoices"}
               type={"list"}
+              useFilter={[
+                {
+                    type: "search",
+                    name: "clientId",
+                    label: "Cliente",
+                    url: "/client",
+                    labelField: ["id", "name"],
+                },
+                ...(profileType === 'ADMIN'
+                ? [{
+                    type: "search",
+                    name: "cityId",
+                    label: "Cidade",
+                    url: "/city",
+                    labelField: ["id", "name"],
+                    }]
+                : []),
+              ]}
             />
           </CardItem>
         </Col>

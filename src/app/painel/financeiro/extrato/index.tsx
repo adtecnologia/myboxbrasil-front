@@ -26,6 +26,7 @@ const Financeiro = ( ) => {
     const [ saldoBloqueado, setSaldoBloqueado ] = useState<number|string>(-1)
     const [ totalLiquido, setTotalLiquido ] = useState<number|string>(-1)
     
+    const profileType = getProfileType();
     const [ action, setAction ] = useState<boolean>(false)
     const [ modal, setModal ] = useState<boolean>(false)
     const [ antLoad, setAntLoad ] = useState<boolean>(false)
@@ -84,6 +85,22 @@ const Financeiro = ( ) => {
                             action={action}
                             sorterActive={{order: 'DESC', selectColumn: 'balance_operations.created_at'}}
                             useFilter={[
+                                {
+                                    type: "search",
+                                    name: "clientId",
+                                    label: "Cliente",
+                                    url: "/client",
+                                    labelField: ["id", "name"],
+                                },
+                                ...(profileType === 'ADMIN'
+                                ? [{
+                                    type: "search",
+                                    name: "cityId",
+                                    label: "Cidade",
+                                    url: "/city",
+                                    labelField: ["id", "name"],
+                                    }]
+                                : []),
                                 {
                                     type: "select",
                                     name: "operationType",

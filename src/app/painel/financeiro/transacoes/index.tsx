@@ -22,7 +22,7 @@ import CardKPISmall from "@/components/CardKPISmall";
 import PageDefault from "@/components/PageDefault";
 import Table from "@/components/Table";
 import { InvoicePaymentStatusEnum } from "@/enums/invoice-payment-status-enum";
-import { GET_API, POST_API, POST_CATCH } from "@/services";
+import { GET_API, getProfileType, POST_API, POST_CATCH } from "@/services";
 
 const Financeiro = () => {
   // state
@@ -31,6 +31,7 @@ const Financeiro = () => {
   const [saldoBloqueado, setSaldoBloqueado] = useState<number | string>(-1);
   const [totalLiquido, setTotalLiquido] = useState<number | string>(-1);
 
+  const profileType = getProfileType();
   const [action, setAction] = useState<boolean>(false);
   const [modal, setModal] = useState<boolean>(false);
   const [antLoad, setAntLoad] = useState<boolean>(false);
@@ -365,6 +366,15 @@ const Financeiro = () => {
                   url: "/client",
                   labelField: ["id", "name"],
                 },
+                ...(profileType === 'ADMIN'
+                  ? [{
+                      type: "search",
+                      name: "cityId",
+                      label: "Cidade",
+                      url: "/city",
+                      labelField: ["id", "name"],
+                    }]
+                  : []),
                 {
                   type: "select",
                   name: "paymentType",
