@@ -46,6 +46,7 @@ import {
   POST_CATCH,
   verifyConfig,
 } from "../../services";
+import AutorizarNotificacoesPush from "./autorizar-notificacoes-push";
 
 const Panel = () => {
   // router
@@ -290,6 +291,8 @@ const Panel = () => {
 
   return (
     <Row className="painel">
+      <AutorizarNotificacoesPush />
+
       <Context.Provider value={contextValue}>
         {" "}
         {contextHolder}{" "}

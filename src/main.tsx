@@ -38,6 +38,12 @@ window.Echo = new Echo({
   enabledTransports: ["ws", "wss"],
 });
 
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker
+    .register('/firebase-messaging-sw.js')
+    .catch(console.error);
+}
+
 // biome-ignore lint/style/noNonNullAssertion: ignorar
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

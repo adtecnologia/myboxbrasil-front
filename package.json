@@ -42,6 +42,7 @@
     "detect-url-change": "^1.0.2",
     "draftjs-to-html": "^0.9.1",
     "echarts": "^5.5.0",
+    "firebase": "^12.7.0",
     "html-react-parser": "^5.1.10",
     "html2canvas": "^1.4.1",
     "laravel-wave": "^0.8.1",
