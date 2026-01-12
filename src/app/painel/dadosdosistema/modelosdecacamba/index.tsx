@@ -112,6 +112,15 @@ const StationaryBucketModelList = ({
       render: null,
     },
     {
+      title: "Valor mínimo",
+      dataIndex: "minimum_value",
+      table: "minimum_value",
+      width: "120px",
+      sorter: true,
+      align: "center",
+      render: null,
+    },
+    {
       title: "Caçambas",
       dataIndex: "total",
       table: "total",
