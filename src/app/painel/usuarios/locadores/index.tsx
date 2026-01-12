@@ -46,7 +46,7 @@ const LandlordList = ({ type, path, permission }: PageDefaultProps) => {
     const value: any = window.document.getElementById(`user${user}`);
 
     Modal.confirm({
-      title: "Mudar valor da taxa apra esse usuário?",
+      title: "Mudar valor da taxa para esse usuário?",
       icon: <ExclamationCircleOutlined />,
       cancelText: "Não",
       okText: "Sim",

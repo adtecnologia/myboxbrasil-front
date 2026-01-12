@@ -1,7 +1,7 @@
 // react libraries
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Avatar, Col, Row } from "antd";
+import { Avatar, Col, Modal, Row, Tag } from "antd";
 
 // components
 import Table from "../../../../components/Table";
@@ -10,12 +10,33 @@ import PageDefault from "../../../../components/PageDefault";
 import { TableNewButton, TableReturnButton, TableTrEditButton, TableTrPassword, TableTrPhotoButton, TableTrRecoverButton, TableTrTrashButton, TableTrashButton } from "../../../../components/Table/buttons";
 
 // services
-import { getProfileType, PageDefaultProps } from "../../../../services";
+import { getProfileType, PageDefaultProps, POST_API, POST_CATCH } from "../../../../services";
 
 const TenantList = ({ type, path, permission }: PageDefaultProps) => {
 
   // states
   const [action, setAction] = useState<boolean>(false);
+
+  const onChange = (item: any, field: string) => {
+    Modal.confirm({
+      title: 'Atenção',
+      content: `Deseja alterar o valor para ${item[field] === 1 ? 'NÃO' : 'SIM'}?`,
+      okText: 'Sim',
+      cancelText: 'Não',
+      onOk: () => {
+        POST_API(`/${path}`, { [field]: item[field] === 1 ? 0 : 1 }, item.id)
+          .then((rs) => {
+            if (rs.ok) setAction(!action);
+            else
+              Modal.warning({
+                title: 'Algo deu errado',
+                content: rs.statusText,
+              });
+          })
+          .catch(POST_CATCH);
+      },
+    });
+  };
 
   // table columns
   const column = [
@@ -28,6 +49,32 @@ const TenantList = ({ type, path, permission }: PageDefaultProps) => {
     { title: "CPF/CNPJ", dataIndex: "document_number", table: "document_number", width: "200px", sorter: true, align: "center", render: null },
     { title: "Cidade", dataIndex: "address.city.name", table: "cities.name", width: "150px", sorter: true, align: "center", render: null },
     { title: "Estado", dataIndex: "address.city.state.name", table: "states.name", width: "100px", sorter: true, align: "center", render: null },
+    {
+      title: 'Boleto consolidado',
+      dataIndex: 'banking_consolidated',
+      table: 'banking_consolidated',
+      width: '200px',
+      sorter: true,
+      align: 'center',
+      render: (item: any) => (
+        <Row justify={'center'} style={{ width: '100%' }}>
+          <Tag
+            // color={item.banking_consolidated_color}
+            color='green'
+            onClick={() => onChange(item, 'banking_consolidated')}
+            style={{
+              margin: 0,
+              width: '100%',
+              textAlign: 'center',
+              cursor: 'pointer',
+            }}
+          >
+            Sim
+            {/* {item.banking_consolidated_name} */}
+          </Tag>
+        </Row>
+      ),
+    },
     { title: "Ações", dataIndex: null, width: "120px", hide: getProfileType() === 'CITY', sorter: false, align: "center", render: (item: any) => (
       <Row justify={"center"} style={{ width: "100%" }}>
         <TableTrPhotoButton type={type} permission={permission} item={item} action={() => setAction(!action)} />
