@@ -132,6 +132,7 @@ import CityhallList from "./app/painel/usuarios/prefeituras";
 import CityhallForm from "./app/painel/usuarios/prefeituras/form";
 import CityhallPopular from "./app/painel/usuarios/prefeituras/popular";
 import LoadItem from "./components/LoadItem";
+import ClientesEspeciais from "./app/painel/usuarios/locatarios/clientes-especiais";
 
 const RoutesStack = () => {
   return (
@@ -587,6 +588,12 @@ const RoutesStack = () => {
                 <TenantForm path="client" permission="lct" type="edit" />
               }
               path=":ID"
+            />
+            <Route
+              element={
+                <ClientesEspeciais path="stationary_bucket_type" permission="lct" type="edit" />
+              }
+              path=":ID/clientes-especiais"
             />
           </Route>
           {/* team */}

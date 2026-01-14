@@ -1,7 +1,7 @@
 // react libraries
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Avatar, Col, Modal, Row, Tag } from "antd";
+import { Avatar, Col, Modal, Popover, Row, Tag } from "antd";
 
 // components
 import Table from "../../../../components/Table";
@@ -11,6 +11,7 @@ import { TableNewButton, TableReturnButton, TableTrEditButton, TableTrPassword, 
 
 // services
 import { getProfileType, PageDefaultProps, POST_API, POST_CATCH } from "../../../../services";
+import { TbUser } from "react-icons/tb";
 
 const TenantList = ({ type, path, permission }: PageDefaultProps) => {
 
@@ -77,6 +78,13 @@ const TenantList = ({ type, path, permission }: PageDefaultProps) => {
     },
     { title: "Ações", dataIndex: null, width: "120px", hide: getProfileType() === 'CITY', sorter: false, align: "center", render: (item: any) => (
       <Row justify={"center"} style={{ width: "100%" }}>
+        <Col>
+          <Link to={`${item.id}/clientes-especiais`}>
+            <Popover content="Clientes especiais" trigger="hover">
+              <TbUser className="actions-button" size={18} />
+            </Popover>
+          </Link>
+        </Col>
         <TableTrPhotoButton type={type} permission={permission} item={item} action={() => setAction(!action)} />
         <TableTrEditButton type={type} permission={permission} item={item} />
         <TableTrTrashButton type={type} permission={permission} item={item} action={() => setAction(!action)} path="user" />
