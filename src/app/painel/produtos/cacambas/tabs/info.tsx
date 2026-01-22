@@ -48,6 +48,7 @@ const StationaryBucketForm = ({
   const [load, setLoad] = useState(true);
   const [loadButton, setLoadButton] = useState(false);
   const [model, setModel] = useState<any>(null);
+  const [modelSelect, setModelSelect] = useState<any>(null);
   const [typeLocal, setTypeLocal] = useState<string>("B");
   const [residue, setResidue] = useState<any>([]);
   const [residueSelect, setResidueSelect] = useState<any[]>([]);
@@ -55,6 +56,21 @@ const StationaryBucketForm = ({
 
   // CAMPOS FORMULARIO
   const [form] = Form.useForm();
+  const stationaryBucketTypeId = Form.useWatch(
+    "stationary_bucket_type_id",
+    form
+  );
+
+  useEffect(() => {
+    if (stationaryBucketTypeId) {
+      GET_API(`/stationary_bucket_type/${stationaryBucketTypeId}`)
+        .then((rs) => rs.json())
+        .then((res) => {
+          setModelSelect(res.data);
+        })
+        .catch(POST_CATCH);
+    }
+  }, [stationaryBucketTypeId]);
 
   // VERIFICA "NOVO" OU "EDITAR"
   useEffect(() => {
@@ -245,11 +261,20 @@ const StationaryBucketForm = ({
               <Form.Item
                 label="Preço Locação Externa"
                 name="price_external"
-                rules={[{ required: true, message: "Campo obrigatório!" }]}
+                rules={[
+                  {
+                    required: true,
+                    message: "Campo obrigatório!",
+                  },
+                  {
+                    min: modelSelect?.minimum_price || 1,
+                    message: `O valor mínimo é R$ ${modelSelect?.minimum_price || 1}`,
+                  },
+                ]}
               >
                 <InputNumber
                   addonBefore="R$"
-                  min={1}
+                  min={modelSelect?.minimum_price || 1}
                   placeholder="Preço Locação Externa"
                   step={"0.01"}
                   style={{ width: "100%" }}
@@ -278,11 +303,17 @@ const StationaryBucketForm = ({
               <Form.Item
                 label="Preço Locação Interna"
                 name="price_internal"
-                rules={[{ required: true, message: "Campo obrigatório!" }]}
+                rules={[
+                  { required: true, message: "Campo obrigatório!" },
+                  {
+                    min: modelSelect?.minimum_price || 1,
+                    message: `O valor mínimo é R$ ${modelSelect?.minimum_price || 1}`,
+                  },
+                ]}
               >
                 <InputNumber
                   addonBefore="R$"
-                  min={1}
+                  min={modelSelect?.minimum_price || 1}
                   placeholder="Preço Locação Interna"
                   step={"0.01"}
                   style={{ width: "100%" }}

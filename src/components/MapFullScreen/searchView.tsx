@@ -98,11 +98,9 @@ export function SearchView({
                 <b>Identificação:</b> {focus.product.code}
               </Typography>
               <Typography>
-                <b>Modelo:</b>{" "}
-                {
-                  focus.product.stationary_bucket_group.stationary_bucket_type
-                    .name
-                }
+                {focus.product.stationary_bucket_group &&
+                  `Modelo ${focus.product.stationary_bucket_group.stationary_bucket_type.name}`}
+                {focus.product.equipment && `${focus.product.equipment.name}`}
               </Typography>
               <hr />
               <Typography>

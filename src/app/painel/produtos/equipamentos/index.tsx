@@ -91,47 +91,35 @@ const EquipmentList = ({ type, path, permission }: PageDefaultProps) => {
     },
     {
       title: "Valores",
-      dataIndex: "price_external",
-      table: "price_external",
+      dataIndex: "rental_price_day",
+      table: "rental_price_day",
       width: "180px",
       sorter: false,
       align: "left",
       render: (item: any) => (
         <div style={{ width: "100%" }}>
           <Typography>
-            Loc. Externa:{" "}
+            Diária:{" "}
             <span style={{ color: "var(--color01)", float: "right" }}>
-              R$ {formatNumber(item.price_external)}
+              R$ {formatNumber(item.rental_price_day)}
             </span>
           </Typography>
           <Typography>
-            Loc. Interna:{" "}
+            Semanal:{" "}
             <span style={{ color: "var(--color01)", float: "right" }}>
-              R$ {formatNumber(item.price_internal)}
-            </span>
-          </Typography>
-        </div>
-      ),
-    },
-    {
-      title: "Detalhes",
-      dataIndex: "days_external",
-      table: "days_external",
-      width: "180px",
-      sorter: false,
-      align: "left",
-      render: (item: any) => (
-        <div style={{ width: "100%" }}>
-          <Typography>
-            Loc. Externa:{" "}
-            <span style={{ color: "var(--color01)", float: "right" }}>
-              Até {item.days_external} dias
+              R$ {formatNumber(item.rental_price_week)}
             </span>
           </Typography>
           <Typography>
-            Loc. Interna:{" "}
+            Quinzenal:{" "}
             <span style={{ color: "var(--color01)", float: "right" }}>
-              Até {item.days_internal} dias
+              R$ {formatNumber(item.rental_price_fortnight)}
+            </span>
+          </Typography>
+          <Typography>
+            Mensal:{" "}
+            <span style={{ color: "var(--color01)", float: "right" }}>
+              R$ {formatNumber(item.rental_price_month)}
             </span>
           </Typography>
         </div>
@@ -140,7 +128,7 @@ const EquipmentList = ({ type, path, permission }: PageDefaultProps) => {
     {
       title: "Disponíveis",
       dataIndex: "stock",
-      table: "stationary_bucket_group.stock",
+      table: "stock",
       width: "auto",
       minWidth: "140px",
       sorter: false,

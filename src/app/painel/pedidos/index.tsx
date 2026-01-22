@@ -96,7 +96,7 @@ const Order = ({ type, path, permission }: PageDefaultProps) => {
       ),
     },
     {
-      title: "Situação Caçambas",
+      title: "Situação",
       dataIndex: "STATUS_NAME",
       table: "order_location.STATUS",
       width: "300px",
@@ -109,7 +109,12 @@ const Order = ({ type, path, permission }: PageDefaultProps) => {
               className="cacamba-desc"
               style={{ textAlign: "center" }}
             >
-              <span>Modelo {item.product.stationary_bucket_type.name}</span>
+              {item.productable_group_type ===
+              "App\\Models\\StationaryBucketGroup" ? (
+                <span>Modelo {item.product.stationary_bucket_type.name}</span>
+              ) : (
+                <span>{item.product.name}</span>
+              )}
             </Typography>
           </Col>
           {item?.items.map((v: any) => (

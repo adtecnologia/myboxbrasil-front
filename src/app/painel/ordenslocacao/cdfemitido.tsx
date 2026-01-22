@@ -27,7 +27,6 @@ import {
   GET_API,
   getProfileType,
   type PageDefaultProps,
-  POST_API,
   POST_CATCH,
 } from "../../../services";
 
@@ -61,22 +60,6 @@ const OrdemLocacaoCDFEmitido = ({
   const onModalGallery = () => setModalGallery(!modalGallery);
 
   const [form] = Form.useForm();
-
-  const onProduct = (item: any) => {
-    onLoadMap();
-
-    var temp = productSelect;
-
-    if (temp.filter((v) => Number(v.id) === Number(item.id)).length > 0) {
-      temp.splice(temp.indexOf(item), 1);
-    } else {
-      temp.push(item);
-    }
-
-    setProductSelect(temp);
-
-    onLoadMap();
-  };
 
   // DEFINE COLUNAS DA TABELA
   const column = [
@@ -133,11 +116,11 @@ const OrdemLocacaoCDFEmitido = ({
       ),
     },
     {
-      title: "Código Caçamba",
+      title: "Código",
       dataIndex: "CODE",
       table: "stationary_bucket.CODE",
       width: "180px",
-      sorter: true,
+      sorter: false,
       align: "center",
       render: (item: any) => (
         <Row style={{ width: "100%" }}>
@@ -148,8 +131,9 @@ const OrdemLocacaoCDFEmitido = ({
             <Typography
               style={{ color: "var(--color02)", textAlign: "center" }}
             >
-              Modelo{" "}
-              {item.product.stationary_bucket_group.stationary_bucket_type.name}
+              {item.product.stationary_bucket_group &&
+                `Modelo ${item.product.stationary_bucket_group.stationary_bucket_type.name}`}
+              {item.product.equipment && `${item.product.equipment.name}`}
             </Typography>
           </Col>
         </Row>
@@ -263,36 +247,6 @@ const OrdemLocacaoCDFEmitido = ({
         setCoord([res.data[0].latitude, res.data[0].longitude]);
       })
       .catch(POST_CATCH);
-  };
-
-  const onSend = (values: any) => {
-    setLoadingButton(true);
-
-    values.type_destination = typeDestination;
-
-    try {
-      productSelect.forEach((item) => {
-        POST_API("/order_location_product", values, item.id)
-          .then((rs) => {
-            if (rs.ok) {
-            } else {
-              Modal.warning({
-                title: "Algo deu errado",
-                content: "Não foi possível agendar entrega",
-              });
-            }
-          })
-          .catch(POST_CATCH);
-      });
-
-      form.resetFields();
-      setProductSelect([]);
-      setAction(!action);
-    } catch (error) {
-      POST_CATCH();
-    } finally {
-      setLoadingButton(false);
-    }
   };
 
   useEffect(() => load(), []);
@@ -449,6 +403,7 @@ const OrdemLocacaoCDFEmitido = ({
               column={column}
               defaultFilter={{
                 status: OrderLocationProductStatusEnum.INVOICE_ISSUED,
+                productableType: "App\\Models\\StationaryBucket",
               }}
               getList={setProduct}
               path={"order_location_product"}

@@ -112,9 +112,9 @@ const StationaryBucketModelList = ({
       render: null,
     },
     {
-      title: "Valor mínimo",
-      dataIndex: "minimum_value",
-      table: "minimum_value",
+      title: "Preço mínimo",
+      dataIndex: "minimum_price",
+      table: "minimum_price",
       width: "120px",
       sorter: true,
       align: "center",

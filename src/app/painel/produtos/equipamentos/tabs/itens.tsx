@@ -1,33 +1,32 @@
-import { Button, Col, Form, Input, Modal, message, Row, Tag } from 'antd';
-import { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Button, Col, Form, Input, Modal, message, Row, Tag } from "antd";
+import { useState } from "react";
+import { useParams } from "react-router-dom";
 
 // COMPONENTES
-import Table from '../../../../../components/Table';
+import Table from "../../../../../components/Table";
 import {
-  TableTrEditButton,
   TableTrQrCodeButton,
   TableTrRecoverButton,
   TableTrTrashButton,
-} from '../../../../../components/Table/buttons';
+} from "../../../../../components/Table/buttons";
 // SERVIÇOS
 import {
   type PageDefaultProps,
   POST_API,
   POST_CATCH,
   verifyConfig,
-} from '../../../../../services';
+} from "../../../../../services";
 
-interface StationaryBucketItensListProps extends PageDefaultProps {
+interface EquipmentStockListProps extends PageDefaultProps {
   backTab: () => void;
 }
 
-const StationaryBucketItensList = ({
+const EquipmentStockList = ({
   type,
   path,
   permission,
   backTab,
-}: StationaryBucketItensListProps) => {
+}: EquipmentStockListProps) => {
   const [pageType, setPageType] = useState(type);
 
   // PARAMETROS
@@ -41,24 +40,24 @@ const StationaryBucketItensList = ({
   // DEFINE COLUNAS DA TABELA
   const column = [
     {
-      title: 'Código',
-      dataIndex: 'code',
-      table: 'code',
-      width: 'auto',
-      minWidth: '200px',
+      title: "Código",
+      dataIndex: "code",
+      table: "code",
+      width: "auto",
+      minWidth: "200px",
       sorter: true,
-      align: 'left',
+      align: "left",
       render: null,
     },
     {
-      title: 'Disponível?',
-      dataIndex: 'is_available',
-      table: 'is_available',
-      width: '140px',
+      title: "Disponível?",
+      dataIndex: "is_available",
+      table: "is_available",
+      width: "140px",
       sorter: true,
-      align: 'center',
+      align: "center",
       render: (item: any) => (
-        <Row justify={'center'} style={{ width: '100%' }}>
+        <Row justify={"center"} style={{ width: "100%" }}>
           <Tag
             color={item.is_available.color}
             style={{
@@ -71,14 +70,14 @@ const StationaryBucketItensList = ({
       ),
     },
     {
-      title: 'Em manutenção?',
-      dataIndex: 'is_under_maintenance',
-      table: 'is_under_maintenance',
-      width: '160px',
+      title: "Em manutenção?",
+      dataIndex: "is_under_maintenance",
+      table: "is_under_maintenance",
+      width: "160px",
       sorter: true,
-      align: 'center',
+      align: "center",
       render: (item: any) => (
-        <Row justify={'center'} style={{ width: '100%' }}>
+        <Row justify={"center"} style={{ width: "100%" }}>
           <Tag
             color={item.is_under_maintenance.color}
             style={{
@@ -91,20 +90,15 @@ const StationaryBucketItensList = ({
       ),
     },
     {
-      title: 'Ações',
+      title: "Ações",
       dataIndex: null,
-      width: '120px',
+      width: "120px",
       sorter: false,
-      align: 'center',
+      align: "center",
       render: (item: any) => (
-        <Row justify={'center'} style={{ width: '100%' }}>
+        <Row justify={"center"} style={{ width: "100%" }}>
           <TableTrQrCodeButton
             item={item}
-            permission={permission}
-            type={type}
-          />
-          <TableTrEditButton
-            item={{ id: `itens/${item.id}` }}
             permission={permission}
             type={type}
           />
@@ -131,15 +125,15 @@ const StationaryBucketItensList = ({
 
   const onSend = (values: any) => {
     setLoad(true);
-    values.stationary_bucket_group_id = ID;
-    POST_API(`/${path}/gerar`, values)
+    values.equipment_id = ID;
+    POST_API("/equipment_stock/gerar", values)
       .then((rs) => {
         if (rs.ok) {
-          message.success('Salvo com sucesso!');
+          message.success("Salvo com sucesso!");
           setAction(!action);
           setOpen(false);
         } else {
-          Modal.warning({ title: 'Algo deu errado', content: rs.statusText });
+          Modal.warning({ title: "Algo deu errado", content: rs.statusText });
         }
       })
       .catch(POST_CATCH)
@@ -148,7 +142,7 @@ const StationaryBucketItensList = ({
 
   return (
     <>
-      <Row gutter={[8, 8]} justify={'end'} style={{ marginBottom: '15px' }}>
+      <Row gutter={[8, 8]} justify={"end"} style={{ marginBottom: "15px" }}>
         <Col>
           <Button
             className="page-default-button-primary"
@@ -164,11 +158,11 @@ const StationaryBucketItensList = ({
           <Col>
             <Button
               className="page-default-button-primary"
-              onClick={() => setPageType(pageType === 'add' ? 'trash' : 'add')}
+              onClick={() => setPageType(pageType === "add" ? "trash" : "add")}
               size="small"
               type="primary"
             >
-              {pageType === 'add' ? 'lista' : 'lixeira'}
+              {pageType === "add" ? "lista" : "lixeira"}
             </Button>
           </Col>
         )}
@@ -178,25 +172,25 @@ const StationaryBucketItensList = ({
         action={action}
         column={column}
         defaultFilter={{ group_id: ID }}
-        path={path}
+        path={"equipment_stock"}
         type={pageType}
         useFilter={[
           {
-            type: 'select',
-            name: 'isAvailable',
-            label: 'Disponível',
+            type: "select",
+            name: "isAvailable",
+            label: "Disponível",
             items: [
-              { value: 1, label: 'Sim' },
-              { value: 0, label: 'Não' },
+              { value: 1, label: "Sim" },
+              { value: 0, label: "Não" },
             ],
           },
           {
-            type: 'select',
-            name: 'isUnderMaintenance',
-            label: 'Em manutenção',
+            type: "select",
+            name: "isUnderMaintenance",
+            label: "Em manutenção",
             items: [
-              { value: 1, label: 'Sim' },
-              { value: 0, label: 'Não' },
+              { value: 1, label: "Sim" },
+              { value: 0, label: "Não" },
             ],
           },
         ]}
@@ -204,7 +198,7 @@ const StationaryBucketItensList = ({
 
       <Button
         onClick={backTab}
-        style={{ float: 'right', marginTop: '25px' }}
+        style={{ float: "right", marginTop: "25px" }}
         type="default"
       >
         Voltar
@@ -223,15 +217,15 @@ const StationaryBucketItensList = ({
         <Form form={form} layout="vertical" onFinish={onSend}>
           <Form.Item
             label="Quantidade de códigos gerados"
-            name={'quantity'}
-            rules={[{ required: true, message: 'Campo obrigatório!' }]}
+            name={"quantity"}
+            rules={[{ required: true, message: "Campo obrigatório!" }]}
           >
             <Input placeholder="Quantidade de códigos gerados" type="number" />
           </Form.Item>
           <Form.Item
             label="Quantidade de caracteres por código"
-            name={'caracters'}
-            rules={[{ required: true, message: 'Campo obrigatório!' }]}
+            name={"caracters"}
+            rules={[{ required: true, message: "Campo obrigatório!" }]}
           >
             <Input
               placeholder="Quantidade de caracteres por código"
@@ -244,4 +238,4 @@ const StationaryBucketItensList = ({
   );
 };
 
-export default StationaryBucketItensList;
+export default EquipmentStockList;

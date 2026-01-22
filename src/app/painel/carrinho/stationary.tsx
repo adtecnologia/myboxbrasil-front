@@ -1,77 +1,53 @@
-/** biome-ignore-all lint/a11y/noNoninteractiveElementInteractions: ignorar */
-/** biome-ignore-all lint/complexity/noForEach: ignorar */
-/** biome-ignore-all lint/style/noNestedTernary: ignorar */
-/** biome-ignore-all lint/a11y/useKeyWithClickEvents: ignorar */
-/** biome-ignore-all lint/a11y/noStaticElementInteractions: ignorar */
+// BIBLIOTECAS REACT
 
+import { ExclamationCircleOutlined } from "@ant-design/icons";
 import {
   Col,
   Image,
   Input,
   List,
   Modal,
+  message,
   Row,
   Select,
   Switch,
   Typography,
 } from "antd";
 import { useEffect, useState } from "react";
-import {
-  Link,
-  useNavigate,
-  useParams,
-  useSearchParams,
-} from "react-router-dom";
+// ICONES
+import { FaMinus, FaPlus } from "react-icons/fa6";
+import { ThreeCircles } from "react-loader-spinner";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import CardItem from "../../../components/CardItem";
 import DrawerEndereco from "../../../components/DrawerEndereco";
 import LoadItem from "../../../components/LoadItem";
 // COMPONENTES
 import PageDefault from "../../../components/PageDefault";
-
+import { TableReturnButton } from "../../../components/Table/buttons";
 // SERVIÇOS
 import {
+  DELETE_API,
   GET_API,
   IMAGE_NOT_FOUND,
   POST_API,
   POST_CATCH,
-  verifyConfig,
 } from "../../../services";
 
-// CSS
-import "./style.css";
-
-// ICONES
-import { FaMinus, FaPlus } from "react-icons/fa6";
-import { ThreeCircles } from "react-loader-spinner";
-import { TableReturnButton } from "../../../components/Table/buttons";
-
-const PlaceOrderStationary = () => {
+const CarrinhoStationary = () => {
   // RESPONSAVEL PELA ROTA
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
 
-  const { ID } = useParams<{ ID: any }>();
-
-  useEffect(() => {
-    const valor = searchParams.get("tipoLocacao");
-    setTypeLocal(valor === "E" || valor === "I" ? valor : "");
-  }, []);
+  const { ID } = useParams();
 
   const [cacamba, setCacamba] = useState<any>(null);
   const [typeLocal, setTypeLocal] = useState<"E" | "I" | "">("");
   const [address, setAddress] = useState<any>(null);
   const [load, setLoad] = useState<boolean>(false);
+  const [cacambaLoading, setCacambaLoading] = useState<boolean>(true);
   const [image, setImage] = useState<any>(null);
 
-  useEffect(() => {
-    const residuos = searchParams.get("residuos").split(",");
-
-    cacamba?.residues.forEach((residue) => {
-      if (residuos.includes(residue.id.toString())) {
-        onResidue(null, residue, false);
-      }
-    });
-  }, [cacamba]);
+  const [edit, setEdit] = useState<boolean>(false);
+  const [compare, setCompare] = useState<number>(1);
 
   const [qtde, setQtde] = useState<number>(1);
   const [total, setTotal] = useState<number>(0);
@@ -81,15 +57,15 @@ const PlaceOrderStationary = () => {
 
   const [residueSelect, setResidueSelect] = useState<any[]>([]);
   const [residueNameSelect, setResidueNameSelect] = useState<any[]>([]);
-  const [residueBlockOthers, setResidueBlockOthers] = useState<boolean>(false);
-  const [residueBlockD, setResidueBlockD] = useState<boolean>(false);
-  const [residueBlockC, setResidueBlockC] = useState<boolean>(false);
+  const [residuBlockOthers, setResidueBlockOthers] = useState<boolean>(false);
+  const [residuBlockD, setResidueBlockD] = useState<boolean>(false);
+  const [residuBlockC, setResidueBlockC] = useState<boolean>(false);
   const [residueOpen, setResidueOpen] = useState<boolean>(false);
   const onResidueOpen = () => setResidueOpen(!residueOpen);
 
   // CARREGA ENDEREÇO ATIVO
   const loadAddress = () => {
-    GET_API("/address?active=1")
+    GET_API("/address?default=1")
       .then((rs) => rs.json())
       .then((res) => {
         if (res.data.length === 0) {
@@ -102,25 +78,36 @@ const PlaceOrderStationary = () => {
 
   // CARREGA MODELO
   const onView = () => {
-    GET_API(`/stationary_bucket_group/${ID}`)
+    setCacambaLoading(true);
+    setResidueSelect([]);
+    GET_API(`/cart_product/${ID}`)
       .then((rs) => {
         if (!rs.ok) {
           Modal.warning({ title: "Algo deu errado", content: rs.statusText });
         }
         return rs.json();
       })
-      .then((res) => {
-        setCacamba(res.data);
-        if (!(res.data.gallery.length > 0)) {
-          res.data.gallery = [{ url: IMAGE_NOT_FOUND }];
+      .then(async (res) => {
+        setAddress(res.data.address);
+        setTypeLocal(res.data.type_local);
+        setQtde(Number(res.data.quantity));
+        setEdit(true);
+        setCompare(0);
+        res.data.residues.map((residue: any) => {
+          onResidue(residue, false);
+        });
+        if (!(res.data.product.gallery.length > 0)) {
+          res.data.product.gallery = [{ url: IMAGE_NOT_FOUND }];
         }
-        setImage(res.data.gallery[0].url);
-      });
+        setImage(res.data.product.gallery[0].url);
+        setCacamba(res.data.product);
+      })
+      .finally(() => setCacambaLoading(false));
   };
 
-  const onResidue = (_: any, item: any, del = true) => {
-    const temp = residueSelect;
-    const name = residueNameSelect;
+  const onResidue = (item: any, del = true) => {
+    var temp = residueSelect;
+    var name = residueNameSelect;
     if (temp.includes(item.id)) {
       if (del) {
         temp.splice(temp.indexOf(item.id), 1);
@@ -136,60 +123,85 @@ const PlaceOrderStationary = () => {
   };
 
   const onAdd = () => {
-    if (
-      address === null ||
-      typeLocal === "" ||
-      residueSelect.length === 0 ||
-      load
-    ) {
-      return false;
-    }
+    if (qtde !== 0) {
+      if (
+        address === null ||
+        typeLocal === "" ||
+        residueSelect.length === 0 ||
+        load
+      )
+        return false;
 
-    setLoad(true);
-    POST_API("/cart_product", {
-      product_id: ID,
-      provider_id: cacamba.provider_id,
-      quantity: qtde,
-      days: typeLocal === "I" ? cacamba.days_internal : cacamba.days_external,
-      price:
-        cacamba?.customer_seller_minimum_price > 0
-          ? cacamba.customer_seller_minimum_price
-          : typeLocal === "I"
-            ? cacamba.price_internal
-            : cacamba.price_external,
-      address_id: address?.id,
-      type_local: typeLocal,
-      residues: residueSelect,
-      productable_type: "StationaryBucketGroup",
-    })
-      .then((rs) => {
-        if (rs.ok) {
-          navigate("/painel/carrinho");
-        } else {
-          Modal.warning({ title: "Algo deu errado", content: rs.statusText });
-        }
-      })
-      .catch(POST_CATCH)
-      .finally(() => setLoad(false));
+      setLoad(true);
+      POST_API(
+        "/cart_product",
+        {
+          quantity: qtde,
+          days:
+            typeLocal === "I" ? cacamba.days_internal : cacamba.days_external,
+          price:
+            cacamba?.customer_seller_minimum_price > 0
+              ? cacamba.customer_seller_minimum_price
+              : typeLocal === "I"
+                ? cacamba.price_internal
+                : cacamba.price_external,
+          address_id: address?.id,
+          type_local: typeLocal,
+          residues: residueSelect,
+        },
+        ID
+      )
+        .then((rs) => {
+          if (rs.ok) {
+            navigate("/painel/carrinho");
+          } else {
+            Modal.warning({ title: "Algo deu errado", content: rs.statusText });
+          }
+        })
+        .catch(POST_CATCH)
+        .finally(() => setLoad(false));
+    } else {
+      Modal.confirm({
+        title: "Remover item do carrinho?",
+        icon: <ExclamationCircleOutlined />,
+        cancelText: "Não",
+        okText: "Sim",
+        onOk() {
+          DELETE_API(`/cart_product/${ID}`)
+            .then((rs) => {
+              if (rs.ok) {
+                message.success({
+                  content: "Deletado com sucesso",
+                  key: "screen",
+                });
+                navigate("/painel/carrinho");
+              } else {
+                Modal.warning({
+                  title: "Algo deu errado",
+                  content: "Não foi possível deletar registro.",
+                });
+              }
+            })
+            .catch(POST_CATCH);
+        },
+      });
+    }
   };
 
   useEffect(() => onView(), [ID]);
   useEffect(() => loadAddress(), [ID]);
   useEffect(() => {
-    if (cacamba) {
-      if (cacamba?.customer_seller_minimum_price > 0) {
-        setTotal(qtde * Number(cacamba.customer_seller_minimum_price));
-      } else {
-        if (typeLocal === "I") {
-          setTotal(qtde * Number(cacamba.price_internal));
-        }
-        if (typeLocal === "E") {
-          setTotal(qtde * Number(cacamba.price_external));
-        }
+    if (cacamba?.customer_seller_minimum_price > 0) {
+      setTotal(qtde * Number(cacamba.customer_seller_minimum_price));
+    } else {
+      if (typeLocal === "I") {
+        setTotal(qtde * Number(cacamba.price_internal));
+      }
+      if (typeLocal === "E") {
+        setTotal(qtde * Number(cacamba.price_external));
       }
     }
-  }, [qtde, typeLocal, cacamba]);
-  // useEffect(onCart, [ID])
+  }, [qtde, typeLocal]);
 
   const onVerifyResidue = () => {
     setResidueBlockC(
@@ -219,7 +231,7 @@ const PlaceOrderStationary = () => {
   return (
     <PageDefault
       items={[
-        { title: <Link to="/painel/pedircacamba">Pedir Caçamba</Link> },
+        { title: <Link to="/painel/carrinho">Carrinho</Link> },
         { title: "Caçamba" },
       ]}
       options={
@@ -227,9 +239,9 @@ const PlaceOrderStationary = () => {
           <TableReturnButton permission={true} type={"edit"} />
         </Row>
       }
-      valid={verifyConfig(["pdd.add"])}
+      valid={true}
     >
-      {cacamba === null ? (
+      {cacambaLoading ? (
         <LoadItem />
       ) : (
         <Row gutter={[8, 8]}>
@@ -240,20 +252,13 @@ const PlaceOrderStationary = () => {
                   <Row gutter={[2, 2]}>
                     <Col span={4}>
                       <Row gutter={[2, 2]}>
-                        {cacamba.gallery.map((v: any) => (
-                          <Col key={v.id} span={24}>
+                        {cacamba.gallery.map((v: any, i: any) => (
+                          <Col key={i} span={24}>
                             <Image
                               onClick={() => setImage(v.url)}
                               preview={false}
                               src={v.url}
-                              style={{
-                                cursor: "pointer",
-                                borderRadius: "8px",
-                                border:
-                                  v.url === image
-                                    ? "3px solid var(--color02)"
-                                    : "none",
-                              }}
+                              style={{ cursor: "pointer", borderRadius: "8px" }}
                               width={"100%"}
                             />
                           </Col>
@@ -270,7 +275,14 @@ const PlaceOrderStationary = () => {
                   </Row>
                 </Col>
                 <Col md={13} xs={24}>
-                  <Typography className="card-cacamba-title">
+                  <Typography
+                    className="card-cacamba-title"
+                    onClick={() =>
+                      navigate(
+                        `/painel/pedircacamba/fornecedor/${cacamba.provider_id}`
+                      )
+                    }
+                  >
                     {String(cacamba.provider_name).toLocaleUpperCase()}
                   </Typography>
                   <Typography className="cacamba-name">
@@ -340,16 +352,12 @@ const PlaceOrderStationary = () => {
                         placeholder="Selecione um tipo de locação"
                         style={{ width: "100%" }}
                       >
-                        {cacamba.days_internal && (
-                          <Select.Option value={"I"}>
-                            Locação Interna | até {cacamba.days_internal} dias
-                          </Select.Option>
-                        )}
-                        {cacamba.days_external && (
-                          <Select.Option value={"E"}>
-                            Locação Externa | até {cacamba.days_external} dias
-                          </Select.Option>
-                        )}
+                        <Select.Option value={"I"}>
+                          Locação Interna | até {cacamba.days_internal} dias
+                        </Select.Option>
+                        <Select.Option value={"E"}>
+                          Locação Externa | até {cacamba.days_external} dias
+                        </Select.Option>
                       </Select>
                     </Col>
                   </Row>
@@ -398,21 +406,19 @@ const PlaceOrderStationary = () => {
                       bordered
                       dataSource={cacamba?.residues}
                       itemLayout="horizontal"
-                      locale={{ emptyText: "Nenhum resíduo encontrado" }}
                       renderItem={(item: any) => (
                         <List.Item
                           actions={[
                             <Switch
                               defaultChecked={residueSelect.includes(item.id)}
                               disabled={
-                                (item.name === "Classe C" && residueBlockC) ||
-                                (item.name === "Classe D" && residueBlockD) ||
+                                (item.name === "Classe C" && residuBlockC) ||
+                                (item.name === "Classe D" && residuBlockD) ||
                                 (item.name !== "Classe C" &&
                                   item.name !== "Classe D" &&
-                                  residueBlockOthers)
+                                  residuBlockOthers)
                               }
-                              key={item.id}
-                              onChange={(v) => onResidue(v, item)}
+                              onChange={(v) => onResidue(item)}
                             />,
                           ]}
                         >
@@ -426,7 +432,7 @@ const PlaceOrderStationary = () => {
                     />
                   </Modal>
 
-                  {cacamba.stock > 0 && (
+                  {cacamba.stock > 0 ? (
                     <Row
                       align={"middle"}
                       className="cacamba-footer"
@@ -436,8 +442,10 @@ const PlaceOrderStationary = () => {
                         <Row align={"middle"} gutter={[22, 22]} justify={"end"}>
                           <Col style={{ height: 14 }}>
                             <FaMinus
-                              className={`cacamba-plus ${qtde > 1 ? "" : "disabled"}`}
-                              onClick={() => setQtde(qtde > 1 ? qtde - 1 : 1)}
+                              className={`cacamba-plus ${qtde === compare ? "disabled" : ""}`}
+                              onClick={() =>
+                                setQtde(qtde === compare ? qtde : qtde - 1)
+                              }
                             />
                           </Col>
                           <Col>
@@ -459,7 +467,7 @@ const PlaceOrderStationary = () => {
                       </Col>
                       <Col md={12} xs={16}>
                         <div
-                          className={`carrinho-button ${address === null || typeLocal === "" || residueSelect.length === 0 ? "disabled" : ""}`}
+                          className={`carrinho-button ${(address === null || typeLocal === "" || residueSelect.length === 0) && qtde !== 0 ? "disabled" : ""}`}
                           onClick={onAdd}
                         >
                           <Typography className="carrinho-button-text">
@@ -472,17 +480,25 @@ const PlaceOrderStationary = () => {
                                 width="20"
                                 wrapperClass="grid-wrapper"
                               />
+                            ) : edit ? (
+                              qtde > 0 ? (
+                                "Atualizar"
+                              ) : (
+                                "Remover"
+                              )
                             ) : (
-                              "Confirmar pedido"
+                              "Adicionar"
                             )}
                           </Typography>
-                          <Typography className="carrinho-button-text">
-                            R$ {total.toFixed(2)}
-                          </Typography>
+                          {qtde !== 0 ? (
+                            <Typography className="carrinho-button-text">
+                              R$ {total.toFixed(2)}
+                            </Typography>
+                          ) : null}
                         </div>
                       </Col>
                     </Row>
-                  )}
+                  ) : null}
                 </Col>
               </Row>
             </CardItem>
@@ -500,4 +516,4 @@ const PlaceOrderStationary = () => {
   );
 };
 
-export default PlaceOrderStationary;
+export default CarrinhoStationary;

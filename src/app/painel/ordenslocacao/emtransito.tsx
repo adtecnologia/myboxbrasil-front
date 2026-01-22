@@ -88,11 +88,11 @@ const OrdemLocacaoEmTransito = ({
       ),
     },
     {
-      title: "Código Caçamba",
+      title: "Código",
       dataIndex: "CODE",
       table: "stationary_buckets.code",
       width: "180px",
-      sorter: true,
+      sorter: false,
       align: "center",
       render: (item: any) => (
         <Row style={{ width: "100%" }}>
@@ -103,8 +103,9 @@ const OrdemLocacaoEmTransito = ({
             <Typography
               style={{ color: "var(--color02)", textAlign: "center" }}
             >
-              Modelo{" "}
-              {item.product.stationary_bucket_group.stationary_bucket_type.name}
+              {item.product.stationary_bucket_group &&
+                `Modelo ${item.product.stationary_bucket_group.stationary_bucket_type.name}`}
+              {item.product.equipment && `${item.product.equipment.name}`}
             </Typography>
           </Col>
         </Row>

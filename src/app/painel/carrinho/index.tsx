@@ -21,6 +21,7 @@ import PageDefault from "../../../components/PageDefault";
 import { GET_API, POST_API } from "../../../services";
 import "./styles.css";
 import ButtonGroup from "antd/es/button/button-group";
+import CardEquipamento from "@/components/CardEquipamento";
 import { InputMaskCorrect } from "../../../components/InputMask";
 
 const Cart = () => {
@@ -258,14 +259,7 @@ const Cart = () => {
                         bordered
                         dataSource={products}
                         header={
-                          <Typography
-                            className="card-cacamba-title"
-                            onClick={() =>
-                              navigate(
-                                `/painel/pedirlocacao/fornecedor/${products[0].product.provider_name}`
-                              )
-                            }
-                          >
+                          <Typography className="card-cacamba-title">
                             <Avatar
                               className="card-cacamba-title-avt"
                               src={products[0].product.provider_photo}
@@ -275,9 +269,20 @@ const Cart = () => {
                             ).toLocaleUpperCase()}
                           </Typography>
                         }
-                        renderItem={(item) => (
-                          <CardCacamba item={item} type="cart" />
-                        )}
+                        renderItem={(item: any) => {
+                          if (
+                            item.productable_type ===
+                            "App\\Models\\StationaryBucketGroup"
+                          ) {
+                            return <CardCacamba item={item} type="cart" />;
+                          }
+                          if (
+                            item.productable_type === "App\\Models\\Equipment"
+                          ) {
+                            return <CardEquipamento item={item} type="cart" />;
+                          }
+                          return null;
+                        }}
                         size="small"
                       />
                     </Col>

@@ -130,11 +130,11 @@ const OrdemLocacaoLocada = ({ type, path, permission }: PageDefaultProps) => {
       ),
     },
     {
-      title: "Código Caçamba",
+      title: "Código",
       dataIndex: "CODE",
       table: "stationary_bucket.CODE",
       width: "180px",
-      sorter: true,
+      sorter: false,
       align: "center",
       render: (item: any) => (
         <Row style={{ width: "100%" }}>
@@ -145,8 +145,9 @@ const OrdemLocacaoLocada = ({ type, path, permission }: PageDefaultProps) => {
             <Typography
               style={{ color: "var(--color02)", textAlign: "center" }}
             >
-              Modelo{" "}
-              {item.product.stationary_bucket_group.stationary_bucket_type.name}
+              {item.product.stationary_bucket_group &&
+                `Modelo ${item.product.stationary_bucket_group.stationary_bucket_type.name}`}
+              {item.product.equipment && `${item.product.equipment.name}`}
             </Typography>
           </Col>
         </Row>
@@ -355,6 +356,11 @@ const OrdemLocacaoLocada = ({ type, path, permission }: PageDefaultProps) => {
       })
       .catch(POST_CATCH);
   };
+
+  // Verifica se algum item selecionado é um equipamento (não tem stationary_bucket_group)
+  const hasEquipmentSelected = productSelect.some(
+    (item) => !item.product.stationary_bucket_group && item.product.equipment
+  );
 
   const onSend = (values: any) => {
     setLoadingButton(true);
@@ -598,7 +604,8 @@ const OrdemLocacaoLocada = ({ type, path, permission }: PageDefaultProps) => {
                     value={form.getFieldValue("withdrawal_driver_id")}
                   />
                 </Form.Item>
-                {typeDestination === "go_to_the_final_destination" ? (
+                {typeDestination === "go_to_the_final_destination" &&
+                !hasEquipmentSelected ? (
                   <Form.Item
                     label="Destino final"
                     name="destination_id"

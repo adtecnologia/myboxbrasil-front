@@ -141,7 +141,9 @@ const MinhasRetiradas = ({ type, path, permission }: PageDefaultProps) => {
                 ? `Cliente: ${item.order_location.client.name}`
                 : item.status.code ===
                     OrderLocationProductStatusEnum.IN_TRANSIT_TO_FINAL_DESTINATION
-                  ? `Destino final: ${item.destination.name}`
+                  ? item.product.equipment
+                    ? `De volta ao locador: ${item.product.equipment.provider_name}`
+                    : `Destino final: ${item.destination.name}`
                   : "-"}
             </Typography>
             <Typography style={{ color: "var(--color02)" }}>
@@ -161,11 +163,11 @@ const MinhasRetiradas = ({ type, path, permission }: PageDefaultProps) => {
       ),
     },
     {
-      title: "Código Caçamba",
+      title: "Código",
       dataIndex: "CODE",
       table: "stationary_bucket.CODE",
       width: "180px",
-      sorter: true,
+      sorter: false,
       align: "center",
       render: (item: any) => (
         <Row style={{ width: "100%" }}>
@@ -176,8 +178,9 @@ const MinhasRetiradas = ({ type, path, permission }: PageDefaultProps) => {
             <Typography
               style={{ color: "var(--color02)", textAlign: "center" }}
             >
-              Modelo{" "}
-              {item.product.stationary_bucket_group.stationary_bucket_type.name}
+              {item.product.stationary_bucket_group &&
+                `Modelo ${item.product.stationary_bucket_group.stationary_bucket_type.name}`}
+              {item.product.equipment && `${item.product.equipment.name}`}
             </Typography>
           </Col>
         </Row>
@@ -299,9 +302,9 @@ const MinhasRetiradas = ({ type, path, permission }: PageDefaultProps) => {
             setTempProd(res.data[0]);
             onModal();
             onPhotoModal();
-            message.success({ content: "Caçamba selecionada", key: "09op" });
+            message.success({ content: "Item selecionado", key: "09op" });
           } else {
-            message.error({ content: "Caçamba não encontrada", key: "09op" });
+            message.error({ content: "Item não encontrado", key: "09op" });
           }
         })
         .catch(POST_CATCH);
@@ -309,7 +312,7 @@ const MinhasRetiradas = ({ type, path, permission }: PageDefaultProps) => {
       onModal();
       onPhotoModal();
     } else {
-      message.error({ content: "Caçamba inválida", key: "09op" });
+      message.error({ content: "Item inválido", key: "09op" });
     }
   };
 
@@ -324,9 +327,9 @@ const MinhasRetiradas = ({ type, path, permission }: PageDefaultProps) => {
             setTempProd(res.data[0]);
             onModal();
             onPhotoModal();
-            message.success({ content: "Caçamba selecionada", key: "09op" });
+            message.success({ content: "Item selecionado", key: "09op" });
           } else {
-            message.error({ content: "Caçamba não encontrada", key: "09op" });
+            message.error({ content: "Item não encontrado", key: "09op" });
           }
         })
         .catch(POST_CATCH);
@@ -334,7 +337,7 @@ const MinhasRetiradas = ({ type, path, permission }: PageDefaultProps) => {
       onModal();
       onPhotoModal();
     } else {
-      message.error({ content: "Caçamba inválida", key: "09op" });
+      message.error({ content: "Item inválido", key: "09op" });
     }
   };
 
@@ -392,6 +395,35 @@ const MinhasRetiradas = ({ type, path, permission }: PageDefaultProps) => {
     )
       .then((rs) => {
         if (rs.ok) {
+          // Se for equipamento, não precisa de MTR, apenas gallery
+          if (productSelect?.product?.equipment) {
+            fileList.forEach((item) => {
+              POST_API("/order_location_product_gallery", {
+                status: OrderLocationProductStatusEnum.AWAITING_PICKUP,
+                order_location_product_id: productSelect.id,
+                url: item.response.url,
+              }).then((rs) => {
+                if (!rs.ok) {
+                  Modal.warning({
+                    title: "Algo deu errado",
+                    content: "Não foi possível salvar imagem",
+                  });
+                  return;
+                }
+              });
+            });
+            onPhotoModal();
+            loadDelivery();
+            Modal.success({
+              title: "Sucesso",
+              content: "Equipamento foi retirado com sucesso",
+            });
+            setAction(!action);
+            setLoadingButton(false);
+            return;
+          }
+
+          // Para caçambas, continua com o MTR
           POST_API("/mtr", {
             order_location_product_id: productSelect.id,
             meters: totalValue,
@@ -468,12 +500,19 @@ const MinhasRetiradas = ({ type, path, permission }: PageDefaultProps) => {
     setLoadingButton(true);
     POST_API(
       "/order_location_product",
-      { status: OrderLocationProductStatusEnum.AWAITING_ANALISYS },
+      {
+        status: productSelect?.product?.equipment
+          ? OrderLocationProductStatusEnum.INVOICE_ISSUED
+          : OrderLocationProductStatusEnum.AWAITING_ANALISYS,
+      },
       productSelect.id
     )
       .then((rs) => {
         if (rs.ok) {
-          POST_API("/mtr", { status: "DELIVERED" }, productSelect.mtr.id);
+          // Se for caçamba, atualiza o MTR
+          if (!productSelect?.product?.equipment && productSelect?.mtr?.id) {
+            POST_API("/mtr", { status: "DELIVERED" }, productSelect.mtr.id);
+          }
           onPhotoModal();
           loadDelivery();
           Modal.success({ title: "Sucesso", content: "Processo finalizado" });
@@ -523,15 +562,15 @@ const MinhasRetiradas = ({ type, path, permission }: PageDefaultProps) => {
 
   useEffect(() => {
     setIsFull(
-      productSelect?.product.stationary_bucket_group.stationary_bucket_type
-        .m3 === totalValue
+      productSelect?.product?.stationary_bucket_group?.stationary_bucket_type
+        ?.m3 === totalValue
     );
   }, [totalValue]);
 
   useEffect(() => {
     if (
       isFull &&
-      productSelect?.product.stationary_bucket_group.stationary_bucket_type
+      productSelect?.product?.stationary_bucket_group?.stationary_bucket_type
         .m3 !== totalValue
     ) {
       setTotalValue(
@@ -780,7 +819,9 @@ const MinhasRetiradas = ({ type, path, permission }: PageDefaultProps) => {
                           : v.status.code ===
                               OrderLocationProductStatusEnum.IN_TRANSIT_TO_PICKUP
                             ? " - A caminho"
-                            : " - Retirada concluida, a caminho do destino final"}
+                            : v.product.equipment
+                              ? " - Retirada concluida, a caminho do locador"
+                              : " - Retirada concluida, a caminho do destino final"}
                       </Typography>
                       {typeLoad ===
                       OrderLocationProductStatusEnum.AWAITING_PICKUP ? (
@@ -864,9 +905,9 @@ const MinhasRetiradas = ({ type, path, permission }: PageDefaultProps) => {
           >
             <Scanner onScan={reader} styles={{ container: { height: 472 } }} />
             <Input.Search
-              enterButton="Procurar caçamba"
+              enterButton="Procurar código"
               onSearch={readerWrite}
-              placeholder="Pesquisar código caçamba"
+              placeholder="Pesquisar código"
               size="large"
               style={{ marginTop: 10 }}
             />
@@ -880,7 +921,7 @@ const MinhasRetiradas = ({ type, path, permission }: PageDefaultProps) => {
             >
               {" "}
               {typeLoad === OrderLocationProductStatusEnum.AWAITING_PICKUP
-                ? `${product.length} caçamba(s) selecionado(s)`
+                ? `${product.length} item(s) selecionado(s)`
                 : `Confirmar retirada de ${productSelect?.product.code}`}
             </Typography>
           </Modal>
@@ -953,10 +994,16 @@ const MinhasRetiradas = ({ type, path, permission }: PageDefaultProps) => {
                       <Button
                         block
                         disabled={!(fileList.length > 0)}
-                        onClick={() => setTabProduct("2")}
+                        onClick={() =>
+                          productSelect?.product?.equipment
+                            ? onFinish()
+                            : setTabProduct("2")
+                        }
                         type="primary"
                       >
-                        Continuar
+                        {productSelect?.product?.equipment
+                          ? "Finalizar"
+                          : "Continuar"}
                       </Button>
                     </Col>
                   </Row>
@@ -982,8 +1029,8 @@ const MinhasRetiradas = ({ type, path, permission }: PageDefaultProps) => {
                               </Typography>
                             }
                             max={
-                              productSelect?.product.stationary_bucket_group
-                                .stationary_bucket_type.m3
+                              productSelect?.product?.stationary_bucket_group
+                                ?.stationary_bucket_type?.m3
                             }
                             onChange={(v) =>
                               setClassValue({
@@ -1010,8 +1057,8 @@ const MinhasRetiradas = ({ type, path, permission }: PageDefaultProps) => {
                         }
                         className="p-inputnumber"
                         max={
-                          productSelect?.product.stationary_bucket_group
-                            .stationary_bucket_type.m3
+                          productSelect?.product?.stationary_bucket_group
+                            ?.stationary_bucket_type?.m3
                         }
                         onChange={(v) => setTotalValue(v)}
                         placeholder="Valor obrigatório"

@@ -1,16 +1,20 @@
-// BIBLIOTECAS REACT
+/** biome-ignore-all lint/a11y/noNoninteractiveElementInteractions: ignorar */
+/** biome-ignore-all lint/complexity/noForEach: ignorar */
+/** biome-ignore-all lint/style/noNestedTernary: ignorar */
+/** biome-ignore-all lint/a11y/useKeyWithClickEvents: ignorar */
+/** biome-ignore-all lint/a11y/noStaticElementInteractions: ignorar */
 
 import { ExclamationCircleOutlined } from "@ant-design/icons";
 import {
+  Card,
   Col,
   Image,
   Input,
-  List,
   Modal,
   message,
   Row,
   Select,
-  Switch,
+  Tabs,
   Typography,
 } from "antd";
 import { useEffect, useState } from "react";
@@ -33,17 +37,17 @@ import {
   POST_CATCH,
 } from "../../../services";
 
-const CarrinhoView = () => {
+const CarrinhoEquipment = () => {
   // RESPONSAVEL PELA ROTA
   const navigate = useNavigate();
 
   const { ID } = useParams();
 
-  const [cacamba, setCacamba] = useState<any>(null);
-  const [typeLocal, setTypeLocal] = useState<"E" | "I" | "">("");
+  const [equipamento, setEquipamento] = useState<any>(null);
+  const [type, setType] = useState<any>(null);
   const [address, setAddress] = useState<any>(null);
   const [load, setLoad] = useState<boolean>(false);
-  const [cacambaLoading, setCacambaLoading] = useState<boolean>(true);
+  const [equipamentoLoading, setEquipamentoLoading] = useState<boolean>(true);
   const [image, setImage] = useState<any>(null);
 
   const [edit, setEdit] = useState<boolean>(false);
@@ -54,14 +58,6 @@ const CarrinhoView = () => {
 
   const [open, setOpen] = useState<boolean>(false);
   const onOpen = () => setOpen(!open);
-
-  const [residueSelect, setResidueSelect] = useState<any[]>([]);
-  const [residueNameSelect, setResidueNameSelect] = useState<any[]>([]);
-  const [residuBlockOthers, setResidueBlockOthers] = useState<boolean>(false);
-  const [residuBlockD, setResidueBlockD] = useState<boolean>(false);
-  const [residuBlockC, setResidueBlockC] = useState<boolean>(false);
-  const [residueOpen, setResidueOpen] = useState<boolean>(false);
-  const onResidueOpen = () => setResidueOpen(!residueOpen);
 
   // CARREGA ENDEREÇO ATIVO
   const loadAddress = () => {
@@ -78,9 +74,7 @@ const CarrinhoView = () => {
 
   // CARREGA MODELO
   const onView = () => {
-    setCacambaLoading(true);
-    setResidueSelect([]);
-    setResidueNameSelect([]);
+    setEquipamentoLoading(true);
     GET_API(`/cart_product/${ID}`)
       .then((rs) => {
         if (!rs.ok) {
@@ -88,61 +82,67 @@ const CarrinhoView = () => {
         }
         return rs.json();
       })
-      .then(async (res) => {
+      .then((res) => {
         setAddress(res.data.address);
-        setTypeLocal(res.data.type_local);
+        setType(res.data.type_local);
         setQtde(Number(res.data.quantity));
         setEdit(true);
         setCompare(0);
-        res.data.residues.map((residue: any) => {
-          onResidue(residue);
-        });
         if (!(res.data.product.gallery.length > 0)) {
           res.data.product.gallery = [{ url: IMAGE_NOT_FOUND }];
         }
         setImage(res.data.product.gallery[0].url);
-        setCacamba(res.data.product);
+        setEquipamento(res.data.product);
       })
-      .finally(() => setCacambaLoading(false));
+      .finally(() => setEquipamentoLoading(false));
   };
 
-  const onResidue = (item: any) => {
-    var temp = residueSelect;
-    var name = residueNameSelect;
-    if (temp.includes(item.id)) {
-      temp.splice(temp.indexOf(item.id), 1);
-      name.splice(name.indexOf(item.name), 1);
-    } else {
-      temp.push(item.id);
-      name.push(item.name);
+  const getDays = () => {
+    if (type === "day") {
+      return 1;
     }
-    setResidueSelect(temp);
-    setResidueNameSelect(name);
-    onVerifyResidue();
+    if (type === "week") {
+      return 7;
+    }
+    if (type === "fortnight") {
+      return 15;
+    }
+    if (type === "month") {
+      return 30;
+    }
+    return 0;
+  };
+  const getPrice = () => {
+    if (type === "day") {
+      return equipamento.rental_price_day;
+    }
+    if (type === "week") {
+      return equipamento.rental_price_week;
+    }
+    if (type === "fortnight") {
+      return equipamento.rental_price_fortnight;
+    }
+    if (type === "month") {
+      return equipamento.rental_price_month;
+    }
+    return 0;
   };
 
   const onAdd = () => {
     if (qtde !== 0) {
-      if (
-        address === null ||
-        typeLocal === "" ||
-        residueSelect.length === 0 ||
-        load
-      )
+      if (address === null || type === null || load) {
         return false;
+      }
 
       setLoad(true);
       POST_API(
         "/cart_product",
         {
           quantity: qtde,
-          days:
-            typeLocal === "I" ? cacamba.days_internal : cacamba.days_external,
-          price:
-            typeLocal === "I" ? cacamba.price_internal : cacamba.price_external,
+          days: getDays(),
+          price: getPrice(),
           address_id: address?.id,
-          type_local: typeLocal,
-          residues: residueSelect,
+          type_local: type,
         },
         ID
       )
@@ -183,43 +183,35 @@ const CarrinhoView = () => {
     }
   };
 
+  // biome-ignore lint/correctness/noNestedComponentDefinitions: ignorar
+  const RenderHtml = ({ content }: { content: string }) => (
+    // biome-ignore lint/security/noDangerouslySetInnerHtml: ignorar
+    <div dangerouslySetInnerHTML={{ __html: content }} />
+  );
+
   useEffect(() => onView(), [ID]);
   useEffect(() => loadAddress(), [ID]);
   useEffect(() => {
-    if (typeLocal === "I") setTotal(qtde * Number(cacamba.price_internal));
-    if (typeLocal === "E") setTotal(qtde * Number(cacamba.price_external));
-  }, [qtde, typeLocal]);
-
-  const onVerifyResidue = () => {
-    setResidueBlockC(
-      residueNameSelect.includes("Classe A1") ||
-        residueNameSelect.includes("Classe A2") ||
-        residueNameSelect.includes("Classe A3") ||
-        residueNameSelect.includes("Classe B") ||
-        residueNameSelect.includes("Classe D")
-    );
-    setResidueBlockD(
-      residueNameSelect.includes("Classe A1") ||
-        residueNameSelect.includes("Classe A2") ||
-        residueNameSelect.includes("Classe A3") ||
-        residueNameSelect.includes("Classe B") ||
-        residueNameSelect.includes("Classe C")
-    );
-    setResidueBlockOthers(
-      residueNameSelect.includes("Classe C") ||
-        residueNameSelect.includes("Classe D")
-    );
-  };
-
-  useEffect(() => {
-    onVerifyResidue();
-  }, [residueSelect, residueNameSelect]);
+    if (equipamento) {
+      if (type === "day") {
+        setTotal(qtde * Number(equipamento.rental_price_day));
+      } else if (type === "week") {
+        setTotal(qtde * Number(equipamento.rental_price_week));
+      } else if (type === "fortnight") {
+        setTotal(qtde * Number(equipamento.rental_price_fortnight));
+      } else if (type === "month") {
+        setTotal(qtde * Number(equipamento.rental_price_month));
+      } else {
+        setTotal(0);
+      }
+    }
+  }, [qtde, type]);
 
   return (
     <PageDefault
       items={[
         { title: <Link to="/painel/carrinho">Carrinho</Link> },
-        { title: "Caçamba" },
+        { title: "Equipamento" },
       ]}
       options={
         <Row gutter={[8, 8]} justify={"end"}>
@@ -228,7 +220,7 @@ const CarrinhoView = () => {
       }
       valid={true}
     >
-      {cacambaLoading ? (
+      {equipamentoLoading ? (
         <LoadItem />
       ) : (
         <Row gutter={[8, 8]}>
@@ -239,8 +231,8 @@ const CarrinhoView = () => {
                   <Row gutter={[2, 2]}>
                     <Col span={4}>
                       <Row gutter={[2, 2]}>
-                        {cacamba.gallery.map((v: any, i: any) => (
-                          <Col key={i} span={24}>
+                        {equipamento.gallery.map((v: any) => (
+                          <Col key={v.id} span={24}>
                             <Image
                               onClick={() => setImage(v.url)}
                               preview={false}
@@ -262,89 +254,42 @@ const CarrinhoView = () => {
                   </Row>
                 </Col>
                 <Col md={13} xs={24}>
-                  <Typography
-                    className="card-cacamba-title"
-                    onClick={() =>
-                      navigate(
-                        `/painel/pedircacamba/fornecedor/${cacamba.provider_id}`
-                      )
-                    }
-                  >
-                    {String(cacamba.provider_name).toLocaleUpperCase()}
+                  <Typography className="card-cacamba-title">
+                    {String(equipamento.provider_name).toLocaleUpperCase()}
                   </Typography>
                   <Typography className="cacamba-name">
-                    Modelo {cacamba.stationary_bucket_type.name}
+                    {equipamento.name}
                   </Typography>
-                  <div className="cacamba-rate" style={{ marginBottom: 38 }}>
+                  <div className="cacamba-rate" style={{ marginBottom: 0 }}>
                     {" "}
                     {/*<Rate disabled style={{marginRight: 4}}/> (0)*/}{" "}
                   </div>
 
-                  <Row gutter={[8, 8]}>
-                    <Col md={9} xs={12}>
-                      <Typography className="cacamba-title">
-                        Detalhes
-                      </Typography>
-                      <Typography className="cacamba-desc">
-                        <span>Tipo de tampa:</span> {cacamba.type_lid_name}
-                      </Typography>
-                      <Typography className="cacamba-desc">
-                        <span>Cor:</span> {cacamba.color}
-                      </Typography>
-                      <Typography className="cacamba-desc">
-                        <span>Material:</span> {cacamba.material}
-                      </Typography>
-                    </Col>
-                    <Col md={9} xs={12}>
-                      <Typography className="cacamba-title">
-                        Dimensões
-                      </Typography>
-                      <Typography className="cacamba-desc">
-                        <span>Comprimento:</span>{" "}
-                        {cacamba.stationary_bucket_type.letter_a_name}
-                      </Typography>
-                      <Typography className="cacamba-desc">
-                        <span>Largura:</span>{" "}
-                        {cacamba.stationary_bucket_type.letter_b_name}
-                      </Typography>
-                      <Typography className="cacamba-desc">
-                        <span>Altura:</span>{" "}
-                        {cacamba.stationary_bucket_type.letter_c_name}
-                      </Typography>
-                    </Col>
-                    <Col md={6} xs={24}>
-                      <Typography className="cacamba-title">
-                        Disponíveis
-                      </Typography>
-                      <Typography className="cacamba-desc">
-                        {cacamba.stock} cacambas
-                      </Typography>
-                      <Typography
-                        className="cacamba-link"
-                        style={{ marginTop: 6 }}
-                      >
-                        Ficha Técnica
-                      </Typography>
-                    </Col>
-                  </Row>
-
                   <Typography className="cacamba-title">
-                    Escolher tipo de locação
+                    Periodo da locação
                   </Typography>
                   <Row gutter={[8, 8]}>
                     <Col span={24}>
                       <Select
-                        defaultValue={typeLocal}
-                        onChange={setTypeLocal}
-                        placeholder="Selecione um tipo de locação"
+                        defaultValue={type}
+                        onChange={setType}
+                        placeholder="Selecione o período da locação"
                         style={{ width: "100%" }}
                       >
-                        <Select.Option value={"I"}>
-                          Locação Interna | até {cacamba.days_internal} dias
-                        </Select.Option>
-                        <Select.Option value={"E"}>
-                          Locação Externa | até {cacamba.days_external} dias
-                        </Select.Option>
+                        {equipamento.rental_price_day && (
+                          <Select.Option value={"day"}>Diária</Select.Option>
+                        )}
+                        {equipamento.rental_price_week && (
+                          <Select.Option value={"week"}>Semanal</Select.Option>
+                        )}
+                        {equipamento.rental_price_fortnight && (
+                          <Select.Option value={"fortnight"}>
+                            Quinzenal
+                          </Select.Option>
+                        )}
+                        {equipamento.rental_price_month && (
+                          <Select.Option value={"month"}>Mensal</Select.Option>
+                        )}
                       </Select>
                     </Col>
                   </Row>
@@ -362,68 +307,12 @@ const CarrinhoView = () => {
                     value={`${address?.street}, ${address?.number} - ${address?.district} - ${address?.city.name} / ${address?.city.state.acronym}`}
                   />
 
-                  <Typography className="cacamba-title">
-                    Escolher classe de resíduo
-                  </Typography>
-                  <Input
-                    addonBefore={
-                      <Typography
-                        className="cacamba-address"
-                        onClick={onResidueOpen}
-                      >
-                        Escolher classes
-                      </Typography>
-                    }
-                    placeholder="Nenhuma classe selecionada"
-                    readOnly
-                    value={residueNameSelect.map((v: any) => v)}
-                  />
-                  <Modal
-                    cancelButtonProps={{ style: { display: "none" } }}
-                    destroyOnClose={true}
-                    okText={"Fechar"}
-                    onCancel={onResidueOpen}
-                    onOk={onResidueOpen}
-                    open={residueOpen}
-                    style={{ top: 20 }}
-                    title="Escolher classes de resíduos"
-                    width={"100%"}
-                  >
-                    <List
-                      bordered
-                      dataSource={cacamba?.residues}
-                      itemLayout="horizontal"
-                      renderItem={(item: any) => (
-                        <List.Item
-                          actions={[
-                            <Switch
-                              defaultChecked={residueSelect.includes(item.id)}
-                              disabled={
-                                (item.name === "Classe C" && residuBlockC) ||
-                                (item.name === "Classe D" && residuBlockD) ||
-                                (item.name !== "Classe C" &&
-                                  item.name !== "Classe D" &&
-                                  residuBlockOthers)
-                              }
-                              onChange={(v) => onResidue(item)}
-                            />,
-                          ]}
-                        >
-                          <List.Item.Meta
-                            description={item.description}
-                            title={item.name}
-                          />
-                        </List.Item>
-                      )}
-                      size="small"
-                    />
-                  </Modal>
-
-                  {cacamba.stock > 0 ? (
+                  {equipamento.stock > 0 ? (
                     <Row
                       align={"middle"}
                       className="cacamba-footer"
                       gutter={[16, 16]}
+                      style={{ marginTop: 30 }}
                     >
                       <Col md={12} xs={8}>
                         <Row align={"middle"} gutter={[22, 22]} justify={"end"}>
@@ -442,10 +331,12 @@ const CarrinhoView = () => {
                           </Col>
                           <Col style={{ height: 14 }}>
                             <FaPlus
-                              className={`cacamba-plus ${qtde < Number(cacamba.stock) ? "" : "disabled"}`}
+                              className={`cacamba-plus ${qtde < Number(equipamento.stock) ? "" : "disabled"}`}
                               onClick={() =>
                                 setQtde(
-                                  qtde < Number(cacamba.stock) ? qtde + 1 : qtde
+                                  qtde < Number(equipamento.stock)
+                                    ? qtde + 1
+                                    : qtde
                                 )
                               }
                             />
@@ -454,7 +345,7 @@ const CarrinhoView = () => {
                       </Col>
                       <Col md={12} xs={16}>
                         <div
-                          className={`carrinho-button ${(address === null || typeLocal === "" || residueSelect.length === 0) && qtde !== 0 ? "disabled" : ""}`}
+                          className={`carrinho-button ${(address === null || type === null) && qtde !== 0 ? "disabled" : ""}`}
                           onClick={onAdd}
                         >
                           <Typography className="carrinho-button-text">
@@ -486,6 +377,40 @@ const CarrinhoView = () => {
                       </Col>
                     </Row>
                   ) : null}
+
+                  <Card style={{ marginTop: 30 }}>
+                    <Tabs
+                      centered
+                      defaultActiveKey="1"
+                      items={[
+                        {
+                          label: "Descrição",
+                          key: "1",
+                          children: (
+                            <RenderHtml content={equipamento.description} />
+                          ),
+                        },
+                        {
+                          label: "Orientação Operacional",
+                          key: "2",
+                          children: (
+                            <RenderHtml
+                              content={equipamento.operational_orientation}
+                            />
+                          ),
+                        },
+                        {
+                          label: "Orientação de Segurança",
+                          key: "3",
+                          children: (
+                            <RenderHtml
+                              content={equipamento.security_orientation}
+                            />
+                          ),
+                        },
+                      ]}
+                    />
+                  </Card>
                 </Col>
               </Row>
             </CardItem>
@@ -494,7 +419,7 @@ const CarrinhoView = () => {
             address={address}
             close={() => setOpen(false)}
             open={open}
-            provider={cacamba?.provider_id}
+            provider={equipamento?.provider_id}
             setAddress={setAddress}
           />
         </Row>
@@ -503,4 +428,4 @@ const CarrinhoView = () => {
   );
 };
 
-export default CarrinhoView;
+export default CarrinhoEquipment;

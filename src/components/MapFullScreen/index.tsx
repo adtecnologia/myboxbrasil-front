@@ -25,7 +25,7 @@ const logo = `${import.meta.env.VITE_URL_ASSETS}/3.png`;
 
 interface IMapFullScreen {
   open: boolean;
-  setOpen: Function;
+  setOpen: (value: boolean) => void;
   startStatus?: string[];
   drive?: boolean;
   field?: string;

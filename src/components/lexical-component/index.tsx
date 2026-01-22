@@ -8,11 +8,15 @@
 
 import { AutoFocusPlugin } from "@lexical/react/LexicalAutoFocusPlugin";
 import { LexicalComposer } from "@lexical/react/LexicalComposer";
+import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { ContentEditable } from "@lexical/react/LexicalContentEditable";
 import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary";
 import { HistoryPlugin } from "@lexical/react/LexicalHistoryPlugin";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
 import {
+  $createParagraphNode,
+  $createTextNode,
+  $getRoot,
   $isTextNode,
   type DOMConversionMap,
   type DOMExportOutput,
@@ -24,6 +28,7 @@ import {
   ParagraphNode,
   TextNode,
 } from "lexical";
+import { useEffect, useRef } from "react";
 
 import ExampleTheme from "./ExampleTheme";
 import ToolbarPlugin from "./plugins/ToolbarPlugin";
@@ -138,11 +143,64 @@ const editorConfig = {
   theme: ExampleTheme,
 };
 
-export default function LexicalComponent() {
+interface LexicalComponentProps {
+  value?: string;
+  onChange?: (value: string) => void;
+}
+
+function InitialValuePlugin({
+  value,
+  onChange,
+}: {
+  value?: string;
+  onChange?: (v: string) => void;
+}) {
+  const [editor] = useLexicalComposerContext();
+  const initialized = useRef(false);
+
+  useEffect(() => {
+    if (initialized.current) {
+      return;
+    }
+    initialized.current = true;
+
+    if (value !== undefined && value !== null) {
+      editor.update(() => {
+        const parser = new DOMParser();
+        const dom = parser.parseFromString(value, "text/html");
+        const root = $getRoot();
+        root.clear();
+
+        // Criar nodes manualmente para cada elemento HTML
+        for (const child of Array.from(dom.body.children)) {
+          const textContent = child.textContent || "";
+
+          // Criar parágrafo com texto
+          const textNode = $createTextNode(textContent);
+          const paragraphNode = $createParagraphNode();
+          paragraphNode.append(textNode);
+          root.append(paragraphNode);
+        }
+      });
+
+      // Dispara onChange para sincronizar com o form
+      if (onChange) {
+        onChange(value);
+      }
+    }
+  }, [value, editor, onChange]);
+
+  return null;
+}
+
+export default function LexicalComponent({
+  value,
+  onChange,
+}: LexicalComponentProps) {
   return (
     <LexicalComposer initialConfig={editorConfig}>
       <div className="editor-container">
-        <ToolbarPlugin />
+        <ToolbarPlugin onChange={onChange} />
         <div className="editor-inner">
           <RichTextPlugin
             contentEditable={
@@ -158,6 +216,7 @@ export default function LexicalComponent() {
           />
           <HistoryPlugin />
           <AutoFocusPlugin />
+          <InitialValuePlugin onChange={onChange} value={value} />
         </div>
       </div>
     </LexicalComposer>

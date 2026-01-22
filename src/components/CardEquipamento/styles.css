@@ -1,4 +1,4 @@
-.card-cacamba {
+.card-equipamento {
   border: 1px solid rgba(0, 0, 0, 0);
   border-radius: 1em;
   padding: 1em;
@@ -8,18 +8,18 @@
   cursor: pointer;
 }
 
-.card-cacamba:hover {
+.card-equipamento:hover {
   border: 1px solid rgba(0, 0, 0, 0.1);
   box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.1);
 }
 
-.card-cacamba-title-avt {
+.card-equipamento-title-avt {
   width: 40px;
   height: 40px;
   margin-right: 8px;
 }
 
-.card-cacamba-title {
+.card-equipamento-title {
   transition: 0.2s;
   text-wrap: nowrap;
   overflow: hidden;
@@ -40,31 +40,31 @@
   width: 100%;
 }
 
-.card-cacamba-name {
+.card-equipamento-name {
   font-size: 1.4em;
   color: var(--color02);
 }
 
-.card-cacamba-text-row {
+.card-equipamento-text-row {
   width: 100%;
   display: flex;
   justify-content: space-between;
 }
 
-.card-cacamba-div {
+.card-equipamento-div {
   width: calc(100% - 140px);
   padding-right: 10px;
 }
 
-.card-cacamba.soldout .card-cacamba-div {
+.card-equipamento.soldout .card-equipamento-div {
   opacity: 0.4;
 }
 
-.card-cacamba.soldout .card-cacamba-avt {
+.card-equipamento.soldout .card-equipamento-avt {
   opacity: 0.4;
 }
 
-.card-cacamba.soldout::before {
+.card-equipamento.soldout::before {
   content: "Sem estoque";
   font-size: 16px;
   background-color: var(--color02);
@@ -78,45 +78,45 @@
   transform: translate(-50%, -50%);
 }
 
-.card-cacamba-title:hover {
+.card-equipamento-title:hover {
   color: var(--color02);
 }
 
-.card-cacamba-price {
-  position: absolute;
-  bottom: 0.4em;
+.card-equipamento-price-cart {
   color: var(--color02);
   font-size: 1.5em;
 }
-
-.card-cacamba-price-cart {
-  color: var(--color02);
-  font-size: 1.5em;
+.card-equipamento-price-row {
+  margin-top: 10px;
 }
-
-.card-cacamba-avt {
+.card-equipamento-avt {
   width: 170px;
   height: 170px;
   min-width: 170px;
   min-height: 170px;
 }
 
-.card-cacamba-price span {
+.card-equipamento-price {
+  color: var(--color01);
+  font-size: 1.2em;
+}
+
+.card-equipamento-price span {
   color: #000;
   text-transform: uppercase;
   font-size: 0.5em;
 }
 
-.card-cacamba-modal-subtitle {
+.card-equipamento-modal-subtitle {
   font-size: 1.2em;
 }
 
-.card-cacamba-subtitle {
+.card-equipamento-subtitle {
   display: flex;
   align-items: center;
 }
 
-.card-cacamba-subtitle .star {
+.card-equipamento-subtitle .star {
   display: flex;
   align-items: center;
   color: rgb(236, 202, 10);
@@ -128,20 +128,13 @@
   font-weight: 600;
 }
 
-.card-cacamba-endereco {
+.card-equipamento-endereco {
   cursor: pointer;
   color: var(--color01);
 }
 
-.card-cacamba-endereco span {
+.card-equipamento-endereco span {
   color: rgba(0, 0, 0, 0.8);
-}
-
-.card-cacamba-price-row {
-  display: none;
-  position: absolute;
-  bottom: 0.4em;
-  width: calc(100% - 120px);
 }
 
 .card-tag {
@@ -153,53 +146,37 @@
 }
 
 @media (max-width: 1100px) {
-  .card-cacamba-div {
+  .card-equipamento-div {
     width: calc(100% - 120px);
     padding-right: 10px;
   }
 
-  .card-cacamba-div.cart {
+  .card-equipamento-div.cart {
     width: 100%;
     padding: 0px;
   }
 
-  .card-cacamba-price-row {
-    display: flex;
-    justify-content: start;
-  }
-
-  .card-cacamba-avt {
+  .card-equipamento-avt {
     width: 100px;
     height: 100px;
     min-width: 100px;
     min-height: 100px;
   }
 
-  .card-cacamba-avt.cart {
+  .card-equipamento-avt.cart {
     display: none;
   }
 
-  .card-cacamba-title-avt {
+  .card-equipamento-title-avt {
     width: 30px;
     height: 30px;
   }
 
-  .card-cacamba-subtitle.desc {
+  .card-equipamento-subtitle.desc {
     display: none;
   }
 
-  .card-cacamba-price.hidden {
-    display: none;
-  }
-
-  .card-cacamba-price {
-    position: relative;
-    font-size: 1.3em;
-    line-height: 16px;
-    margin-right: 10px;
-  }
-
-  .card-cacamba-name {
+  .card-equipamento-name {
     font-size: 1.2em;
   }
 }

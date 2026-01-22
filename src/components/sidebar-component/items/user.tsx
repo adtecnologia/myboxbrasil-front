@@ -1,5 +1,5 @@
 import { IoPeopleOutline } from "react-icons/io5";
-import { verifyConfig } from "@/services";
+import { getProfileType, verifyConfig } from "@/services";
 import type { MenuItemProps } from ".";
 
 const userItems: MenuItemProps = {
@@ -26,7 +26,10 @@ const userItems: MenuItemProps = {
     },
     {
       key: "usuarios&locatarios",
-      label: "Locatários",
+      label:
+        getProfileType() === "SELLER" || getProfileType() === "LEGAL_SELLER"
+          ? "Clientes"
+          : "Locatários",
       disabled: !verifyConfig(["lct.list"]),
     },
     {

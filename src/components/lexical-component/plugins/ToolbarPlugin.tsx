@@ -17,11 +17,15 @@ import {
 } from "lexical";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+interface ToolbarPluginProps {
+  onChange?: (value: string) => void;
+}
+
 function Divider() {
   return <div className="divider" />;
 }
 
-export default function ToolbarPlugin() {
+export default function ToolbarPlugin({ onChange }: ToolbarPluginProps) {
   const [editor] = useLexicalComposerContext();
   const toolbarRef = useRef(null);
   const [canUndo, setCanUndo] = useState(false);
@@ -91,6 +95,12 @@ export default function ToolbarPlugin() {
         editor.registerUpdateListener(({ editorState }) => {
           editorState.read(() => {
             $updateToolbar();
+            if (onChange) {
+              const element = editor.getRootElement();
+              if (element) {
+                onChange(element.innerHTML);
+              }
+            }
           });
         }),
         editor.registerCommand(

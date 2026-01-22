@@ -10,14 +10,14 @@ import {
   Row,
   Typography,
   Upload,
-} from 'antd';
-import ImgCrop from 'antd-img-crop';
-import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { MAX_UPLOAD_FILE } from '@/utils/max-file-upload';
+} from "antd";
+import ImgCrop from "antd-img-crop";
+import { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
+import { MAX_UPLOAD_FILE } from "@/utils/max-file-upload";
 // COMPONENTES
-import LoadItem from '../../../../../components/LoadItem';
-import { TableTrTrashButton } from '../../../../../components/Table/buttons';
+import LoadItem from "../../../../../components/LoadItem";
+import { TableTrTrashButton } from "../../../../../components/Table/buttons";
 // SERVIÇOS
 import {
   GET_API,
@@ -28,19 +28,19 @@ import {
   POST_CATCH,
   UPLOAD_API,
   verifyConfig,
-} from '../../../../../services';
+} from "../../../../../services";
 
-interface StationaryBucketGalleryProps extends Omit<PageDefaultProps, 'type'> {
+interface EquipmentGalleryProps extends Omit<PageDefaultProps, "type"> {
   backTab: () => void;
   nextTab: () => void;
 }
 
-const StationaryBucketGallery = ({
+const EquipmentGallery = ({
   path,
   permission,
   backTab,
   nextTab,
-}: StationaryBucketGalleryProps) => {
+}: EquipmentGalleryProps) => {
   // PARAMETROS
   const { ID } = useParams();
 
@@ -52,7 +52,7 @@ const StationaryBucketGallery = ({
   // CARREGA FOTOS CADASTRADAS
   const onLoad = () => {
     setLoad(true);
-    GET_API(`/${path}?groupId=${ID}`)
+    GET_API(`/${path}?equipmentId=${ID}`)
       .then((rs) => rs.json())
       .then((res) => {
         setData(res.data);
@@ -70,7 +70,7 @@ const StationaryBucketGallery = ({
           url: v.response.url,
         }))
       ),
-      group_id: ID,
+      equipment_id: ID,
     })
       .then((rs) => {
         if (rs.ok) {
@@ -78,8 +78,8 @@ const StationaryBucketGallery = ({
           onLoad();
         } else {
           Modal.warning({
-            title: 'Algo deu errado',
-            content: 'Não foi possível salvar foto',
+            title: "Algo deu errado",
+            content: "Não foi possível salvar foto",
           });
         }
       })
@@ -91,23 +91,26 @@ const StationaryBucketGallery = ({
     onLoad();
   }, []);
 
-  if (load) return <LoadItem type="alt" />;
+  if (load) {
+    return <LoadItem type="alt" />;
+  }
 
   return (
     <>
       {data.length > 0 ? (
         <Row gutter={[8, 8]}>
           {data.map((v: any, i: any) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey:ignorar>
             <Col key={i} md={6} xs={24}>
               <Card hoverable size="small">
-                <Image src={v.url} width={'100%'} />
+                <Image src={v.url} width={"100%"} />
                 <center style={{ marginTop: 8 }}>
                   <TableTrTrashButton
                     action={onLoad}
                     item={v}
-                    path={'stationary_bucket_gallery'}
-                    permission={'cmb'}
-                    type={'list'}
+                    path={"equipment_gallery"}
+                    permission={"cmb"}
+                    type={"list"}
                   />
                 </center>
               </Card>
@@ -117,7 +120,7 @@ const StationaryBucketGallery = ({
       ) : (
         <Typography>Nenhuma foto encontrada</Typography>
       )}
-      <div style={{ marginTop: '1em' }} />
+      <div style={{ marginTop: "1em" }} />
       {verifyConfig([`${permission}.edit`]) ? (
         <ImgCrop
           modalCancel="Cancelar"
@@ -132,20 +135,20 @@ const StationaryBucketGallery = ({
               const isLt5M = file.size / 1024 / 1024 < MAX_UPLOAD_FILE;
 
               const isValidImage =
-                file.type === 'image/jpeg' ||
-                file.type === 'image/jpg' ||
-                file.type === 'image/png';
+                file.type === "image/jpeg" ||
+                file.type === "image/jpg" ||
+                file.type === "image/png";
 
               if (!isValidImage) {
                 message.error(
-                  'Apenas arquivos JPG, JPEG ou PNG são permitidos.'
+                  "Apenas arquivos JPG, JPEG ou PNG são permitidos."
                 );
                 return Upload.LIST_IGNORE;
               }
 
               if (!isLt5M) {
                 message.error(
-                  'Tamanho do arquivo maior do que o permitido (5MB).'
+                  "Tamanho do arquivo maior do que o permitido (5MB)."
                 );
                 return Upload.LIST_IGNORE; // <- não envia
               }
@@ -166,7 +169,7 @@ const StationaryBucketGallery = ({
         </ImgCrop>
       ) : null}
       {fileList.length > 0 ? (
-        <Button onClick={onSave} style={{ marginTop: '1em' }} type="primary">
+        <Button onClick={onSave} style={{ marginTop: "1em" }} type="primary">
           Enviar
         </Button>
       ) : null}
@@ -175,13 +178,13 @@ const StationaryBucketGallery = ({
         <Button
           htmlType="submit"
           onClick={nextTab}
-          style={{ float: 'right', marginLeft: 6 }}
+          style={{ float: "right", marginLeft: 6 }}
           type="primary"
         >
           Avançar
         </Button>
 
-        <Button onClick={backTab} style={{ float: 'right' }} type="default">
+        <Button onClick={backTab} style={{ float: "right" }} type="default">
           Voltar
         </Button>
       </Col>
@@ -189,4 +192,4 @@ const StationaryBucketGallery = ({
   );
 };
 
-export default StationaryBucketGallery;
+export default EquipmentGallery;

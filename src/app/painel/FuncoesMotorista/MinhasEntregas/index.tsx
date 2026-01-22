@@ -130,11 +130,11 @@ const MinhasEntregas = ({ type, path, permission }: PageDefaultProps) => {
       ),
     },
     {
-      title: "Código Caçamba",
+      title: "Código",
       dataIndex: "CODE",
       table: "stationary_bucket.CODE",
       width: "180px",
-      sorter: true,
+      sorter: false,
       align: "center",
       render: (item: any) => (
         <Row style={{ width: "100%" }}>
@@ -145,8 +145,9 @@ const MinhasEntregas = ({ type, path, permission }: PageDefaultProps) => {
             <Typography
               style={{ color: "var(--color02)", textAlign: "center" }}
             >
-              Modelo{" "}
-              {item.product.stationary_bucket_group.stationary_bucket_type.name}
+              {item.product.stationary_bucket_group &&
+                `Modelo ${item.product.stationary_bucket_group.stationary_bucket_type.name}`}
+              {item.product.equipment && `${item.product.equipment.name}`}
             </Typography>
           </Col>
         </Row>
@@ -226,9 +227,9 @@ const MinhasEntregas = ({ type, path, permission }: PageDefaultProps) => {
           if (res.data.length > 0) {
             onProduct(res.data[0]);
             onModal();
-            message.success({ content: "Caçamba selecionada", key: "09op" });
+            message.success({ content: "Item selecionado", key: "09op" });
           } else {
-            message.error({ content: "Caçamba não encontrada", key: "09op" });
+            message.error({ content: "Item não encontrado", key: "09op" });
           }
         })
         .catch(POST_CATCH);
@@ -236,7 +237,7 @@ const MinhasEntregas = ({ type, path, permission }: PageDefaultProps) => {
       onModal();
       onPhotoModal();
     } else {
-      message.error({ content: "Caçamba inválida", key: "09op" });
+      message.error({ content: "Item inválido", key: "09op" });
     }
   };
 
@@ -250,9 +251,9 @@ const MinhasEntregas = ({ type, path, permission }: PageDefaultProps) => {
           if (res.data.length > 0) {
             onProduct(res.data[0]);
             onModal();
-            message.success({ content: "Caçamba selecionada", key: "09op" });
+            message.success({ content: "Item selecionado", key: "09op" });
           } else {
-            message.error({ content: "Caçamba não encontrada", key: "09op" });
+            message.error({ content: "Item não encontrado", key: "09op" });
           }
         })
         .catch(POST_CATCH);
@@ -260,7 +261,7 @@ const MinhasEntregas = ({ type, path, permission }: PageDefaultProps) => {
       onModal();
       onPhotoModal();
     } else {
-      message.error({ content: "Caçamba inválida", key: "09op" });
+      message.error({ content: "Item inválido", key: "09op" });
     }
   };
 
@@ -598,9 +599,9 @@ const MinhasEntregas = ({ type, path, permission }: PageDefaultProps) => {
           >
             <Scanner onScan={reader} styles={{ container: { height: 472 } }} />
             <Input.Search
-              enterButton="Procurar caçamba"
+              enterButton="Procurar código"
               onSearch={readerWrite}
-              placeholder="Pesquisar código caçamba"
+              placeholder="Pesquisar código"
               size="large"
               style={{ marginTop: 10 }}
             />
@@ -614,7 +615,7 @@ const MinhasEntregas = ({ type, path, permission }: PageDefaultProps) => {
             >
               {" "}
               {typeLoad === OrderLocationProductStatusEnum.PENDING_DELIVERY
-                ? `${product.length} caçamba(s) selecionado(s)`
+                ? `${product.length} item(s) selecionado(s)`
                 : `Confirmar entrega de ${productSelect?.product.code}`}
             </Typography>
           </Modal>

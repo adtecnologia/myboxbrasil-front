@@ -1,28 +1,39 @@
 // CSS
-import './styles.css'
+import "./styles.css";
 
 // COMPONENTES
-import LoadItem from '../LoadItem'
-import CardCacambaShop from './shop'
-import CardCacambaProvider from './provider'
-import CardCacambaCart from './cart'
+import LoadItem from "../LoadItem";
+import CardCacambaCart from "./cart";
+import CardCacambaProvider from "./provider";
+import CardCacambaShop from "./shop";
 
 // INTERFACE
 interface CardCacambaInterface {
-    item: any,
-    action?: any,
-    typeLocal?: any,
-    type: 'shop' | 'cart' | 'provider',
+  item: any;
+  action?: any;
+  typeSelect?: string | null;
+  residueSelect?: any[];
+  type: "shop" | "cart" | "provider";
 }
 
-const CardCacamba = ( { item, type, typeLocal, action = () => {} } : CardCacambaInterface ) => {
+const CardCacamba = ({
+  item,
+  type,
+  typeSelect,
+  residueSelect,
+  action = () => null,
+}: CardCacambaInterface) => {
+  if (type === "shop") {
+    return <CardCacambaShop {...{ typeSelect, residueSelect, item }} />;
+  }
+  if (type === "cart") {
+    return <CardCacambaCart action={action} item={item} />;
+  }
+  if (type === "provider") {
+    return <CardCacambaProvider action={action} item={item} />;
+  }
 
-    if (type === 'shop') return <CardCacambaShop typeLocal={typeLocal} item={item} action={action} />
-    if (type === 'cart') return <CardCacambaCart item={item} action={action} />
-    if (type === 'provider') return <CardCacambaProvider item={item} action={action} />
-    
-    return <LoadItem title='Componente inválido' />
+  return <LoadItem title="Componente inválido" />;
+};
 
-}
-
-export default CardCacamba
+export default CardCacamba;

@@ -1,38 +1,39 @@
-// BIBLIOTECAS REACT
-import { Avatar, Col, Row, Tag, Typography } from 'antd';
-// ICONES
-import { IoStar } from 'react-icons/io5';
-import { useNavigate } from 'react-router-dom';
+/** biome-ignore-all lint/a11y/noNoninteractiveElementInteractions: ignorar */
+/** biome-ignore-all lint/a11y/useKeyWithClickEvents: ignorar */
+/** biome-ignore-all lint/a11y/noStaticElementInteractions: ignorar */
+import { Avatar, Col, Row, Typography } from "antd";
+import { useNavigate } from "react-router-dom";
 
 // CSS
-import './styles.css';
-import { FiMapPin } from 'react-icons/fi';
+import "./styles.css";
 
 // INTERFACE
 interface CardCacambaShopInterface {
   item: any;
-  typeLocal: any;
-  action?: any;
+  typeSelect: string | null;
+  residueSelect?: any[];
 }
 
 const CardCacambaShop = ({
   item,
-  typeLocal,
-  action = () => {},
+  typeSelect,
+  residueSelect,
 }: CardCacambaShopInterface) => {
   // RESPONSAVEL PELA ROTA
   const navigate = useNavigate();
 
   return (
     <div
-      className={`card-cacamba ${item?.stock ? '' : 'soldout'}`}
+      className={`card-cacamba ${item?.stock ? "" : "soldout"}`}
       onClick={() =>
         item?.stock
-          ? navigate(`/painel/pedirlocacao/cacamba/${item?.id}/${typeLocal}`)
+          ? navigate(
+              `/painel/pedirlocacao/cacamba/${item?.id}?tipoLocacao=${typeSelect}${residueSelect ? `&residuos=${residueSelect.map((r) => r.id).join(",")}` : ""}`
+            )
           : {}
       }
     >
-      <div className={'card-cacamba-div'}>
+      <div className={"card-cacamba-div"}>
         <Typography className="card-cacamba-title">
           <Avatar
             className="card-cacamba-title-avt"
@@ -50,44 +51,50 @@ const CardCacambaShop = ({
         </Typography>
         <Row className="card-cacamba-subtitle desc" gutter={[6, 6]}>
           {item?.residues.map((v: any, i: any) => (
-            <Col>
-              <span className="card-tag" key={i}>
-                {v.name}
-              </span>
+            <Col key={i}>
+              <span className="card-tag">{v.name}</span>
             </Col>
           ))}
         </Row>
         <Typography className="card-cacamba-price hidden">
-          {typeLocal === 'E' ? (
+          {item?.customer_seller_minimum_price > 0 && (
             <>
-              <span>Locação externa: </span>
-              {item?.price_external_name}
+              <span>Preço especial: </span>
+              {item?.customer_seller_minimum_price_name}
             </>
-          ) : null}{' '}
-          {typeLocal === 'I' ? (
+          )}
+          {!item?.customer_seller_minimum_price && (
             <>
-              <span>Locação interna: </span>
-              {item?.price_internal_name}
+              {typeSelect === "E" && (
+                <>
+                  <span>Locação externa: </span>
+                  {item?.price_external_name}
+                </>
+              )}{" "}
+              {typeSelect === "I" && (
+                <>
+                  <span>Locação interna: </span>
+                  {item?.price_internal_name}
+                </>
+              )}
             </>
-          ) : null}
+          )}
         </Typography>
         <div className="card-cacamba-price-row">
-          {typeLocal === 'E' ? (
+          {typeSelect === "E" ? (
             <Typography className="card-cacamba-price">
               <span>Locação externa</span>
               <br />
               {item?.price_external_name}
             </Typography>
           ) : null}
-          {typeLocal === 'I' ? (
+          {typeSelect === "I" ? (
             <Typography className="card-cacamba-price">
               <span>Locação interna</span>
               <br />
               {item?.price_internal_name}
             </Typography>
           ) : null}
-          {/* { item?.type_local === 'B' || item?.type_local === "E" ?  }
-                    { item?.type_local === 'B' || item?.type_local === "I" ? <Typography className='card-cacamba-price'><span>Locação interna</span><br/>{item?.price_internal_name}</Typography> : null } */}
         </div>
       </div>
       <Avatar

@@ -12,6 +12,7 @@
   "dependencies": {
     "@ant-design/icons": "^6.0.0",
     "@hookform/resolvers": "^5.2.2",
+    "@lexical/html": "^0.39.0",
     "@lexical/react": "^0.38.2",
     "@lexical/utils": "^0.39.0",
     "@radix-ui/react-alert-dialog": "^1.1.15",

@@ -1,7 +1,7 @@
-// BIBLIOTECAS REACT
-import { Image, Skeleton, Typography } from "antd";
-
-// CSS
+/** biome-ignore-all lint/a11y/noNoninteractiveElementInteractions: ignorar */
+/** biome-ignore-all lint/a11y/useKeyWithClickEvents: ignorar */
+/** biome-ignore-all lint/a11y/noStaticElementInteractions: ignorar */
+import { Image, Modal, Skeleton, Typography } from "antd";
 import "./styles.css";
 
 // INTERFACE
@@ -20,6 +20,16 @@ const CardModel = ({
     <div
       className="card-model-div"
       onClick={() => {
+        if (!item.has_provider) {
+          Modal.info({
+            title:
+              "Ainda não existem fornecedores que atuam com o modelo de caçamba " +
+              String(item.name).toLowerCase() +
+              " na sua região.",
+            okText: "Ok",
+          });
+          return;
+        }
         setModelSelect(item);
       }}
     >

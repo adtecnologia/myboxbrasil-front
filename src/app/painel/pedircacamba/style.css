@@ -42,6 +42,11 @@
     opacity: 0.8;
 }
 
+.pd-painel.disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
 .pd-painel-texto {
     position: absolute;
     z-index: 1;

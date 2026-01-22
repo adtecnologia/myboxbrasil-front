@@ -1,4 +1,6 @@
 // react libraries
+/** biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: ignorar */
+/** biome-ignore-all lint/complexity/noForEach: ignorar */
 
 import {
   Button,
@@ -11,6 +13,7 @@ import {
   Modal,
   message,
   Row,
+  Tabs,
   Tag,
   Typography,
 } from "antd";
@@ -40,7 +43,7 @@ import {
   verifyConfig,
 } from "../../../services";
 
-const OrderDetails = ({ type, path, permission }: PageDefaultProps) => {
+const OrderDetails = ({ type, permission }: PageDefaultProps) => {
   // RESPONSAVEL PELA ROTA
   const navigate = useNavigate();
 
@@ -72,7 +75,7 @@ const OrderDetails = ({ type, path, permission }: PageDefaultProps) => {
           if (!(res.data.product.gallery.length > 0)) {
             res.data.product.gallery = [{ url: IMAGE_NOT_FOUND }];
           }
-          var temp: any = [];
+          const temp: any = [];
           res.data.items.forEach((v: any) => {
             temp.push(v.product.id);
           });
@@ -111,7 +114,6 @@ const OrderDetails = ({ type, path, permission }: PageDefaultProps) => {
           .catch(POST_CATCH)
           .finally(() => setLoad(false));
       },
-      onCancel() {},
     });
   };
 
@@ -132,8 +134,8 @@ const OrderDetails = ({ type, path, permission }: PageDefaultProps) => {
                 { status: OrderLocationStatusEnum.CANCELED },
                 ID
               )
-                .then((rs) => {
-                  if (rs.ok) {
+                .then((rs2) => {
+                  if (rs2.ok) {
                     message.success({
                       content:
                         "Pedido cancelado. Por favor, aguarde enquanto providenciamos o estorno da sua compra.",
@@ -148,36 +150,48 @@ const OrderDetails = ({ type, path, permission }: PageDefaultProps) => {
                   }
                 })
                 .catch(POST_CATCH);
-            } else
+            } else {
               Modal.warning({
                 title: "Algo deu errado",
                 content: "Não foi possível cancelar pedido",
               });
+            }
           })
           .catch(POST_CATCH)
           .finally(() => setLoad(false));
       },
-      onCancel() {},
     });
   };
 
   // FUNÇÃO PESQUISAR
   const onSearch = () => {
     setLoadButton(true);
-    GET_API(
-      `/stationary_bucket?group_id=${order.product.id}&isAvailable=1&search=${search}`
-    )
-      .then((rs) => rs.json())
-      .then((res) => {
-        setCacamba(res.data);
-      })
-      .catch(POST_CATCH)
-      .finally(() => setLoadButton(false));
+    if (order.productable_group_type === "App\\Models\\Equipment") {
+      GET_API(
+        `/equipment_stock?equipmentId=${order.product.id}&isAvailable=1&search=${search}`
+      )
+        .then((rs) => rs.json())
+        .then((res) => {
+          setCacamba(res.data);
+        })
+        .catch(POST_CATCH)
+        .finally(() => setLoadButton(false));
+    } else {
+      GET_API(
+        `/stationary_bucket?group_id=${order.product.id}&isAvailable=1&search=${search}`
+      )
+        .then((rs) => rs.json())
+        .then((res) => {
+          setCacamba(res.data);
+        })
+        .catch(POST_CATCH)
+        .finally(() => setLoadButton(false));
+    }
   };
 
   // FUNÇÃO SELECIONAR
   const onCacambaSelect = (id: string, value: any) => {
-    var temp = cacambaSelect;
+    const temp = cacambaSelect;
 
     if (value.target.checked) {
       temp.push(id);
@@ -189,6 +203,12 @@ const OrderDetails = ({ type, path, permission }: PageDefaultProps) => {
     setVerify(value.target.checked ? verify + 1 : verify - 1);
     setTimeout(() => setLoadCheck(!loadCheck), 500);
   };
+
+  // biome-ignore lint/correctness/noNestedComponentDefinitions: ignorar
+  const RenderHtml = ({ content }: { content: string }) => (
+    // biome-ignore lint/security/noDangerouslySetInnerHtml: ignorar
+    <div dangerouslySetInnerHTML={{ __html: content }} />
+  );
 
   const onOrderProduct = () => {
     if (!(verify < order.quantity)) {
@@ -212,7 +232,9 @@ const OrderDetails = ({ type, path, permission }: PageDefaultProps) => {
   };
 
   useEffect(() => {
-    if (open) onSearch();
+    if (open) {
+      onSearch();
+    }
   }, [search, open]);
 
   useEffect(onView, [ID]);
@@ -230,9 +252,8 @@ const OrderDetails = ({ type, path, permission }: PageDefaultProps) => {
       }
       valid={`${permission}.${type}`}
     >
-      {order === null ? (
-        <LoadItem />
-      ) : (
+      {!order && <LoadItem />}
+      {order && (
         <Row gutter={[8, 8]}>
           <Col span={24}>
             <CardItem>
@@ -241,8 +262,8 @@ const OrderDetails = ({ type, path, permission }: PageDefaultProps) => {
                   <Row gutter={[2, 2]}>
                     <Col span={4}>
                       <Row gutter={[2, 2]}>
-                        {order.product.gallery.map((v: any, i: any) => (
-                          <Col key={i} span={24}>
+                        {order.product.gallery.map((v: any) => (
+                          <Col key={v.id} span={24}>
                             <Image
                               onClick={() => setImage(v.url)}
                               preview={false}
@@ -267,86 +288,136 @@ const OrderDetails = ({ type, path, permission }: PageDefaultProps) => {
                   </Row>
                 </Col>
                 <Col md={14} xs={24}>
-                  <Typography className="cacamba-name">
-                    Modelo {order.product.stationary_bucket_type.name}
-                  </Typography>
+                  {order.productable_group_type ===
+                  "App\\Models\\StationaryBucketGroup" ? (
+                    <Typography className="cacamba-name">
+                      Modelo {order.product.stationary_bucket_type.name}
+                    </Typography>
+                  ) : (
+                    <Typography className="cacamba-name">
+                      {order.product.name}
+                    </Typography>
+                  )}
                   <Row gutter={[8, 8]}>
                     <Col md={8} xs={24}>
                       <Typography className="cacamba-title">Estoque</Typography>
                       <Typography className="cacamba-desc">
-                        <span>{order.product.stock}</span> cacambas
+                        <span>{order.product.stock}</span> disponíveis
                       </Typography>
                       <Typography className="cacamba-title">
                         Quantidade pedida
                       </Typography>
                       <Typography className="cacamba-desc">
-                        <span>{order.quantity}</span> cacambas
+                        <span>{order.quantity}</span> pedidas
                       </Typography>
                     </Col>
-                    <Col md={8} xs={12}>
-                      <Typography className="cacamba-title">
-                        Detalhes
-                      </Typography>
-                      <Typography className="cacamba-desc">
-                        <span>Tipo de tampa:</span>{" "}
-                        {order.product.type_lid_name}
-                      </Typography>
-                      <Typography className="cacamba-desc">
-                        <span>Cor:</span> {order.product.color}
-                      </Typography>
-                      <Typography className="cacamba-desc">
-                        <span>Material:</span> {order.product.material}
-                      </Typography>
-                    </Col>
-                    <Col md={8} xs={12}>
-                      <Typography className="cacamba-title">
-                        Dimensões
-                      </Typography>
-                      <Typography className="cacamba-desc">
-                        <span>Comprimento:</span>{" "}
-                        {order.product.stationary_bucket_type.letter_a_name}
-                      </Typography>
-                      <Typography className="cacamba-desc">
-                        <span>Largura:</span>{" "}
-                        {order.product.stationary_bucket_type.letter_b_name}
-                      </Typography>
-                      <Typography className="cacamba-desc">
-                        <span>Altura:</span>{" "}
-                        {order.product.stationary_bucket_type.letter_c_name}
-                      </Typography>
-                    </Col>
+                    {order.productable_group_type ===
+                      "App\\Models\\StationaryBucketGroup" && (
+                      <>
+                        <Col md={8} xs={12}>
+                          <Typography className="cacamba-title">
+                            Detalhes
+                          </Typography>
+                          <Typography className="cacamba-desc">
+                            <span>Tipo de tampa:</span>{" "}
+                            {order.product.type_lid_name}
+                          </Typography>
+                          <Typography className="cacamba-desc">
+                            <span>Cor:</span> {order.product.color}
+                          </Typography>
+                          <Typography className="cacamba-desc">
+                            <span>Material:</span> {order.product.material}
+                          </Typography>
+                        </Col>
+                        <Col md={8} xs={12}>
+                          <Typography className="cacamba-title">
+                            Dimensões
+                          </Typography>
+                          <Typography className="cacamba-desc">
+                            <span>Comprimento:</span>{" "}
+                            {order.product.stationary_bucket_type.letter_a_name}
+                          </Typography>
+                          <Typography className="cacamba-desc">
+                            <span>Largura:</span>{" "}
+                            {order.product.stationary_bucket_type.letter_b_name}
+                          </Typography>
+                          <Typography className="cacamba-desc">
+                            <span>Altura:</span>{" "}
+                            {order.product.stationary_bucket_type.letter_c_name}
+                          </Typography>
+                        </Col>
+                      </>
+                    )}
                   </Row>
 
-                  <Typography className="cacamba-title">
-                    Tipo de locação
-                  </Typography>
-                  <Row gutter={[8, 8]}>
-                    {order.type_local === "E" ? (
-                      <Col>
-                        <Tag className={"mf-tag active"}>
-                          Locação Externa | até {order.days} dias
-                        </Tag>
-                      </Col>
-                    ) : null}
-                    {order.type_local === "I" ? (
-                      <Col>
-                        <Tag className={"mf-tag active"}>
-                          Locação Interna | até {order.days} dias
-                        </Tag>
-                      </Col>
-                    ) : null}
-                  </Row>
+                  {order.productable_group_type ===
+                  "App\\Models\\StationaryBucketGroup" ? (
+                    <>
+                      <Typography className="cacamba-title">
+                        Tipo de locação
+                      </Typography>
+                      <Row gutter={[8, 8]}>
+                        {order.type_local === "E" && (
+                          <Col>
+                            <Tag className={"mf-tag active"}>
+                              Locação Externa | até {order.days} dias
+                            </Tag>
+                          </Col>
+                        )}
+                        {order.type_local === "I" && (
+                          <Col>
+                            <Tag className={"mf-tag active"}>
+                              Locação Interna | até {order.days} dias
+                            </Tag>
+                          </Col>
+                        )}
+                      </Row>
+                    </>
+                  ) : (
+                    <>
+                      <Typography className="cacamba-title">
+                        Periodo de locação
+                      </Typography>
+                      <Row gutter={[8, 8]}>
+                        {order.type_local === "day" && (
+                          <Col>
+                            <Tag className={"mf-tag active"}>Diária</Tag>
+                          </Col>
+                        )}
+                        {order.type_local === "week" && (
+                          <Col>
+                            <Tag className={"mf-tag active"}>Semanal</Tag>
+                          </Col>
+                        )}
+                        {order.type_local === "fortnight" && (
+                          <Col>
+                            <Tag className={"mf-tag active"}>Quinzenal</Tag>
+                          </Col>
+                        )}
+                        {order.type_local === "month" && (
+                          <Col>
+                            <Tag className={"mf-tag active"}>Mensal</Tag>
+                          </Col>
+                        )}
+                      </Row>
+                    </>
+                  )}
 
-                  <Typography className="cacamba-title">
-                    Classes de resíduo
-                  </Typography>
-                  <Row gutter={[8, 8]}>
-                    {order.residues.map((value: any, key: any) => (
-                      <Col key={key}>
-                        <Tag color="var(--color01)">{value.name}</Tag>
-                      </Col>
-                    ))}
-                  </Row>
+                  {order.productable_group_type ===
+                    "App\\Models\\StationaryBucketGroup" && (
+                    <>
+                      <Typography className="cacamba-title">
+                        Classes de resíduo
+                      </Typography>
+                      <Row gutter={[8, 8]}>
+                        {order.residues.map((value: any) => (
+                          <Col key={value.id}>
+                            <Tag color="var(--color01)">{value.name}</Tag>
+                          </Col>
+                        ))}
+                      </Row>
+                    </>
+                  )}
 
                   <Typography className="cacamba-title">
                     Endereço de entrega
@@ -366,9 +437,9 @@ const OrderDetails = ({ type, path, permission }: PageDefaultProps) => {
                         <span>R$ {Number(order.total).toLocaleString()}</span>
                       </Typography>
                     </Col>
-                    {getProfileType() === "SELLER" ||
-                    getProfileType() === "LEGAL_SELLER" ||
-                    getProfileType() === "SELLER_EMPLOYEE" ? (
+                    {(getProfileType() === "SELLER" ||
+                      getProfileType() === "LEGAL_SELLER" ||
+                      getProfileType() === "SELLER_EMPLOYEE") && (
                       <Col md={8} xs={24}>
                         <Typography className="cacamba-title">
                           Valor à receber
@@ -377,197 +448,263 @@ const OrderDetails = ({ type, path, permission }: PageDefaultProps) => {
                           <span>R$ {Number(order.total).toLocaleString()}</span>
                         </Typography>
                       </Col>
-                    ) : null}
+                    )}
                   </Row>
 
-                  <Typography className="cacamba-title">Caçambas</Typography>
+                  <Typography className="cacamba-title">
+                    {order.productable_group_type ===
+                    "App\\Models\\StationaryBucketGroup"
+                      ? "Caçambas"
+                      : "Equipamentos"}
+                  </Typography>
                   {(getProfileType() === "SELLER" ||
                     getProfileType() === "LEGAL_SELLER" ||
                     getProfileType() === "SELLER_EMPLOYEE") &&
-                  verifyConfig([`${permission}.edit`]) &&
-                  order.status.code === OrderLocationStatusEnum.PENDING ? (
-                    <Typography className="cacamba-address" onClick={onOpen}>
-                      Selecionar caçambas
-                    </Typography>
-                  ) : null}
+                    verifyConfig([`${permission}.edit`]) &&
+                    order.status.code === OrderLocationStatusEnum.PENDING && (
+                      <Typography className="cacamba-address" onClick={onOpen}>
+                        Selecionar{" "}
+                        {order.productable_group_type ===
+                        "App\\Models\\StationaryBucketGroup"
+                          ? "caçambas"
+                          : "equipamentos"}
+                      </Typography>
+                    )}
                   {(getProfileType() === "SELLER" ||
                     getProfileType() === "LEGAL_SELLER" ||
                     getProfileType() === "SELLER_EMPLOYEE") &&
-                  verifyConfig([`${permission}.edit`]) &&
-                  order.status.code === OrderLocationStatusEnum.PENDING
-                    ? order.items.map((v: any, i: any) => (
-                        <Typography className="cacamba-desc" key={i}>
-                          <span>{v.product}</span> - Aguardando confirmação do
-                          pedido
-                        </Typography>
-                      ))
-                    : null}
+                    verifyConfig([`${permission}.edit`]) &&
+                    order.status.code === OrderLocationStatusEnum.PENDING &&
+                    order.items.map((v: any) => (
+                      <Typography className="cacamba-desc" key={v.id}>
+                        <span>{v.product}</span> - Aguardando confirmação do
+                        pedido
+                      </Typography>
+                    ))}
                   {(getProfileType() === "SELLER" ||
                     getProfileType() === "LEGAL_SELLER" ||
                     getProfileType() === "SELLER_EMPLOYEE") &&
-                  verifyConfig([`${permission}.edit`]) &&
-                  order.status.code === OrderLocationStatusEnum.ACCEPTED
-                    ? order.items.map((v: any, i: any) => (
-                        <Typography className="cacamba-desc" key={i}>
-                          <span>{v.product}</span> - {v.status.name}
-                        </Typography>
-                      ))
-                    : null}
+                    verifyConfig([`${permission}.edit`]) &&
+                    order.status.code === OrderLocationStatusEnum.ACCEPTED &&
+                    order.items.map((v: any) => (
+                      <Typography className="cacamba-desc" key={v.id}>
+                        <span>{v.product}</span> - {v.status.name}
+                      </Typography>
+                    ))}
                   {(getProfileType() === "CUSTOMER" ||
                     getProfileType() === "LEGAL_CUSTOMER" ||
                     getProfileType() === "CUSTOMER_EMPLOYEE" ||
                     getProfileType() === "ADMIN" ||
                     getProfileType() === "ADMIN_EMPLOYEE") &&
-                  order.status.code === OrderLocationStatusEnum.PENDING ? (
-                    order.items.lenght > 0 ? (
-                      order.items.map((v: any, i: any) => (
-                        <Typography className="cacamba-desc" key={i}>
+                    order.status.code === OrderLocationStatusEnum.PENDING &&
+                    (order.items.lenght > 0 ? (
+                      order.items.map((v: any) => (
+                        <Typography className="cacamba-desc" key={v.id}>
                           <span>{v.product}</span> - {v.status.name}
                         </Typography>
                       ))
                     ) : (
-                      <Typography>Nenhuma caçamba selecionada</Typography>
-                    )
-                  ) : null}
+                      <Typography>
+                        {order.productable_group_type ===
+                        "App\\Models\\StationaryBucketGroup"
+                          ? "Nenhuma caçambas selecionada"
+                          : "Nenhum equipamento selecionado"}
+                      </Typography>
+                    ))}
                   {(getProfileType() === "CUSTOMER" ||
                     getProfileType() === "LEGAL_CUSTOMER" ||
                     getProfileType() === "CUSTOMER_EMPLOYEE" ||
                     getProfileType() === "ADMIN" ||
                     getProfileType() === "ADMIN_EMPLOYEE") &&
-                  order.status.code === OrderLocationStatusEnum.ACCEPTED
-                    ? order.items.map((v: any, i: any) => (
-                        <Typography className="cacamba-desc" key={i}>
-                          <span>{v.product}</span> - {v.status.name}
-                        </Typography>
-                      ))
-                    : null}
+                    order.status.code === OrderLocationStatusEnum.ACCEPTED &&
+                    order.items.map((v: any) => (
+                      <Typography className="cacamba-desc" key={v.id}>
+                        <span>{v.product}</span> - {v.status.name}
+                      </Typography>
+                    ))}
+                  {order.productable_group_type ===
+                    "App\\Models\\Equipment" && (
+                    <Card style={{ marginTop: 10 }}>
+                      <Tabs
+                        centered
+                        defaultActiveKey="1"
+                        items={[
+                          {
+                            label: "Descrição",
+                            key: "1",
+                            children: (
+                              <RenderHtml content={order.product.description} />
+                            ),
+                          },
+                          {
+                            label: "Orientação Operacional",
+                            key: "2",
+                            children: (
+                              <RenderHtml
+                                content={order.product.operational_orientation}
+                              />
+                            ),
+                          },
+                          {
+                            label: "Orientação de Segurança",
+                            key: "3",
+                            children: (
+                              <RenderHtml
+                                content={order.product.security_orientation}
+                              />
+                            ),
+                          },
+                        ]}
+                      />
+                    </Card>
+                  )}
                 </Col>
 
                 {(getProfileType() === "SELLER" ||
                   getProfileType() === "LEGAL_SELLER" ||
                   getProfileType() === "SELLER_EMPLOYEE") &&
-                verifyConfig([`${permission}.edit`]) &&
-                order.status.code === OrderLocationStatusEnum.PENDING ? (
-                  <Col
-                    md={{ offset: 12, span: 12 }}
-                    xs={{ offset: 0, span: 24 }}
-                  >
-                    <Row gutter={[8, 8]} justify={"end"}>
-                      {/* <Col md={12} xs={12}>
+                  verifyConfig([`${permission}.edit`]) &&
+                  order.status.code === OrderLocationStatusEnum.PENDING && (
+                    <Col
+                      md={{ offset: 12, span: 12 }}
+                      xs={{ offset: 0, span: 24 }}
+                    >
+                      <Row gutter={[8, 8]} justify={"end"}>
+                        {/* <Col md={12} xs={12}>
                                                 <Button type="default"  block onClick={onRecuse} loading={load}>Recusar pedido</Button>
                                             </Col> */}
-                      <Col md={12} xs={12}>
-                        <Button
-                          block
-                          disabled={
-                            Number(order.items.length) !==
-                            Number(order.quantity)
-                          }
-                          loading={load}
-                          onClick={onAccept}
-                          type="primary"
-                        >
-                          Aceitar pedido
-                        </Button>
-                      </Col>
-                    </Row>
-                  </Col>
-                ) : null}
+                        <Col md={12} xs={12}>
+                          <Button
+                            block
+                            disabled={
+                              Number(order.items.length) !==
+                              Number(order.quantity)
+                            }
+                            loading={load}
+                            onClick={onAccept}
+                            type="primary"
+                          >
+                            Aceitar pedido
+                          </Button>
+                        </Col>
+                      </Row>
+                    </Col>
+                  )}
                 {(getProfileType() === "CUSTOMER" ||
                   getProfileType() === "LEGAL_CUSTOMER" ||
                   getProfileType() === "CUSTOMER_EMPLOYEE") &&
-                verifyConfig([`${permission}.edit`]) &&
-                order.status.code === OrderLocationStatusEnum.PENDING ? (
-                  <Col
-                    md={{ offset: 12, span: 12 }}
-                    xs={{ offset: 0, span: 24 }}
-                  >
-                    <Row gutter={[8, 8]} justify={"end"}>
-                      <Col md={12} xs={12}>
-                        <Button
-                          block
-                          disabled={true}
-                          loading={load}
-                          onClick={onRecuse}
-                          type="default"
-                        >
-                          Cancelar pedido
-                        </Button>
-                      </Col>
-                    </Row>
-                  </Col>
-                ) : null}
+                  verifyConfig([`${permission}.edit`]) &&
+                  order.status.code === OrderLocationStatusEnum.PENDING && (
+                    <Col
+                      md={{ offset: 12, span: 12 }}
+                      xs={{ offset: 0, span: 24 }}
+                    >
+                      <Row gutter={[8, 8]} justify={"end"}>
+                        <Col md={12} xs={12}>
+                          <Button
+                            block
+                            disabled={true}
+                            loading={load}
+                            onClick={onRecuse}
+                            type="default"
+                          >
+                            Cancelar pedido
+                          </Button>
+                        </Col>
+                      </Row>
+                    </Col>
+                  )}
               </Row>
             </CardItem>
           </Col>
 
-          <Drawer onClose={onOpen} open={open} title="Selecionar caçambas">
-            <Row gutter={[8, 16]}>
-              <Col span={24}>
-                <Input
-                  onChange={(v) => setSearch(v.target.value)}
-                  placeholder="Buscar caçamba"
-                  prefix={<IoSearch color="var(--color02)" />}
-                  size="large"
-                  value={search}
-                />
-              </Col>
-              {loadButton ? (
+          {
+            <Drawer
+              onClose={onOpen}
+              open={open}
+              title={
+                order.productable_group_type ===
+                "App\\Models\\StationaryBucketGroup"
+                  ? "Selecionar caçambas"
+                  : "Selecionar equipamentos"
+              }
+            >
+              <Row gutter={[8, 16]}>
                 <Col span={24}>
-                  <LoadItem type="alt" />
+                  <Input
+                    onChange={(v) => setSearch(v.target.value)}
+                    placeholder={
+                      order.productable_group_type ===
+                      "App\\Models\\StationaryBucketGroup"
+                        ? "Buscar caçamba"
+                        : "Buscar equipamento"
+                    }
+                    prefix={<IoSearch color="var(--color02)" />}
+                    size="large"
+                    value={search}
+                  />
                 </Col>
-              ) : cacamba.length > 0 ? (
-                cacamba.map((v, i) => (
-                  <Col key={i} span={24}>
-                    <Card hoverable size="small">
-                      {loadCheck ? (
-                        <Checkbox
-                          defaultChecked={cacambaSelect.indexOf(v.id) !== -1}
-                          disabled={
-                            Number(verify) >= Number(order.quantity) &&
-                            !(cacambaSelect.indexOf(v.id) !== -1)
-                          }
-                          onChange={(value) => onCacambaSelect(v.id, value)}
-                        >
-                          <Typography className={"ad-title"}>
-                            {v.code}
-                          </Typography>
-                        </Checkbox>
-                      ) : (
-                        <Checkbox
-                          defaultChecked={cacambaSelect.indexOf(v.id) !== -1}
-                          disabled={
-                            Number(verify) >= Number(order.quantity) &&
-                            !(cacambaSelect.indexOf(v.id) !== -1)
-                          }
-                          onChange={(value) => onCacambaSelect(v.id, value)}
-                        >
-                          <Typography className={"ad-title"}>
-                            {v.code}
-                          </Typography>
-                        </Checkbox>
-                      )}
-                    </Card>
+                {loadButton && (
+                  <Col span={24}>
+                    <LoadItem type="alt" />
                   </Col>
-                ))
-              ) : (
+                )}
+                {!loadButton && cacamba.length > 0 ? (
+                  cacamba.map((v) => (
+                    <Col key={v.id} span={24}>
+                      <Card hoverable size="small">
+                        {loadCheck ? (
+                          <Checkbox
+                            defaultChecked={cacambaSelect.indexOf(v.id) !== -1}
+                            disabled={
+                              Number(verify) >= Number(order.quantity) &&
+                              !(cacambaSelect.indexOf(v.id) !== -1)
+                            }
+                            onChange={(value) => onCacambaSelect(v.id, value)}
+                          >
+                            <Typography className={"ad-title"}>
+                              {v.code}
+                            </Typography>
+                          </Checkbox>
+                        ) : (
+                          <Checkbox
+                            defaultChecked={cacambaSelect.indexOf(v.id) !== -1}
+                            disabled={
+                              Number(verify) >= Number(order.quantity) &&
+                              !(cacambaSelect.indexOf(v.id) !== -1)
+                            }
+                            onChange={(value) => onCacambaSelect(v.id, value)}
+                          >
+                            <Typography className={"ad-title"}>
+                              {v.code}
+                            </Typography>
+                          </Checkbox>
+                        )}
+                      </Card>
+                    </Col>
+                  ))
+                ) : (
+                  <Col span={24}>
+                    <Typography>Não há mais caçambas</Typography>
+                  </Col>
+                )}
                 <Col span={24}>
-                  <Typography>Não há mais caçambas</Typography>
+                  <Button
+                    block
+                    disabled={verify < order.quantity}
+                    loading={loadSelect}
+                    onClick={onOrderProduct}
+                    type="primary"
+                  >
+                    {order.productable_group_type ===
+                    "App\\Models\\StationaryBucketGroup"
+                      ? "Selecionar caçambas"
+                      : "Selecionar equipamentos"}
+                  </Button>
                 </Col>
-              )}
-              <Col span={24}>
-                <Button
-                  block
-                  disabled={verify < order.quantity}
-                  loading={loadSelect}
-                  onClick={onOrderProduct}
-                  type="primary"
-                >
-                  Selecionar caçambas
-                </Button>
-              </Col>
-            </Row>
-          </Drawer>
+              </Row>
+            </Drawer>
+          }
         </Row>
       )}
     </PageDefault>

@@ -1,19 +1,20 @@
 // react libraries
 
-import { Col, Modal, Row, Tag, Typography } from 'antd';
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import CardItem from '../../../../components/CardItem';
-import PageDefault from '../../../../components/PageDefault';
+import { Col, Modal, Popover, Row, Tag, Typography } from "antd";
+import { useState } from "react";
+import { TbShoppingCart } from "react-icons/tb";
+import { Link } from "react-router-dom";
+import CardItem from "../../../../components/CardItem";
+import PageDefault from "../../../../components/PageDefault";
 // components
-import Table from '../../../../components/Table';
-
+import Table from "../../../../components/Table";
 // services
 import {
   type PageDefaultProps,
   POST_API,
   POST_CATCH,
-} from '../../../../services';
+  verifyConfig,
+} from "../../../../services";
 
 const CityList = ({ type, path, permission }: PageDefaultProps) => {
   // state
@@ -22,50 +23,50 @@ const CityList = ({ type, path, permission }: PageDefaultProps) => {
   // table columns
   const column = [
     {
-      title: 'Nome',
-      dataIndex: 'name',
-      table: 'cities.name',
-      width: 'auto',
-      minWidth: '200px',
+      title: "Nome",
+      dataIndex: "name",
+      table: "cities.name",
+      width: "auto",
+      minWidth: "200px",
       sorter: true,
-      align: 'left',
+      align: "left",
       render: (item: any) => <Typography>{item.name}</Typography>,
     },
     {
-      title: 'Estado',
-      dataIndex: 'state.name',
-      table: 'states.acronym',
-      width: '150px',
+      title: "Estado",
+      dataIndex: "state.name",
+      table: "states.acronym",
+      width: "150px",
       sorter: true,
-      align: 'left',
+      align: "left",
       render: null,
     },
     {
-      title: 'IBGE',
-      dataIndex: 'ibge_code',
-      table: 'cities.ibge_code',
-      width: '100px',
+      title: "IBGE",
+      dataIndex: "ibge_code",
+      table: "cities.ibge_code",
+      width: "100px",
       sorter: true,
-      align: 'center',
+      align: "center",
       render: null,
     },
     {
-      title: 'Recebe ao finalizar processo',
-      dataIndex: 'receive_only_finished',
-      table: 'cities.receive_only_finished',
-      width: '200px',
+      title: "Recebe ao finalizar processo",
+      dataIndex: "receive_only_finished",
+      table: "cities.receive_only_finished",
+      width: "200px",
       sorter: true,
-      align: 'center',
+      align: "center",
       render: (item: any) => (
-        <Row justify={'center'} style={{ width: '100%' }}>
+        <Row justify={"center"} style={{ width: "100%" }}>
           <Tag
             color={item.receive_only_finished_color}
-            onClick={() => onChange(item, 'receive_only_finished')}
+            onClick={() => onChange(item, "receive_only_finished")}
             style={{
               margin: 0,
-              width: '100%',
-              textAlign: 'center',
-              cursor: 'pointer',
+              width: "100%",
+              textAlign: "center",
+              cursor: "pointer",
             }}
           >
             {item.receive_only_finished_name}
@@ -74,22 +75,22 @@ const CityList = ({ type, path, permission }: PageDefaultProps) => {
       ),
     },
     {
-      title: 'Validação da prefeitura',
-      dataIndex: 'municipal_approval',
-      table: 'cities.municipal_approval',
-      width: '160px',
+      title: "Validação da prefeitura",
+      dataIndex: "municipal_approval",
+      table: "cities.municipal_approval",
+      width: "160px",
       sorter: true,
-      align: 'center',
+      align: "center",
       render: (item: any) => (
-        <Row justify={'center'} style={{ width: '100%' }}>
+        <Row justify={"center"} style={{ width: "100%" }}>
           <Tag
             color={item.municipal_approval_color}
-            onClick={() => onChange(item, 'municipal_approval')}
+            onClick={() => onChange(item, "municipal_approval")}
             style={{
               margin: 0,
-              width: '100%',
-              textAlign: 'center',
-              cursor: 'pointer',
+              width: "100%",
+              textAlign: "center",
+              cursor: "pointer",
             }}
           >
             {item.municipal_approval_name}
@@ -97,21 +98,41 @@ const CityList = ({ type, path, permission }: PageDefaultProps) => {
         </Row>
       ),
     },
+    {
+      title: "Ações",
+      dataIndex: "municipal_approval",
+      table: "cities.municipal_approval",
+      width: "80px",
+      sorter: true,
+      align: "center",
+      hide: !verifyConfig(["cty.prc.mnm"]),
+      render: (item: any) => (
+        <Row justify={"center"} style={{ width: "100%" }}>
+          <Col>
+            <Link to={`${item.id}/precos-minimos`}>
+              <Popover content="Preços mínimos" trigger="hover">
+                <TbShoppingCart className="actions-button" size={18} />
+              </Popover>
+            </Link>
+          </Col>
+        </Row>
+      ),
+    },
   ];
 
   const onChange = (item: any, field: string) => {
     Modal.confirm({
-      title: 'Atenção',
-      content: `Deseja alterar o valor para ${item[field] === 1 ? 'NÃO' : 'SIM'}?`,
-      okText: 'Sim',
-      cancelText: 'Não',
+      title: "Atenção",
+      content: `Deseja alterar o valor para ${item[field] === 1 ? "NÃO" : "SIM"}?`,
+      okText: "Sim",
+      cancelText: "Não",
       onOk: () => {
         POST_API(`/${path}`, { [field]: item[field] === 1 ? 0 : 1 }, item.id)
           .then((rs) => {
             if (rs.ok) setAction(!action);
             else
               Modal.warning({
-                title: 'Algo deu errado',
+                title: "Algo deu errado",
                 content: rs.statusText,
               });
           })
@@ -123,8 +144,8 @@ const CityList = ({ type, path, permission }: PageDefaultProps) => {
   return (
     <PageDefault
       items={[
-        { title: <Link to={type === 'list' ? '#' : '..'}>Cidades</Link> },
-        { title: type === 'list' ? 'Lista' : 'Lixeira' },
+        { title: <Link to={type === "list" ? "#" : ".."}>Cidades</Link> },
+        { title: type === "list" ? "Lista" : "Lixeira" },
       ]}
       valid={`${permission}.${type}`}
     >
@@ -138,11 +159,11 @@ const CityList = ({ type, path, permission }: PageDefaultProps) => {
               type={type}
               useFilter={[
                 {
-                  type: 'search',
-                  name: 'state',
-                  label: 'Estado',
-                  url: '/state',
-                  labelField: ['acronym', 'name'],
+                  type: "search",
+                  name: "state",
+                  label: "Estado",
+                  url: "/state",
+                  labelField: ["acronym", "name"],
                 },
               ]}
             />

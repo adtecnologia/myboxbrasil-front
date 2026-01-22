@@ -6,11 +6,11 @@ import {
   Form,
   Image,
   Input,
+  InputNumber,
   Modal,
   message,
   Row,
   Upload,
-  InputNumber,
 } from "antd";
 import ImgCrop from "antd-img-crop";
 import { useEffect, useState } from "react";
@@ -119,7 +119,7 @@ const ModelosDeCacambaForm = ({ type, path, permission }: PageDefaultProps) => {
             <CardItem>
               <Form form={form} layout="vertical" onFinish={onSend}>
                 <Row gutter={[8, 8]}>
-                  <Col xs={24} sm={24} lg={8}>
+                  <Col lg={8} sm={24} xs={24}>
                     <Form.Item
                       label="Modelo"
                       name="name"
@@ -130,7 +130,7 @@ const ModelosDeCacambaForm = ({ type, path, permission }: PageDefaultProps) => {
                       <Input placeholder="Modelo" />
                     </Form.Item>
                   </Col>
-                  <Col xs={24} sm={12} lg={8}>
+                  <Col lg={8} sm={12} xs={24}>
                     <Form.Item
                       label="Capacidade"
                       name="m3"
@@ -145,22 +145,19 @@ const ModelosDeCacambaForm = ({ type, path, permission }: PageDefaultProps) => {
                       />
                     </Form.Item>
                   </Col>
-                  <Col xs={24} sm={12} lg={8}>
-                    <Form.Item
-                      label="Valor mínimo"
-                      name="minimum_value"
-                    >
+                  <Col lg={8} sm={12} xs={24}>
+                    <Form.Item label="Preço mínimo" name="minimum_price">
                       <InputNumber
                         addonBefore="R$"
-                        min={1}
-                        placeholder="Valor mínimo"
+                        min={0}
+                        placeholder="Preço mínimo"
                         step={"0.01"}
                         style={{ width: "100%" }}
                         type="number"
                       />
                     </Form.Item>
                   </Col>
-                  <Col xs={24} sm={12} lg={8} xl={4}>
+                  <Col lg={8} sm={12} xl={4} xs={24}>
                     <Form.Item label="Medida A" name="letter_a">
                       <Input
                         addonAfter="m"
@@ -169,7 +166,7 @@ const ModelosDeCacambaForm = ({ type, path, permission }: PageDefaultProps) => {
                       />
                     </Form.Item>
                   </Col>
-                  <Col xs={24} sm={12} lg={8} xl={4}>
+                  <Col lg={8} sm={12} xl={4} xs={24}>
                     <Form.Item label="Medida B" name="letter_b">
                       <Input
                         addonAfter="m"
@@ -178,7 +175,7 @@ const ModelosDeCacambaForm = ({ type, path, permission }: PageDefaultProps) => {
                       />
                     </Form.Item>
                   </Col>
-                  <Col xs={24} sm={12} lg={8} xl={4}>
+                  <Col lg={8} sm={12} xl={4} xs={24}>
                     <Form.Item label="Medida C" name="letter_c">
                       <Input
                         addonAfter="m"
@@ -187,7 +184,7 @@ const ModelosDeCacambaForm = ({ type, path, permission }: PageDefaultProps) => {
                       />
                     </Form.Item>
                   </Col>
-                  <Col xs={24} sm={12} lg={8} xl={4}>
+                  <Col lg={8} sm={12} xl={4} xs={24}>
                     <Form.Item label="Medida D" name="letter_d">
                       <Input
                         addonAfter="m"
@@ -196,7 +193,7 @@ const ModelosDeCacambaForm = ({ type, path, permission }: PageDefaultProps) => {
                       />
                     </Form.Item>
                   </Col>
-                  <Col xs={24} sm={12} lg={8} xl={4}>
+                  <Col lg={8} sm={12} xl={4} xs={24}>
                     <Form.Item label="Medida E" name="letter_e">
                       <Input
                         addonAfter="m"
@@ -205,7 +202,7 @@ const ModelosDeCacambaForm = ({ type, path, permission }: PageDefaultProps) => {
                       />
                     </Form.Item>
                   </Col>
-                  <Col xs={24} sm={12} lg={8} xl={4}>
+                  <Col lg={8} sm={12} xl={4} xs={24}>
                     <Form.Item label="Medida F" name="letter_f">
                       <Input
                         addonAfter="m"
@@ -214,7 +211,7 @@ const ModelosDeCacambaForm = ({ type, path, permission }: PageDefaultProps) => {
                       />
                     </Form.Item>
                   </Col>
-                   <Col xs={24} sm={8} md={4}>
+                  <Col md={4} sm={8} xs={24}>
                     <Image
                       src={
                         photoPreview

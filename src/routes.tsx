@@ -14,7 +14,8 @@ import Login from "./app/login";
 import Panel from "./app/painel";
 // cart
 import Cart from "./app/painel/carrinho";
-import CartView from "./app/painel/carrinho/view";
+import CartEquipment from "./app/painel/carrinho/equipment";
+import CartStationary from "./app/painel/carrinho/stationary";
 // config
 import Config from "./app/painel/configuracoes";
 // dashboard
@@ -56,6 +57,7 @@ import EquipmentTypePage from "./app/painel/configuracoes-comerciais/tipos-de-eq
 import EquipmentTypeForm from "./app/painel/configuracoes-comerciais/tipos-de-equipamento/form";
 // city
 import CityList from "./app/painel/dadosdosistema/cidades";
+import MinimumPricePage from "./app/painel/dadosdosistema/cidades/precos-minimos";
 // state
 import StateList from "./app/painel/dadosdosistema/estados";
 // model
@@ -94,6 +96,7 @@ import OrdemLocacaoEmTransito from "./app/painel/ordenslocacao/emtransito";
 import OrdemLocacaoEntregaPendente from "./app/painel/ordenslocacao/entregapendente";
 import OrdemLocacaoLocada from "./app/painel/ordenslocacao/locada";
 import OrdemLocacaoMapa from "./app/painel/ordenslocacao/map";
+import PlaceOrderEquipment from "./app/painel/pedircacamba/equipment";
 import StationaryBucketTabs from "./app/painel/produtos/cacambas/tabs";
 import EquipmentList from "./app/painel/produtos/equipamentos";
 import EquipmentTabs from "./app/painel/produtos/equipamentos/tabs";
@@ -124,6 +127,7 @@ import LandlordForm from "./app/painel/usuarios/locadores/form";
 import LocadorValidacaoForm from "./app/painel/usuarios/locadores/validacao";
 // tenant
 import TenantList from "./app/painel/usuarios/locatarios";
+import ClientesEspeciais from "./app/painel/usuarios/locatarios/clientes-especiais";
 import TenantForm from "./app/painel/usuarios/locatarios/form";
 // driver
 import DriverList from "./app/painel/usuarios/motorista";
@@ -132,7 +136,6 @@ import CityhallList from "./app/painel/usuarios/prefeituras";
 import CityhallForm from "./app/painel/usuarios/prefeituras/form";
 import CityhallPopular from "./app/painel/usuarios/prefeituras/popular";
 import LoadItem from "./components/LoadItem";
-import ClientesEspeciais from "./app/painel/usuarios/locatarios/clientes-especiais";
 
 const RoutesStack = () => {
   return (
@@ -177,7 +180,8 @@ const RoutesStack = () => {
           {/* cart */}
           <Route element={<Outlet />} path="carrinho">
             <Route element={<Cart />} path="" />
-            <Route element={<CartView />} path=":ID" />
+            <Route element={<CartStationary />} path=":ID/cacamba" />
+            <Route element={<CartEquipment />} path=":ID/equipamento" />
           </Route>
 
           {/* order */}
@@ -262,10 +266,8 @@ const RoutesStack = () => {
           {/* place order */}
           <Route element={<Outlet />} path="pedirlocacao">
             <Route element={<PlaceOrder />} path="" />
-            <Route
-              element={<PlaceOrderStationary />}
-              path="cacamba/:ID/:TYPE?"
-            />
+            <Route element={<PlaceOrderStationary />} path="cacamba/:ID" />
+            <Route element={<PlaceOrderEquipment />} path="equipamento/:ID" />
           </Route>
 
           {/* order location */}
@@ -391,6 +393,10 @@ const RoutesStack = () => {
             <Route
               element={<EquipmentTabs path="" permission="cmb" type="add" />}
               path="novo"
+            />
+            <Route
+              element={<EquipmentTabs path="" permission="cmb" type="edit" />}
+              path=":ID"
             />
           </Route>
           <Route element={<Outlet />} path="cacambas">
@@ -591,7 +597,11 @@ const RoutesStack = () => {
             />
             <Route
               element={
-                <ClientesEspeciais path="stationary_bucket_type" permission="lct" type="edit" />
+                <ClientesEspeciais
+                  path="stationary_bucket_type"
+                  permission="lct"
+                  type="edit"
+                />
               }
               path=":ID/clientes-especiais"
             />
@@ -693,6 +703,16 @@ const RoutesStack = () => {
             <Route
               element={<CityList path="city" permission="cdd" type="list" />}
               path=""
+            />
+            <Route
+              element={
+                <MinimumPricePage
+                  path="stationary_bucket_type"
+                  permission="cdd"
+                  type="list"
+                />
+              }
+              path=":ID/precos-minimos"
             />
           </Route>
           <Route

@@ -19,7 +19,7 @@ import {
   POST_CATCH,
 } from "../../../../services";
 
-const ClientesEspeciais = ({ type, path, permission }: PageDefaultProps) => {
+const MinimumPricePage = ({ type, path, permission }: PageDefaultProps) => {
   const { ID } = useParams();
 
   // state
@@ -35,9 +35,9 @@ const ClientesEspeciais = ({ type, path, permission }: PageDefaultProps) => {
 
     setLoading((prev) => ({ ...prev, [id]: true }));
 
-    POST_API("/customer-minimum-prices", {
+    POST_API("/city-minimum-prices", {
       minimum_price: value,
-      customer_id: ID,
+      city_id: ID,
       stationary_bucket_type_id: id,
     })
       .then((rs) => {
@@ -86,7 +86,7 @@ const ClientesEspeciais = ({ type, path, permission }: PageDefaultProps) => {
           <Col flex="auto">
             <InputNumber
               addonBefore="R$"
-              defaultValue={item.customer_seller_minimum_price ?? 0}
+              defaultValue={item.city_minimum_price ?? 0}
               min={0}
               onChange={(value) =>
                 setValues((prev) => ({ ...prev, [item.id]: value || 0 }))
@@ -117,9 +117,8 @@ const ClientesEspeciais = ({ type, path, permission }: PageDefaultProps) => {
   return (
     <PageDefault
       items={[
-        { title: <Link to={type === "list" ? "#" : ".."}>Clientes</Link> },
-        { title: ID },
-        { title: "Preço especial" },
+        { title: <Link to={type === "list" ? "#" : ".."}>Cidades</Link> },
+        { title: `Preços mínimos (${ID})` },
       ]}
       options={
         <Row gutter={[8, 8]} justify={"end"}>
@@ -128,7 +127,7 @@ const ClientesEspeciais = ({ type, path, permission }: PageDefaultProps) => {
           <TableReturnButton permission={permission} type={type} />
         </Row>
       }
-      valid={"cst.prc.mnm"}
+      valid={"cty.prc.mnm"}
     >
       <Row gutter={[16, 16]}>
         <Col md={24} xs={24}>
@@ -136,7 +135,7 @@ const ClientesEspeciais = ({ type, path, permission }: PageDefaultProps) => {
             <Table
               action={action}
               column={column}
-              defaultFilter={{ customerId: ID }}
+              defaultFilter={{ cityId: ID }}
               path={path}
               type={type}
             />
@@ -147,4 +146,4 @@ const ClientesEspeciais = ({ type, path, permission }: PageDefaultProps) => {
   );
 };
 
-export default ClientesEspeciais;
+export default MinimumPricePage;

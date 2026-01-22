@@ -1,6 +1,5 @@
 /** biome-ignore-all lint/suspicious/noExplicitAny: ignorar */
 /** biome-ignore-all lint/suspicious/noArrayIndexKey: ignorar */
-/** biome-ignore-all lint/nursery/noNoninteractiveElementInteractions: ignorar */
 /** biome-ignore-all lint/a11y/useKeyWithClickEvents: ignorar */
 /** biome-ignore-all lint/a11y/noStaticElementInteractions: ignorar */
 import { Button, Col, Input, Row, Typography } from "antd";
@@ -104,11 +103,9 @@ export function SearchMobileView({
                 <b>Identificação:</b> {focus.product.code}
               </Typography>
               <Typography>
-                <b>Modelo:</b>{" "}
-                {
-                  focus.product.stationary_bucket_group.stationary_bucket_type
-                    .name
-                }
+                {focus.product.stationary_bucket_group &&
+                  `Modelo ${focus.product.stationary_bucket_group.stationary_bucket_type.name}`}
+                {focus.product.equipment && `${focus.product.equipment.name}`}
               </Typography>
               <hr />
               <Typography>
