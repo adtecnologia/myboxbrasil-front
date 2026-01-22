@@ -27,7 +27,7 @@ const CardCacamba = ({
     return <CardCacambaShop {...{ typeSelect, residueSelect, item }} />;
   }
   if (type === "cart") {
-    return <CardCacambaCart action={action} item={item} />;
+    return <CardCacambaCart  item={item} />;
   }
   if (type === "provider") {
     return <CardCacambaProvider action={action} item={item} />;
