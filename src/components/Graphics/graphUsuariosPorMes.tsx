@@ -21,45 +21,59 @@ const GraphUsuariosPorMes = ( { filters, height } : GraphUsuariosPorMesInterface
     // ESTADOS DO COMPONENTE
     const [ loading, setLoading ] = useState<boolean>(true)
     const [ data, setData ] = useState<number[]>([])
-    const [ chart, setChart ] = useState<any>(null)
 
     // REF GRAFICO
     const thisGraph = useRef<any>()
 
     useEffect(() => {
-        setChart( echarts.init(thisGraph.current) )
-        const observer = new ResizeObserver((entries) => {
-            echarts.getInstanceByDom(thisGraph.current).resize()
-        });
-        observer.observe(thisGraph.current);
-    }, [])
+        const chartEl = thisGraph.current;
+        if (!chartEl) return;
 
-    useEffect(() => {
-
-        if (chart) {
-
-            const option: any = {
-                color: [ cor3, cor4, cor2, cor1, cor5 ],
-                xAxis: { type: 'category', data: [ "Jan", 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez' ] },
-                yAxis: { type: 'value', axisLabel: { formatter: (value:any) => `${Number(value).toLocaleString('pt-br')}` }},
-                tooltip: { trigger: 'axis', position: function (pt:any) { return ['10%', '10%']; }, valueFormatter: (value:any) => `${Number(value).toLocaleString('pt-br')}`},
-                grid: { left: '0px', right: '20px', bottom: '20px', top: '20px', containLabel: true },
-                dataZoom: [ { type: 'inside', start: 0, end: '100%' } ],
-                lineStyle: { color: cor3, width: 2 },
-                series: data
-            }
-    
-            chart.setOption(option)
-            
+        // Dispose chart if already initialized
+        const existingChart = echarts.getInstanceByDom(chartEl);
+        if (existingChart) {
+          existingChart.dispose();
         }
 
+        const chartMain = echarts.init(chartEl);
 
-    }, [chart, data])
+        const observer = new ResizeObserver(() => {
+            chartMain.resize();
+        });
+        observer.observe(chartEl);
 
-    // CARREGA CAÇAMBAS
-    useEffect(() => { 
+        return () => {
+            observer.disconnect();
+            chartMain.dispose();
+        };
+    }, [])
+
+    // CARREGA DADOS E ATUALIZA GRAFICO
+    useEffect(() => {
         setLoading(true);
-        GET_API(`/dashboard/usersbymonth?ref=${filters.filterAno.value}-${filters.filterMes.value}`).then(rs => rs.json()).then(res => setData(res.data)).finally(() => setLoading(false))
+        GET_API(`/dashboard/usersbymonth?ref=${filters.filterAno.value}-${filters.filterMes.value}`)
+            .then(rs => rs.json())
+            .then(res => {
+                setData(res.data || []);
+                const chartEl = thisGraph.current;
+                if (chartEl) {
+                    const chartMain = echarts.getInstanceByDom(chartEl);
+                    if (chartMain) {
+                        const option: any = {
+                            color: [ cor3, cor4, cor2, cor1, cor5 ],
+                            xAxis: { type: 'category', data: [ "Jan", 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez' ] },
+                            yAxis: { type: 'value', axisLabel: { formatter: (value:any) => `${Number(value).toLocaleString('pt-br')}` }},
+                            tooltip: { trigger: 'axis', position: function (pt:any) { return ['10%', '10%']; }, valueFormatter: (value:any) => `${Number(value).toLocaleString('pt-br')}`},
+                            grid: { left: '0px', right: '20px', bottom: '20px', top: '20px', containLabel: true },
+                            dataZoom: [ { type: 'inside', start: 0, end: '100%' } ],
+                            lineStyle: { color: cor3, width: 2 },
+                            series: res.data || []
+                        }
+                        chartMain.setOption(option);
+                    }
+                }
+            })
+            .finally(() => setLoading(false))
     }, [filters])
 
     return (

@@ -1,12 +1,12 @@
 // BIBLIOTECAS REACT
 
-import { Row } from 'antd';
-import * as echarts from 'echarts';
-import { useEffect, useRef, useState } from 'react';
-import { Oval } from 'react-loader-spinner';
+import { Row } from "antd";
+import * as echarts from "echarts";
+import { useEffect, useRef, useState } from "react";
+import { Oval } from "react-loader-spinner";
 
 // SERVIÇOS
-import { cor1, cor2, cor3, cor4, cor5, GET_API } from '../../services';
+import { cor1, cor2, cor3, cor4, cor5, GET_API } from "../../services";
 
 // INTERFACE
 interface GraphCacambasPorMesInterface {
@@ -15,7 +15,7 @@ interface GraphCacambasPorMesInterface {
 }
 
 // CSS
-import './styles.css';
+import "./styles.css";
 
 const GraphCacambasPorMes = ({
   filters,
@@ -42,45 +42,45 @@ const GraphCacambasPorMes = ({
       const option: any = {
         color: [cor3, cor4, cor2, cor5, cor1],
         xAxis: {
-          type: 'category',
+          type: "category",
           data: [
-            'Jan',
-            'Fev',
-            'Mar',
-            'Abr',
-            'Mai',
-            'Jun',
-            'Jul',
-            'Ago',
-            'Set',
-            'Out',
-            'Nov',
-            'Dez',
+            "Jan",
+            "Fev",
+            "Mar",
+            "Abr",
+            "Mai",
+            "Jun",
+            "Jul",
+            "Ago",
+            "Set",
+            "Out",
+            "Nov",
+            "Dez",
           ],
         },
         yAxis: {
-          type: 'value',
+          type: "value",
           axisLabel: {
             formatter: (value: any) =>
-              `${Number(value).toLocaleString('pt-br')}`,
+              `${Number(value).toLocaleString("pt-br")}`,
           },
         },
         tooltip: {
-          trigger: 'axis',
+          trigger: "axis",
           position(pt: any) {
-            return ['10%', '10%'];
+            return ["10%", "10%"];
           },
           valueFormatter: (value: any) =>
-            `${Number(value).toLocaleString('pt-br')}`,
+            `${Number(value).toLocaleString("pt-br")}`,
         },
         grid: {
-          left: '0px',
-          right: '20px',
-          bottom: '20px',
-          top: '20px',
+          left: "0px",
+          right: "20px",
+          bottom: "20px",
+          top: "20px",
           containLabel: true,
         },
-        dataZoom: [{ type: 'inside', start: 0, end: '100%' }],
+        dataZoom: [{ type: "inside", start: 0, end: "100%" }],
         lineStyle: { color: cor3, width: 2 },
         series: data,
       };
@@ -102,13 +102,13 @@ const GraphCacambasPorMes = ({
 
   return (
     <>
-      <div ref={thisGraph} style={{ height, overflow: 'hidden' }} />
+      <div ref={thisGraph} style={{ height, overflow: "hidden" }} />
       {loading ? (
         <Row
-          align={'middle'}
+          align={"middle"}
           className="loading-graph"
-          justify={'center'}
-          style={{ height: '90%' }}
+          justify={"center"}
+          style={{ height: "90%" }}
         >
           <Oval
             ariaLabel="oval-loading"

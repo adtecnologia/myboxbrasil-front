@@ -1,10 +1,10 @@
 // BIBLIOTECAS REACT
 
-import { Button, Row, Typography } from 'antd';
-import { useEffect, useState } from 'react';
-import { CircleMarker, MapContainer, Popup, TileLayer } from 'react-leaflet';
-import { Oval } from 'react-loader-spinner';
-import { GET_API } from '../../services';
+import { Button, Row, Typography } from "antd";
+import { useEffect, useState } from "react";
+import { CircleMarker, MapContainer, Popup, TileLayer } from "react-leaflet";
+import { Oval } from "react-loader-spinner";
+import { GET_API } from "../../services";
 
 // INTERFACE
 interface GraphMapaCacambasLocadasInterface {
@@ -12,10 +12,11 @@ interface GraphMapaCacambasLocadasInterface {
 }
 
 // CSS
-import './styles.css';
+import "./styles.css";
 
+import { OrderLocationProductStatusEnum } from "@/enums/order-location-product-status-enum";
 // components
-import MapFullScreen from '../MapFullScreen';
+import MapFullScreen from "../MapFullScreen";
 
 const GraphMapaCacambasLocadas = ({
   height,
@@ -27,7 +28,7 @@ const GraphMapaCacambasLocadas = ({
   const [open, setOpen] = useState<boolean>(false);
 
   useEffect(() => {
-    GET_API('/address?default=1')
+    GET_API("/address?default=1")
       .then((rs) => rs.json())
       .then((res) => {
         setCoord([res.data[0].latitude, res.data[0].longitude]);
@@ -37,20 +38,21 @@ const GraphMapaCacambasLocadas = ({
   // CARREGA ENTREGAS HOJE
   useEffect(() => {
     setLoading(true);
-    GET_API('/order_location_product?status=L')
+    GET_API("/order_location_product?status=L")
       .then((rs) => rs.json())
-      .then((res) => setData(res.data))
+      .then((res) => setData(res.data || []))
+      .catch(() => setData([]))
       .finally(() => setLoading(false));
   }, []);
 
   return (
-    <div style={{ height, overflow: 'hidden' }}>
+    <div style={{ height, overflow: "hidden" }}>
       {coord === null || loading ? (
         <Row
-          align={'middle'}
+          align={"middle"}
           className="loading-graph"
-          justify={'center'}
-          style={{ height: '90%', zIndex: 100 }}
+          justify={"center"}
+          style={{ height: "90%", zIndex: 100 }}
         >
           <Oval
             ariaLabel="oval-loading"
@@ -68,7 +70,7 @@ const GraphMapaCacambasLocadas = ({
         <MapContainer
           center={[coord[0], coord[1]]}
           scrollWheelZoom={false}
-          style={{ width: '100%', height: '100%' }}
+          style={{ width: "100%", height: "100%" }}
           zoom={14}
         >
           <TileLayer
@@ -86,21 +88,21 @@ const GraphMapaCacambasLocadas = ({
               radius={10}
             >
               <Popup>
-                {' '}
+                {" "}
                 <Typography
                   style={{
-                    textAlign: 'center',
+                    textAlign: "center",
                     color: v.product.status.color,
-                    fontSize: '1.2em',
+                    fontSize: "1.2em",
                   }}
                 >
                   {v.product.status.name}
-                </Typography>{' '}
-                <br /> {v.order_locations.cart_product.address.street},{' '}
-                {v.order_locations.cart_product.address.number} -{' '}
-                {v.order_locations.cart_product.address.district} -{' '}
-                {v.order_locations.cart_product.address.city.name} /{' '}
-                {v.order_locations.cart_product.address.city.state.acronym}{' '}
+                </Typography>{" "}
+                <br /> {v.order_locations.cart_product.address.street},{" "}
+                {v.order_locations.cart_product.address.number} -{" "}
+                {v.order_locations.cart_product.address.district} -{" "}
+                {v.order_locations.cart_product.address.city.name} /{" "}
+                {v.order_locations.cart_product.address.city.state.acronym}{" "}
               </Popup>
             </CircleMarker>
           ))}
@@ -114,7 +116,11 @@ const GraphMapaCacambasLocadas = ({
       <MapFullScreen
         open={open}
         setOpen={setOpen}
-        startStatus={['L', 'AR', 'ETR']}
+        startStatus={[
+          OrderLocationProductStatusEnum.RENTED,
+          OrderLocationProductStatusEnum.AWAITING_PICKUP,
+          OrderLocationProductStatusEnum.IN_TRANSIT_TO_RENTAL,
+        ]}
       />
     </div>
   );
