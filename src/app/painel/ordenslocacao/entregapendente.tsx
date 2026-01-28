@@ -459,7 +459,7 @@ const OrdemLocacaoEntregaPendente = ({
               action={action}
               column={column}
               defaultFilter={{
-                STATUS: OrderLocationProductStatusEnum.PENDING_DELIVERY,
+                status: OrderLocationProductStatusEnum.PENDING_DELIVERY,
               }}
               getList={(data: any) =>
                 getProfileType() === "LEGAL_SELLER" ||

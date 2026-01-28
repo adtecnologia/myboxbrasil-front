@@ -156,7 +156,7 @@ const DashPrefeituras = ({ filters }: DashPrefeiturasInterface) => {
       <Col lg={5} md={8} sm={12} xl={5} xs={24}>
         <CardKPISmall
           icon={<IoCartOutline className="card-kpi-small-icon" />}
-          onClick={() => navigate("/painel/produtos&cacambas&cadastros")}
+          onClick={() => navigate("/painel/cacambas")}
           title="Caçambas"
           value={cacambas}
         />
