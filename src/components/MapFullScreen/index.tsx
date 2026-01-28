@@ -57,6 +57,7 @@ const MapFullScreen = ({
     )
       .then((rs) => rs.json())
       .then((res) => setData(res.data))
+      .catch(() => setData([]))
       .finally(() => setLoading(false));
   };
 
@@ -135,7 +136,7 @@ const MapFullScreen = ({
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               />
-              {data.map((v, i) => (
+              {data?.map((v, i) => (
                 <MapView
                   color={v.status.color}
                   item={v}

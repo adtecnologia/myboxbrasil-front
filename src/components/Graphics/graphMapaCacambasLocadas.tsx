@@ -38,7 +38,7 @@ const GraphMapaCacambasLocadas = ({
   // CARREGA ENTREGAS HOJE
   useEffect(() => {
     setLoading(true);
-    GET_API("/order_location_product?status=L")
+    GET_API("/order_location_product?status=RENTED")
       .then((rs) => rs.json())
       .then((res) => setData(res.data || []))
       .catch(() => setData([]))
@@ -80,11 +80,11 @@ const GraphMapaCacambasLocadas = ({
           {data.map((v, i) => (
             <CircleMarker
               center={[
-                Number(v.order_locations.cart_product.address.latitude),
-                Number(v.order_locations.cart_product.address.longitude),
+                Number(v.order_location.client_latitude),
+                Number(v.order_location.client_longitude),
               ]}
               key={i}
-              pathOptions={{ color: v.product.status.color }}
+              pathOptions={{ color: v.status.color }}
               radius={10}
             >
               <Popup>
@@ -92,17 +92,17 @@ const GraphMapaCacambasLocadas = ({
                 <Typography
                   style={{
                     textAlign: "center",
-                    color: v.product.status.color,
+                    color: v.status.color,
                     fontSize: "1.2em",
                   }}
                 >
-                  {v.product.status.name}
+                  {v.status.name}
                 </Typography>{" "}
-                <br /> {v.order_locations.cart_product.address.street},{" "}
-                {v.order_locations.cart_product.address.number} -{" "}
-                {v.order_locations.cart_product.address.district} -{" "}
-                {v.order_locations.cart_product.address.city.name} /{" "}
-                {v.order_locations.cart_product.address.city.state.acronym}{" "}
+                <br /> {v.order_location.client_street},{" "}
+                {v.order_location.client_number} -{" "}
+                {v.order_location.client_district} -{" "}
+                {v.order_location.client_city.name} /{" "}
+                {v.order_location.client_city.state.acronym}{" "}
               </Popup>
             </CircleMarker>
           ))}

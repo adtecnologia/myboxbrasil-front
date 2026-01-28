@@ -118,8 +118,8 @@ export function SearchView({
               </Typography>
             </div>
           </Col>
-        ) : data.length > 0 ? (
-          data.map((item: any, index: number) => (
+        ) : data?.length > 0 ? (
+          data?.map((item: any, index: number) => (
             <Col key={index} span={24}>
               <div
                 className="card-map-screen"
