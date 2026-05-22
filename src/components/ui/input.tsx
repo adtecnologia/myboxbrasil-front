@@ -1,77 +1,43 @@
-import { LoaderCircle } from "lucide-react";
-import type * as React from "react";
-
+import * as React from "react";
 import { cn } from "@/lib/utils";
 
-export interface InputProps extends React.ComponentProps<"input"> {
-  inputClassName?: string;
-  isLoading?: boolean;
-  isDisabled?: boolean;
-  startContent?: React.ReactNode;
-  endContent?: React.ReactNode;
+export const maskCurrency = (value: string) => {
+  if (!value) return "";
+  const digits = value.replace(/\D/g, "");
+  const amount = (Number(digits) / 100).toFixed(2);
+  return amount.replace(".", ",").replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1.");
+};
+
+export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+  isCurrency?: boolean;
 }
 
-const startAndEndContentDefaultStyles =
-  "text-font-200 pointer-events-none absolute top-1/2 flex size-10 -translate-y-1/2 items-center justify-center";
+const Input = React.forwardRef<HTMLInputElement, InputProps>(
+  ({ className, type, isCurrency, onChange, ...props }, ref) => {
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (isCurrency) {
+        const maskedValue = maskCurrency(e.target.value);
+        e.target.value = maskedValue;
+      }
+      if (onChange) {
+        onChange(e);
+      }
+    };
 
-function Input({
-  className,
-  inputClassName = "",
-  type = "text",
-  isLoading = false,
-  isDisabled = false,
-  startContent = null,
-  endContent = null,
-
-  ...props
-}: InputProps) {
-  return (
-    <div
-      className={cn(
-        "relative w-full [&_svg:not([class*='size-'])]:size-5",
-        className
-      )}
-    >
-      {startContent && (
-        <div className={cn(startAndEndContentDefaultStyles, "left-0")}>
-          {startContent}
-        </div>
-      )}
-
+    return (
       <input
-        className={cn(
-          "flex h-10 w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-1 text-sm outline-none transition-[color] selection:bg-primary selection:text-primary-foreground file:inline-flex file:h-7 file:border-0 file:bg-transparent file:font-medium file:text-foreground file:text-sm placeholder:text-font-200 dark:bg-input/30",
-          "focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
-          // 'aria-invalid:border-red-100 aria-invalid:ring-red-500/20',
-          "disabled:cursor-not-allowed disabled:opacity-70",
-          startContent && "pl-9",
-          (endContent || isLoading) && "pr-12",
-          inputClassName
-        )}
-        data-slot="input"
-        disabled={isDisabled}
         type={type}
+        className={cn(
+          "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
+          className,
+        )}
+        onChange={handleChange}
+        ref={ref}
         {...props}
       />
-
-      {isLoading && (
-        <div
-          className={cn(
-            startAndEndContentDefaultStyles,
-            "right-0 text-font-200"
-          )}
-        >
-          <LoaderCircle className="size-5 animate-spin" />
-        </div>
-      )}
-
-      {!isLoading && endContent && (
-        <div className={cn(startAndEndContentDefaultStyles, "right-0")}>
-          {endContent}
-        </div>
-      )}
-    </div>
-  );
-}
+    );
+  },
+);
+Input.displayName = "Input";
 
 export { Input };

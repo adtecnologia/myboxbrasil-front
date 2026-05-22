@@ -1,0 +1,602 @@
+import { useEffect, useRef, useState } from "react";
+import { Maximize2, Minimize2, User, Power, Truck, Search, MapPin, Navigation, ShieldCheck, Box, Info } from "lucide-react";
+import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import { useAuthStore } from "@/stores/useAuthStore";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+// Fix default marker icons
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+});
+
+// Função para criar o ícone personalizado com a imagem do motorista/fiscal
+const createAvatarIcon = (status: "online" | "offline" | "active", nome: string, type: "driver" | "fiscal") => {
+  const color = status === "online" || status === "active" ? (type === "driver" ? "#10b981" : "#3b82f6") : "#94a3b8";
+  const initials = nome.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+  
+  return L.divIcon({
+    className: 'custom-avatar-marker',
+    html: `
+      <div style="
+        position: relative;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        border: 3px solid ${color};
+        background: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+      ">
+        <div style="
+          width: 100%;
+          height: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: ${color}20;
+          color: ${color};
+          font-weight: bold;
+          font-size: 14px;
+        ">
+          ${initials}
+        </div>
+        <div style="
+          position: absolute;
+          bottom: 0;
+          right: 0;
+          width: 12px;
+          height: 12px;
+          background: ${color};
+          border: 2px solid white;
+          border-radius: 50%;
+        "></div>
+      </div>
+    `,
+    iconSize: [40, 40],
+    iconAnchor: [20, 20],
+    popupAnchor: [0, -20]
+  });
+};
+
+const createBoxIcon = () => {
+  return L.divIcon({
+    className: 'custom-box-marker',
+    html: `
+      <div style="
+        background: #f59e0b;
+        color: white;
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        border: 2px solid white;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      ">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+      </div>
+    `,
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+    popupAnchor: [0, -16]
+  });
+};
+
+interface RoutePoint {
+  id: string;
+  tipo: "entrega" | "retirada";
+  endereco: string;
+  posicao: [number, number];
+  status: "pendente" | "concluido";
+  equipamento: string;
+}
+
+interface Driver {
+  id: string;
+  nome: string;
+  status: "online" | "offline";
+  entregaAtual: string | null;
+  posicao: [number, number];
+  veiculo: string;
+  roteiro?: RoutePoint[];
+}
+
+interface Fiscal {
+  id: string;
+  nome: string;
+  status: "online" | "offline";
+  posicao: [number, number];
+  setor: string;
+  ultimaOcorrencia?: string;
+}
+
+interface LocacaoPoint {
+  id: string;
+  locatario: string;
+  locador: string;
+  endereco: string;
+  posicao: [number, number];
+  cacamba: string;
+  dataInicio: string;
+  status: "ativo" | "pendente_retirada";
+}
+
+const mockDrivers: Driver[] = [
+  { 
+    id: "1", 
+    nome: "João Silva", 
+    status: "online", 
+    entregaAtual: "Rota de 3 pontos", 
+    posicao: [-20.8113, -49.3758], 
+    veiculo: "Mercedes-Benz Axor",
+    roteiro: [
+      { id: "r1", tipo: "entrega", endereco: "Rua A, 123", posicao: [-20.8113, -49.3758], status: "pendente", equipamento: "Caçamba 5m³" },
+      { id: "r2", tipo: "retirada", endereco: "Av B, 456", posicao: [-20.8150, -49.3850], status: "pendente", equipamento: "Caçamba 7m³" },
+      { id: "r3", tipo: "entrega", endereco: "Rua C, 789", posicao: [-20.8200, -49.3950], status: "pendente", equipamento: "Container 10m³" }
+    ]
+  },
+  { id: "2", nome: "Ricardo Santos", status: "online", entregaAtual: "Pedido #1025", posicao: [-20.8200, -49.3800], veiculo: "VW Constellation" },
+  { id: "3", nome: "Marcos Oliveira", status: "offline", entregaAtual: null, posicao: [-20.8150, -49.3900], veiculo: "Scania R450" },
+  { id: "4", nome: "Felipe Costa", status: "online", entregaAtual: "Pedido #1028", posicao: [-20.8050, -49.3700], veiculo: "Volvo FH 540" },
+];
+
+const mockFiscais: Fiscal[] = [
+  { id: "f1", nome: "Carlos Inspector", status: "online", posicao: [-20.8150, -49.3780], setor: "Centro", ultimaOcorrencia: "Descarte irregular na Rua 15" },
+  { id: "f2", nome: "Ana Fiscal", status: "online", posicao: [-20.8250, -49.3850], setor: "Norte", ultimaOcorrencia: "Fiscalização rotineira" },
+  { id: "f3", nome: "Roberto Mendes", status: "offline", posicao: [-20.8050, -49.3950], setor: "Sul" },
+];
+
+const mockLocacaoPoints: LocacaoPoint[] = [
+  { id: "l1", locatario: "Construtora Silva", locador: "Eco Caçambas", endereco: "Rua das Palmeiras, 450", posicao: [-20.8120, -49.3820], cacamba: "5m³ - #442", dataInicio: "20/05/2026", status: "ativo" },
+  { id: "l2", locatario: "João Almeida", locador: "Disk Entulho", endereco: "Av. Alberto Andaló, 1200", posicao: [-20.8180, -49.3750], cacamba: "7m³ - #128", dataInicio: "18/05/2026", status: "ativo" },
+  { id: "l3", locatario: "Restaurante Central", locador: "Limpa Tudo", endereco: "Rua Bernardino de Campos, 3000", posicao: [-20.8080, -49.3880], cacamba: "5m³ - #551", dataInicio: "21/05/2026", status: "pendente_retirada" },
+];
+
+const MapResizer = () => {
+  const map = useMap();
+  useEffect(() => {
+    if (!map) return;
+    const container = map.getContainer();
+    const ro = new ResizeObserver(() => map.invalidateSize());
+    ro.observe(container);
+    return () => ro.disconnect();
+  }, [map]);
+  return null;
+};
+
+const Rastreamento = () => {
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
+  const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
+  const [selectedFiscal, setSelectedFiscal] = useState<Fiscal | null>(null);
+  const [selectedPoint, setSelectedPoint] = useState<LocacaoPoint | null>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  
+  const activeProfileType = useAuthStore((state) => state.activeProfileType());
+  const isPrefeitura = activeProfileType === "prefeitura";
+
+  useEffect(() => {
+    const onChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
+
+  const toggleFullscreen = () => {
+    if (!wrapperRef.current) return;
+    if (document.fullscreenElement) document.exitFullscreen();
+    else wrapperRef.current.requestFullscreen();
+  };
+
+  const center: [number, number] = [-20.8113, -49.3758];
+
+  const handleDriverClick = (driver: Driver) => {
+    setSelectedDriver(driver);
+    setSelectedFiscal(null);
+    setSelectedPoint(null);
+    if (mapInstance) {
+      mapInstance.setView(driver.posicao, 16, { animate: true, duration: 1 });
+    }
+  };
+
+  const handleFiscalClick = (fiscal: Fiscal) => {
+    setSelectedFiscal(fiscal);
+    setSelectedDriver(null);
+    setSelectedPoint(null);
+    if (mapInstance) {
+      mapInstance.setView(fiscal.posicao, 16, { animate: true, duration: 1 });
+    }
+  };
+
+  const handlePointClick = (point: LocacaoPoint) => {
+    setSelectedPoint(point);
+    setSelectedDriver(null);
+    setSelectedFiscal(null);
+    if (mapInstance) {
+      mapInstance.setView(point.posicao, 17, { animate: true, duration: 1 });
+    }
+  };
+
+  const filteredDrivers = mockDrivers.filter(d => 
+    d.nome.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    d.veiculo.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const filteredFiscais = mockFiscais.filter(f => 
+    f.nome.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    f.setor.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const filteredPoints = mockLocacaoPoints.filter(p => 
+    p.endereco.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    p.locatario.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  return (
+    <div className="flex h-[calc(100vh-57px)] -m-4 sm:-m-6 flex-col sm:flex-row overflow-hidden">
+      {/* Sidebar */}
+      <div className="w-full sm:w-80 h-1/2 sm:h-auto bg-background border-r border-border flex flex-col z-10 min-h-0">
+        <div className="p-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold flex items-center gap-2">
+              <Navigation className="h-5 w-5 text-primary" />
+              Rastreamento
+            </h2>
+            <Badge variant="outline" className="text-[10px] uppercase font-bold">
+              {isPrefeitura 
+                ? `${mockFiscais.filter(f => f.status === "online").length} Online`
+                : `${mockDrivers.filter(d => d.status === "online").length} Online`
+              }
+            </Badge>
+          </div>
+          <div className="relative">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input 
+              placeholder={isPrefeitura ? "Buscar fiscal ou endereço..." : "Buscar motorista..."}
+              className="pl-9 text-sm"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+        </div>
+        
+        {isPrefeitura ? (
+          <Tabs defaultValue="fiscais" className="flex-1 flex flex-col min-h-0">
+            <div className="px-4">
+              <TabsList className="w-full">
+                <TabsTrigger value="fiscais" className="flex-1 gap-2">
+                  <ShieldCheck className="h-4 w-4" />
+                  Fiscais
+                </TabsTrigger>
+                <TabsTrigger value="pontos" className="flex-1 gap-2">
+                  <Box className="h-4 w-4" />
+                  Pontos
+                </TabsTrigger>
+              </TabsList>
+            </div>
+            <Separator className="mt-2" />
+            <TabsContent value="fiscais" className="flex-1 mt-0 overflow-hidden">
+              <ScrollArea className="h-full">
+                <div className="p-2 space-y-1">
+                  {filteredFiscais.map(fiscal => (
+                    <div 
+                      key={fiscal.id}
+                      onClick={() => handleFiscalClick(fiscal)}
+                      className={`p-3 rounded-lg border cursor-pointer transition-all ${
+                        selectedFiscal?.id === fiscal.id ? 'border-primary bg-primary/5' : 'border-transparent hover:border-border hover:bg-muted/50'
+                      }`}
+                    >
+                      <div className="flex justify-between items-start mb-1">
+                        <div className="flex items-center gap-2">
+                          <div className={`h-2 w-2 rounded-full ${fiscal.status === "online" ? "bg-blue-500" : "bg-zinc-400"}`} />
+                          <span className="font-semibold text-sm">{fiscal.nome}</span>
+                        </div>
+                        <Badge variant="secondary" className={`text-[10px] ${fiscal.status === "online" ? "bg-blue-50 text-blue-600 border-blue-100" : "bg-zinc-50 text-zinc-500"}`}>
+                          {fiscal.status === "online" ? "On" : "Off"}
+                        </Badge>
+                      </div>
+                      <div className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1">
+                        <MapPin className="h-3 w-3" />
+                        Setor: {fiscal.setor}
+                      </div>
+                      {fiscal.ultimaOcorrencia && (
+                        <div className="text-[10px] mt-2 bg-muted p-1.5 rounded flex gap-2">
+                          <Info className="h-3 w-3 text-blue-500 shrink-0" />
+                          <span className="line-clamp-1">{fiscal.ultimaOcorrencia}</span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </TabsContent>
+            <TabsContent value="pontos" className="flex-1 mt-0 overflow-hidden">
+              <ScrollArea className="h-full">
+                <div className="p-2 space-y-1">
+                  {filteredPoints.map(point => (
+                    <div 
+                      key={point.id}
+                      onClick={() => handlePointClick(point)}
+                      className={`p-3 rounded-lg border cursor-pointer transition-all ${
+                        selectedPoint?.id === point.id ? 'border-amber-500 bg-amber-50/50' : 'border-transparent hover:border-border hover:bg-muted/50'
+                      }`}
+                    >
+                      <div className="flex justify-between items-start mb-1">
+                        <span className="font-semibold text-sm line-clamp-1">{point.locatario}</span>
+                        <Badge variant={point.status === 'ativo' ? 'outline' : 'secondary'} className="text-[10px] uppercase font-bold">
+                          {point.status === 'ativo' ? 'Locada' : 'Retirar'}
+                        </Badge>
+                      </div>
+                      <div className="text-[11px] text-muted-foreground space-y-1">
+                        <p className="flex items-center gap-1.5">
+                          <MapPin className="h-3 w-3" />
+                          {point.endereco}
+                        </p>
+                        <p className="flex items-center gap-1.5">
+                          <Box className="h-3 w-3" />
+                          {point.cacamba}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </TabsContent>
+          </Tabs>
+        ) : (
+          <>
+            <Separator />
+            <ScrollArea className="flex-1">
+              <div className="p-2 space-y-1">
+                {filteredDrivers.map(driver => (
+                  <div 
+                    key={driver.id}
+                    onClick={() => handleDriverClick(driver)}
+                    className="p-3 rounded-lg border border-transparent hover:border-border hover:bg-muted/50 cursor-pointer transition-all group"
+                  >
+                    <div className="flex justify-between items-start mb-1">
+                      <div className="flex items-center gap-2">
+                        <div className={`h-2 w-2 rounded-full ${driver.status === "online" ? "bg-emerald-500" : "bg-zinc-400"}`} />
+                        <span className="font-semibold text-sm">{driver.nome}</span>
+                      </div>
+                      {driver.status === "online" ? (
+                        <Badge variant="secondary" className="bg-emerald-50 text-emerald-600 border-emerald-100 text-[10px]">On</Badge>
+                      ) : (
+                        <Badge variant="secondary" className="bg-zinc-50 text-zinc-500 border-zinc-100 text-[10px]">Off</Badge>
+                      )}
+                    </div>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Truck className="h-3 w-3" />
+                        <span>{driver.veiculo}</span>
+                      </div>
+                      {driver.entregaAtual ? (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 text-xs font-medium text-primary bg-primary/5 p-1.5 rounded border border-primary/10">
+                            <Box className="h-3 w-3" />
+                            <span>{driver.entregaAtual}</span>
+                          </div>
+                          
+                          {selectedDriver?.id === driver.id && driver.roteiro && (
+                            <div className="pl-2 border-l-2 border-primary/20 space-y-2 mt-2">
+                              {driver.roteiro.map((p, idx) => (
+                                <div 
+                                  key={p.id} 
+                                  className="text-[10px] relative hover:bg-primary/5 p-1 rounded transition-colors"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (mapInstance) mapInstance.setView(p.posicao, 17, { animate: true, duration: 1 });
+                                  }}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] text-white ${p.tipo === 'entrega' ? 'bg-blue-500' : 'bg-orange-500'}`}>
+                                      {idx + 1}
+                                    </span>
+                                    <span className="font-semibold uppercase">{p.tipo}</span>
+                                  </div>
+                                  <p className="text-muted-foreground ml-6 truncate">{p.endereco}</p>
+                                  <p className="text-primary/70 ml-6 text-[9px]">{p.equipamento}</p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="text-[10px] text-muted-foreground italic px-1.5">Sem entregas ativas</div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          </>
+        )}
+      </div>
+
+      {/* Mapa */}
+      <div className="flex-1 relative bg-muted min-h-0" ref={wrapperRef}>
+        <MapContainer 
+          center={center} 
+          zoom={14} 
+          ref={setMapInstance}
+          style={{ height: "100%", width: "100%" }}
+          className="z-0"
+        >
+          <MapResizer />
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+          
+          {/* Renderização para Locador (Motoristas) */}
+          {!isPrefeitura && (
+            <>
+              {selectedDriver?.roteiro && (
+                <>
+                  <Polyline 
+                    positions={[selectedDriver.posicao, ...selectedDriver.roteiro.map(p => p.posicao)]} 
+                    color="#3b82f6" 
+                    dashArray="5, 10"
+                    weight={3}
+                    opacity={0.6}
+                  />
+                  {selectedDriver.roteiro.map((p, idx) => (
+                    <Marker 
+                      key={p.id} 
+                      position={p.posicao}
+                      icon={L.divIcon({
+                        className: 'custom-route-marker',
+                        html: `<div style="background: ${p.tipo === 'entrega' ? '#3b82f6' : '#f97316'}; color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">${idx + 1}</div>`,
+                        iconSize: [24, 24],
+                        iconAnchor: [12, 12]
+                      })}
+                    >
+                      <Popup>
+                        <div className="p-1">
+                          <p className="font-bold text-xs uppercase text-primary mb-1">{p.tipo}: {p.equipamento}</p>
+                          <p className="text-[10px]">{p.endereco}</p>
+                        </div>
+                      </Popup>
+                    </Marker>
+                  ))}
+                </>
+              )}
+              {mockDrivers.map(driver => (
+                <Marker 
+                  key={driver.id} 
+                  position={driver.posicao} 
+                  icon={createAvatarIcon(driver.status, driver.nome, "driver")}
+                  eventHandlers={{ click: () => handleDriverClick(driver) }}
+                >
+                  <Popup>
+                    <div className="p-1 min-w-[150px]">
+                      <p className="font-bold text-sm mb-1">{driver.nome}</p>
+                      <p className="text-xs mb-1 flex items-center gap-1.5"><Truck className="h-3 w-3" /> {driver.veiculo}</p>
+                      {driver.entregaAtual && (
+                        <p className="text-xs text-primary font-semibold flex items-center gap-1.5">
+                          <Box className="h-3 w-3" /> {driver.entregaAtual}
+                        </p>
+                      )}
+                      <p className="text-[10px] mt-2 text-muted-foreground uppercase pt-2 border-t">
+                        Status: {driver.status}
+                      </p>
+                    </div>
+                  </Popup>
+                </Marker>
+              ))}
+            </>
+          )}
+
+          {/* Renderização para Prefeitura (Fiscais e Pontos) */}
+          {isPrefeitura && (
+            <>
+              {mockFiscais.map(fiscal => (
+                <Marker 
+                  key={fiscal.id} 
+                  position={fiscal.posicao} 
+                  icon={createAvatarIcon(fiscal.status, fiscal.nome, "fiscal")}
+                  eventHandlers={{ click: () => handleFiscalClick(fiscal) }}
+                >
+                  <Popup>
+                    <div className="p-1 min-w-[150px]">
+                      <div className="flex items-center gap-2 mb-1">
+                        <ShieldCheck className="h-4 w-4 text-blue-500" />
+                        <p className="font-bold text-sm">Fiscal: {fiscal.nome}</p>
+                      </div>
+                      <p className="text-xs mb-1"><strong>Setor:</strong> {fiscal.setor}</p>
+                      {fiscal.ultimaOcorrencia && (
+                        <div className="mt-2 p-2 bg-blue-50 border border-blue-100 rounded text-[10px]">
+                          <strong>Última Atividade:</strong><br/>
+                          {fiscal.ultimaOcorrencia}
+                        </div>
+                      )}
+                    </div>
+                  </Popup>
+                </Marker>
+              ))}
+              {mockLocacaoPoints.map(point => (
+                <Marker 
+                  key={point.id} 
+                  position={point.posicao} 
+                  icon={createBoxIcon()}
+                  eventHandlers={{ click: () => handlePointClick(point) }}
+                >
+                  <Popup>
+                    <div className="p-1 min-w-[180px]">
+                      <p className="font-bold text-sm mb-2 border-b pb-1">{point.locatario}</p>
+                      <div className="space-y-1.5 text-[11px]">
+                        <p className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-muted-foreground" /> {point.endereco}</p>
+                        <p className="flex items-center gap-1.5"><Box className="h-3.5 w-3.5 text-muted-foreground" /> {point.cacamba}</p>
+                        <p className="flex items-center gap-1.5"><User className="h-3.5 w-3.5 text-muted-foreground" /> Locador: {point.locador}</p>
+                        <p className="flex items-center gap-1.5 font-semibold text-primary"><Navigation className="h-3.5 w-3.5" /> Início: {point.dataInicio}</p>
+                      </div>
+                      <Badge className={`mt-2 w-full justify-center ${point.status === 'ativo' ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-amber-500 hover:bg-amber-600'}`}>
+                        {point.status === 'ativo' ? 'EM LOCAÇÃO' : 'AGUARDANDO RETIRADA'}
+                      </Badge>
+                    </div>
+                  </Popup>
+                </Marker>
+              ))}
+            </>
+          )}
+        </MapContainer>
+
+        <button
+          type="button"
+          onClick={toggleFullscreen}
+          title={isFullscreen ? "Sair de tela cheia" : "Tela cheia"}
+          className="absolute top-[10px] right-[10px] z-[1000] h-[34px] w-[34px] flex items-center justify-center bg-white hover:bg-muted text-foreground border border-border rounded-md shadow-md transition-colors"
+        >
+          {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+        </button>
+
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] bg-white/95 backdrop-blur-sm border border-border rounded-full px-4 py-2 shadow-lg flex gap-4 text-xs font-medium">
+          {isPrefeitura ? (
+            <>
+              <div className="flex items-center gap-2">
+                <div className="h-3 w-3 rounded-full bg-blue-500" />
+                <span>Fiscal Online</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="h-3 w-3 rounded-full bg-amber-500" />
+                <span>Caçamba Locada</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center gap-2">
+                <div className="h-3 w-3 rounded-full bg-emerald-500" />
+                <span>Disponível</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="h-3 w-3 rounded-full bg-primary" />
+                <span>Em Entrega</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="h-3 w-3 rounded-full bg-zinc-400" />
+                <span>Offline</span>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Rastreamento;

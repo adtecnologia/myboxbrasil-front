@@ -1,0 +1,156 @@
+import { useState } from "react";
+import { Plus, Search, Pencil, Trash2, ShieldCheck } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { DataPagination, usePagination } from "@/components/DataPagination";
+import { DataTable } from "@/components/DataTable";
+
+interface Tecnologia {
+  id: string;
+  nome: string;
+  descricao: string;
+}
+
+const mockTecnologias: Tecnologia[] = [
+  { id: "1", nome: "Incineração", descricao: "Processo de destruição térmica realizado sob alta temperatura." },
+  { id: "2", nome: "Autoclavagem", descricao: "Tratamento térmico por meio de vapor sob pressão." },
+  { id: "3", nome: "Aterro Sanitário", descricao: "Disposição final de resíduos sólidos no solo sem danos à saúde pública." },
+];
+
+const TecnologiasTratamento = () => {
+  const [tecnologias, setTecnologias] = useState<Tecnologia[]>(mockTecnologias);
+  const [search, setSearch] = useState("");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingTech, setEditingTech] = useState<Tecnologia | null>(null);
+  const isMobile = useIsMobile();
+
+  const filtered = tecnologias.filter((t) =>
+    t.nome.toLowerCase().includes(search.toLowerCase()) ||
+    t.descricao.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const { paginatedData, currentPage, pageSize, setCurrentPage, setPageSize, totalItems } = usePagination(filtered, 10);
+
+  const handleSave = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const form = new FormData(e.currentTarget);
+    const nome = form.get("nome") as string;
+    const descricao = form.get("descricao") as string;
+
+    if (editingTech) {
+      setTecnologias(tecnologias.map(t => t.id === editingTech.id ? { ...t, nome, descricao } : t));
+    } else {
+      const novo: Tecnologia = {
+        id: String(Date.now()),
+        nome,
+        descricao,
+      };
+      setTecnologias([novo, ...tecnologias]);
+    }
+    
+    setDialogOpen(false);
+    setEditingTech(null);
+  };
+
+  const handleDelete = (id: string) => {
+    setTecnologias(tecnologias.filter(t => t.id !== id));
+  };
+
+  const openEdit = (tech: Tecnologia) => {
+    setEditingTech(tech);
+    setDialogOpen(true);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-xl bg-gradient-to-r from-primary to-[hsl(155,45%,40%)] p-5 sm:p-6 text-primary-foreground">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold">Tecnologias de Tratamento</h1>
+          <p className="text-sm text-white/75">Gestão de métodos de processamento de resíduos</p>
+        </div>
+        <Dialog open={dialogOpen} onOpenChange={(open) => {
+          setDialogOpen(open);
+          if (!open) setEditingTech(null);
+        }}>
+          <DialogTrigger asChild>
+            <Button className="bg-white/20 hover:bg-white/30 text-white border-0">
+              <Plus className="mr-2 h-4 w-4" /> Nova Tecnologia
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{editingTech ? "Editar Tecnologia" : "Cadastrar Tecnologia"}</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSave} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="nome">Tratamento (Nome)</Label>
+                <Input id="nome" name="nome" defaultValue={editingTech?.nome} required placeholder="Ex: Incineração" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="descricao">Descrição</Label>
+                <Textarea id="descricao" name="descricao" defaultValue={editingTech?.descricao} required placeholder="Descreva o processo..." />
+              </div>
+              <DialogFooter>
+                <Button type="submit">{editingTech ? "Salvar Alterações" : "Cadastrar"}</Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      <DataTable<Tecnologia>
+        title={`${tecnologias.length} tecnologias cadastradas`}
+        data={paginatedData}
+        searchValue={search}
+        onSearchChange={setSearch}
+        columns={[
+          { header: "Tratamento", accessor: "nome", className: "font-medium w-1/3" },
+          { header: "Descrição", accessor: "descricao", className: "text-muted-foreground" },
+        ]}
+        renderMobileCard={(t) => (
+          <div className="rounded-lg border border-border bg-background p-4 space-y-2">
+            <div className="flex items-start justify-between">
+              <div className="flex-1 min-w-0 pr-2">
+                <p className="font-medium text-sm text-foreground truncate">{t.nome}</p>
+                <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{t.descricao}</p>
+              </div>
+              <div className="flex gap-1 shrink-0">
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(t)}>
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(t.id)}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+        actions={(t) => (
+          <>
+            <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg hover:border-primary hover:text-primary shadow-sm" onClick={() => openEdit(t)} title="Editar">
+              <Pencil className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg hover:border-destructive hover:text-destructive shadow-sm text-destructive" onClick={() => handleDelete(t.id)} title="Excluir">
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </>
+        )}
+        pagination={{
+          totalItems,
+          pageSize,
+          currentPage,
+          onPageChange: setCurrentPage,
+          onPageSizeChange: setPageSize,
+        }}
+      />
+    </div>
+  );
+};
+
+export default TecnologiasTratamento;
