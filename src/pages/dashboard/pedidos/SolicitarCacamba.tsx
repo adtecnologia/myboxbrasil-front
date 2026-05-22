@@ -130,11 +130,11 @@ const SolicitarCacamba = () => {
   };
 
   const StepHeader = ({ title, subtitle }: { title: string, subtitle: string }) => (
-    <div className="text-center space-y-3 mb-8">
-      <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl text-foreground">
+    <div className="text-center space-y-2 sm:space-y-3 mb-6 sm:mb-8">
+      <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight md:text-4xl text-foreground break-words px-2">
         {title}
       </h2>
-      <p className="text-lg text-muted-foreground max-w-lg mx-auto leading-relaxed">
+      <p className="text-base sm:text-lg text-muted-foreground max-w-lg mx-auto leading-relaxed px-4">
         {subtitle}
       </p>
     </div>
@@ -153,11 +153,11 @@ const SolicitarCacamba = () => {
           subtitle="Verifique os detalhes abaixo antes de adicionar ao carrinho."
         />
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
           {/* Product Card */}
-          <div className="lg:col-span-2 space-y-6">
-            <Card className="border-2 rounded-[2.5rem] overflow-hidden shadow-lg border-primary/20 bg-card">
-              <div className="aspect-video bg-muted flex items-center justify-center relative">
+          <div className="md:col-span-1 lg:col-span-2 space-y-4 sm:space-y-6">
+            <Card className="border-2 rounded-[1.5rem] sm:rounded-[2.5rem] overflow-hidden shadow-lg border-primary/20 bg-card">
+              <div className="aspect-[4/3] sm:aspect-video bg-muted flex items-center justify-center relative">
                 {selectedProduct.equipmentType === "cacamba" ? (
                   <Trash2 className="h-32 w-32 text-primary opacity-20" />
                 ) : (
@@ -167,10 +167,10 @@ const SolicitarCacamba = () => {
                     <span className="bg-primary text-white text-xs font-black px-3 py-1.5 rounded-full uppercase tracking-widest shadow-lg">Lançamento</span>
                 </div>
               </div>
-              <CardContent className="p-8 space-y-8">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div>
-                    <h3 className="text-3xl font-black tracking-tight mb-2 uppercase">{selectedProduct.nome}</h3>
+              <CardContent className="p-5 sm:p-8 space-y-6 sm:space-y-8">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                  <div className="space-y-3">
+                    <h3 className="text-xl sm:text-3xl font-black tracking-tight mb-1 uppercase break-words">{selectedProduct.nome}</h3>
                     <div className="flex items-center gap-3">
                       <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-xs font-bold border border-border">
                         {selectedProduct.locador.substring(0, 2).toUpperCase()}
@@ -184,9 +184,9 @@ const SolicitarCacamba = () => {
                       </div>
                     </div>
                   </div>
-                  <div className="text-left sm:text-right bg-primary/5 p-4 rounded-2xl border border-primary/10 min-w-[160px]">
-                    <p className="text-[10px] font-black uppercase text-muted-foreground tracking-[0.2em] mb-1">Preço unitário</p>
-                    <p className="text-3xl font-black text-primary leading-none">{selectedProduct.price}</p>
+                  <div className="text-left sm:text-right bg-primary/5 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-primary/10 min-w-[140px] sm:min-w-[160px]">
+                    <p className="text-[9px] sm:text-[10px] font-black uppercase text-muted-foreground tracking-[0.2em] mb-1">Preço unitário</p>
+                    <p className="text-2xl sm:text-3xl font-black text-primary leading-none">{selectedProduct.price}</p>
                   </div>
                 </div>
 
@@ -232,28 +232,28 @@ const SolicitarCacamba = () => {
           </div>
 
           {/* Action Card */}
-          <div className="space-y-6">
-            <Card className="border-2 rounded-[2.5rem] p-8 shadow-xl border-primary bg-primary/5 sticky top-24">
-              <div className="space-y-6">
+          <div className="md:col-span-1 space-y-6">
+            <Card className="border-2 rounded-[1.5rem] sm:rounded-[2.5rem] p-5 sm:p-8 shadow-xl border-primary bg-primary/5 md:sticky md:top-24">
+              <div className="space-y-4 sm:space-y-6">
                 <div className="text-center space-y-2">
-                  <h4 className="text-xs font-black uppercase tracking-[0.3em] text-primary">Quantidade</h4>
-                  <div className="flex items-center justify-center gap-6">
+                  <h4 className="text-[10px] sm:text-xs font-black uppercase tracking-[0.2em] sm:tracking-[0.3em] text-primary">Quantidade</h4>
+                  <div className="flex items-center justify-center gap-4 sm:gap-6">
                     <Button 
                       variant="outline" 
                       size="icon" 
-                      className="h-14 w-14 rounded-2xl border-2 hover:bg-white transition-all shadow-md active:scale-95"
+                      className="h-10 w-10 sm:h-14 sm:w-14 rounded-xl sm:rounded-2xl border-2 hover:bg-white transition-all shadow-md active:scale-95"
                       onClick={() => setQuantity(Math.max(1, quantity - 1))}
                     >
-                      <Minus className="h-6 w-6" />
+                      <Minus className="h-4 w-4 sm:h-6 sm:w-6" />
                     </Button>
-                    <span className="text-5xl font-black min-w-[60px]">{quantity}</span>
+                    <span className="text-3xl sm:text-5xl font-black min-w-[40px] sm:min-w-[60px]">{quantity}</span>
                     <Button 
                       variant="outline" 
                       size="icon" 
-                      className="h-14 w-14 rounded-2xl border-2 hover:bg-white transition-all shadow-md active:scale-95"
+                      className="h-10 w-10 sm:h-14 sm:w-14 rounded-xl sm:rounded-2xl border-2 hover:bg-white transition-all shadow-md active:scale-95"
                       onClick={() => setQuantity(quantity + 1)}
                     >
-                      <Plus className="h-6 w-6" />
+                      <Plus className="h-4 w-4 sm:h-6 sm:w-6" />
                     </Button>
                   </div>
                 </div>
@@ -267,7 +267,7 @@ const SolicitarCacamba = () => {
                   </div>
                   <div className="flex flex-col gap-1 pt-2">
                     <span className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground">Total</span>
-                    <span className="text-4xl font-black text-primary leading-tight whitespace-nowrap">
+                    <span className="text-2xl sm:text-4xl font-black text-primary leading-tight whitespace-nowrap">
                       R$ {(priceNumber * quantity).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </span>
                   </div>
@@ -276,7 +276,7 @@ const SolicitarCacamba = () => {
 
                 <div className="space-y-3 pt-4">
                   <Button 
-                    className="w-full h-16 text-xl font-black rounded-2xl shadow-xl shadow-primary/30 hover:translate-y-[-2px] active:translate-y-[0px] transition-all bg-primary hover:bg-primary/90"
+                    className="w-full h-14 sm:h-16 text-lg sm:text-xl font-black rounded-xl sm:rounded-2xl shadow-xl shadow-primary/30 hover:translate-y-[-2px] active:translate-y-[0px] transition-all bg-primary hover:bg-primary/90"
                     onClick={() => {
                       addItem({
                         id: selectedProduct.id,
@@ -318,12 +318,12 @@ const SolicitarCacamba = () => {
               subtitle="Selecione o endereço da obra que receberá o equipamento."
             />
             
-            <div className="grid gap-6">
-              <div className="bg-card border-2 border-border/60 rounded-2xl p-8 shadow-sm space-y-6">
+            <div className="grid gap-4 sm:gap-6">
+              <div className="bg-card border-2 border-border/60 rounded-xl sm:rounded-2xl p-5 sm:p-8 shadow-sm space-y-5 sm:space-y-6">
                 <div className="space-y-3">
-                  <Label className="text-base font-semibold">Obra cadastrada</Label>
+                  <Label className="text-sm sm:text-base font-semibold">Obra cadastrada</Label>
                   <Select value={selectedObra} onValueChange={setSelectedObra}>
-                    <SelectTrigger className="h-16 text-lg rounded-xl border-2 transition-all focus:ring-primary/20">
+                    <SelectTrigger className="h-14 sm:h-16 text-base sm:text-lg rounded-xl border-2 transition-all focus:ring-primary/20">
                       <SelectValue placeholder="Toque para selecionar a obra..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -372,7 +372,7 @@ const SolicitarCacamba = () => {
               <Button 
                 disabled={!selectedObra} 
                 onClick={nextStep}
-                className="h-16 text-xl font-black rounded-2xl shadow-xl shadow-primary/25 hover:translate-y-[-2px] active:translate-y-[0px] transition-all"
+                className="h-14 sm:h-16 text-lg sm:text-xl font-black rounded-xl sm:rounded-2xl shadow-xl shadow-primary/25 hover:translate-y-[-2px] active:translate-y-[0px] transition-all"
               >
                 Próximo Passo <ChevronRight className="ml-2 h-6 w-6" />
               </Button>
@@ -393,7 +393,7 @@ const SolicitarCacamba = () => {
                 <Card 
                   key={type.id}
                   className={cn(
-                    "cursor-pointer transition-all hover:shadow-2xl hover:border-primary/50 overflow-hidden group border-4 rounded-3xl",
+                    "cursor-pointer transition-all hover:shadow-2xl hover:border-primary/50 overflow-hidden group border-4 rounded-2xl sm:rounded-3xl",
                     equipmentType === type.id ? "border-primary bg-primary/5 shadow-xl" : "border-border shadow-md"
                   )}
                   onClick={() => {
@@ -870,25 +870,25 @@ const SolicitarCacamba = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background/50 pb-20 pt-8 sm:pt-12">
-      <div className="max-w-6xl mx-auto px-6 space-y-12">
+    <div className="min-h-screen bg-background/50 pb-20 pt-4 sm:pt-8 md:pt-12">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 space-y-8 sm:space-y-12">
         {/* Header Section */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 bg-card border border-border/50 p-6 sm:p-8 rounded-[2rem] shadow-sm">
-            <div className="flex items-center gap-5">
-                <div className="h-14 w-14 sm:h-16 sm:w-16 bg-primary rounded-2xl flex items-center justify-center text-white shadow-xl shadow-primary/30">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 sm:gap-6 bg-card border border-border/50 p-4 sm:p-8 rounded-[1.5rem] sm:rounded-[2rem] shadow-sm">
+            <div className="flex items-center gap-3 sm:gap-5">
+                <div className="h-10 w-10 sm:h-16 sm:w-16 bg-primary rounded-lg sm:rounded-2xl flex items-center justify-center text-white shadow-xl shadow-primary/30 shrink-0">
                     <ShoppingCart className="h-8 w-8" />
                 </div>
-                <div>
-                    <h1 className="text-2xl sm:text-3xl font-black tracking-tight uppercase leading-none mb-1">Solicitar Locação</h1>
-                    <p className="text-muted-foreground font-medium">Pedido rápido em poucos passos</p>
+                <div className="min-w-0">
+                    <h1 className="text-xl sm:text-3xl font-black tracking-tight uppercase leading-none mb-1 truncate">Solicitar Locação</h1>
+                    <p className="text-[10px] sm:text-sm text-muted-foreground font-medium truncate">Pedido rápido em poucos passos</p>
                 </div>
             </div>
-            <div className="flex flex-col sm:items-end gap-1.5 min-w-[140px]">
-                <div className="flex items-center gap-2 text-sm font-black text-primary uppercase tracking-wider">
-                    <span className="bg-primary/10 px-2 py-0.5 rounded-lg border border-primary/20">Passo {step} de {totalSteps}</span>
+            <div className="flex flex-col sm:items-end gap-1 sm:gap-1.5 min-w-[120px] sm:min-w-[140px]">
+                <div className="flex items-center justify-between sm:justify-end gap-2 text-[10px] sm:text-sm font-black text-primary uppercase tracking-wider">
+                    <span className="bg-primary/10 px-1.5 py-0.5 rounded sm:rounded-lg border border-primary/20">Passo {step}/{totalSteps}</span>
                     <span>{Math.round(progress)}%</span>
                 </div>
-                <Progress value={progress} className="h-2.5 w-full sm:w-48 bg-muted rounded-full overflow-hidden border border-border/50" />
+                <Progress value={progress} className="h-2 sm:h-2.5 w-full sm:w-48 bg-muted rounded-full overflow-hidden border border-border/50" />
             </div>
         </div>
 

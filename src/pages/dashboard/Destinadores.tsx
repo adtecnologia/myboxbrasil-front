@@ -143,7 +143,7 @@ const Destinadores = () => {
           { header: "Documento", accessor: "documento" },
           { header: "Cidade", accessor: "cidade" },
           { header: "Estado", accessor: "estado" },
-          { header: "Taxa", accessor: "taxa" },
+          ...(!isReadOnly ? [{ header: "Taxa", accessor: "taxa" as keyof Destinador }] : []),
         ]}
         renderMobileCard={(d) => (
           <div className="rounded-lg border border-border bg-background p-4 space-y-2">
@@ -171,7 +171,7 @@ const Destinadores = () => {
             <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
               <span className="flex items-center gap-1"><ShieldCheck className="h-3 w-3" />{d.licencaAmbiental}</span>
               <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{d.cidade}/{d.estado}</span>
-              <span className="flex items-center gap-1 font-semibold text-primary">Taxa: {d.taxa}</span>
+              {!isReadOnly && <span className="flex items-center gap-1 font-semibold text-primary">Taxa: {d.taxa}</span>}
             </div>
           </div>
         )}

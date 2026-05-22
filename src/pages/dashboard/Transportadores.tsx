@@ -140,22 +140,20 @@ const Transportadores = () => {
           { header: "Documento", accessor: "documento" },
           { header: "Cidade", accessor: "cidade" },
           { header: "Estado", accessor: "estado" },
-          {
+          ...(!isReadOnly ? [{
             header: "Taxa",
-            accessor: (t) => (
+            accessor: (t: Locador) => (
               <Input
                 type="number"
                 value={parseFloat(t.taxa) || 0}
-                onChange={(e) => {
-                  if (isReadOnly) return;
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                   const v = e.target.value;
                   setItems(items.map(i => i.id === t.id ? { ...i, taxa: `${v}%` } : i));
                 }}
-                disabled={isReadOnly}
                 className="h-8 w-20"
               />
             ),
-          },
+          }] : []),
         ]}
         renderMobileCard={(t) => (
           <div className="rounded-lg border border-border bg-background p-4 space-y-2">
@@ -183,7 +181,7 @@ const Transportadores = () => {
             <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
               <span className="flex items-center gap-1">Licença: {t.licencaAmbiental}</span>
               <span className="flex items-center gap-1">{t.cidade}/{t.estado}</span>
-              <span className="flex items-center gap-1 font-semibold text-primary">Taxa: {t.taxa}</span>
+              {!isReadOnly && <span className="flex items-center gap-1 font-semibold text-primary">Taxa: {t.taxa}</span>}
             </div>
           </div>
         )}
