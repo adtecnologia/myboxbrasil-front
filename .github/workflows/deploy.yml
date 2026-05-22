@@ -1,0 +1,66 @@
+name: Deploy front stage
+
+on:
+  push:
+    branches:
+      - new-front
+
+jobs:
+  build-and-deploy-stage:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Passo 1: Checkout do repositório
+      - name: Checkout do código
+        uses: actions/checkout@v3
+
+      # Passo 2: Configurar o Node.js
+      - name: Configurar Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20
+
+      # Passo 3: Verificar versão do Node e npm
+      - name: Verificar ambiente Node.js
+        run: |
+          node -v
+          npm -v
+
+      # Passo 4: Limpar e instalar dependências
+      - name: Instalar dependências
+        run: |
+          rm -rf node_modules
+          npm ci
+
+      # Passo 5: Verificar scripts disponíveis
+      - name: Verificar scripts do package.json
+        run: npm run
+
+      # Passo 6: Criar arquivo .env com variáveis de ambiente
+      - name: Criar arquivo .env
+        run: echo '${{ secrets.ENV_SECRET_STAGE }}' > .env
+
+      # Passo 7: Executar build do projeto
+      - name: Executar build
+        run: npm run build
+
+      # Passo 8: Configure AWS credentials
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: sa-east-1
+
+      # Passo 9: Upload para AWS S3
+      - name: Upload da build para AWS S3
+        run:
+          aws s3 sync ./dist s3://myboxbrasil-web-stage --delete --cache-control "public, max-age=3600"
+
+      # Passo 10: Invalidar cache do CloudFront
+      - name: Invalidar cache do CloudFront
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id "E1FNPII8YECQ91" \
+            --paths "/*" \
+            --query 'Invalidation.Id' --output text
