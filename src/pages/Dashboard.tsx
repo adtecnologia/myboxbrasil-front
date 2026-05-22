@@ -90,6 +90,8 @@ import LocadorDashboard from "@/pages/dashboard/LocadorDashboard";
 import LocatarioDashboard from "@/pages/dashboard/LocatarioDashboard";
 import DestinoFinalDashboard from "@/pages/dashboard/DestinoFinalDashboard";
 import PrefeituraDashboard from "@/pages/dashboard/PrefeituraDashboard";
+import MotoristaDashboard from "@/pages/dashboard/MotoristaDashboard";
+
 
 const Dashboard = () => {
   const role = useAuthStore((s) => s.activeProfileType());
@@ -97,6 +99,8 @@ const Dashboard = () => {
   if (role === "locatario") return <LocatarioDashboard />;
   if (role === "destino") return <DestinoFinalDashboard />;
   if (role === "prefeitura") return <PrefeituraDashboard />;
+  if (role === "motorista") return <MotoristaDashboard />;
+
   return (
     <div className="space-y-6 pb-10">
       <PageHeader title="Painel de Controle" subtitle="Visão geral do ecossistema MyBox">

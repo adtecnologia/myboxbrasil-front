@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-export type ProfileType = "locatario" | "locador" | "destino" | "admin" | "prefeitura";
+export type ProfileType = "locatario" | "locador" | "destino" | "admin" | "prefeitura" | "motorista";
 export type AppRole = "admin" | "operator" | "viewer";
 
 export interface PersonUserProfile {

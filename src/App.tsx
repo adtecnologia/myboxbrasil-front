@@ -10,6 +10,8 @@ import RecuperarSenha from "./pages/RecuperarSenha.tsx";
 import SelecionarPerfil from "./pages/SelecionarPerfil.tsx";
 import DashboardLayout from "./components/DashboardLayout.tsx";
 import Dashboard from "./pages/Dashboard.tsx";
+import Logistica from "./pages/dashboard/Logistica.tsx";
+import MinhasRotas from "./pages/dashboard/logistica/MinhasRotas.tsx";
 import Operacional from "./pages/dashboard/Operacional.tsx";
 import Clientes from "./pages/dashboard/Clientes.tsx";
 import Transportadores from "./pages/dashboard/Transportadores.tsx";
@@ -65,6 +67,15 @@ import VencimentoPrazo from "./pages/dashboard/relatorios/VencimentoPrazo.tsx";
 import ClasseResiduos from "./pages/dashboard/relatorios/ClasseResiduos.tsx";
 import SituacaoLocadores from "./pages/dashboard/relatorios/SituacaoLocadores.tsx";
 import SituacaoDestino from "./pages/dashboard/relatorios/SituacaoDestino.tsx";
+import Entregas from "./pages/dashboard/operacional/Entregas.tsx";
+import Retiradas from "./pages/dashboard/operacional/Retiradas.tsx";
+import OcorrenciasMotorista from "./pages/dashboard/operacional/Ocorrencias.tsx";
+import Quilometragem from "./pages/dashboard/relatorios/Quilometragem.tsx";
+import Roteiros from "./pages/dashboard/relatorios/Roteiros.tsx";
+import RegistroCacambas from "./pages/dashboard/relatorios/RegistroCacambas.tsx";
+import AtrasosOcorrencias from "./pages/dashboard/relatorios/AtrasosOcorrencias.tsx";
+
+
 
 import NotFound from "./pages/NotFound.tsx";
 
@@ -85,6 +96,12 @@ const App = () => (
           <Route path="/dashboard" element={<DashboardLayout />}>
             <Route index element={<Dashboard />} />
             <Route path="operacional" element={<Operacional />} />
+            <Route path="operacional/entregas" element={<Entregas />} />
+            <Route path="operacional/retiradas" element={<Retiradas />} />
+            <Route path="operacional/ocorrencias" element={<OcorrenciasMotorista />} />
+            
+            <Route path="logistica" element={<Logistica />} />
+            <Route path="logistica/rotas" element={<MinhasRotas />} />
             <Route path="pedidos" element={<PedidosList />} />
             <Route path="pedidos/solicitar" element={<SolicitarCacamba />} />
             <Route path="pedidos/carrinho" element={<Carrinho />} />
@@ -119,6 +136,10 @@ const App = () => (
               <Route path="classe-residuos" element={<ClasseResiduos />} />
               <Route path="situacao-locadores" element={<SituacaoLocadores />} />
               <Route path="situacao-destino" element={<SituacaoDestino />} />
+              <Route path="quilometragem" element={<Quilometragem />} />
+              <Route path="roteiros" element={<Roteiros />} />
+              <Route path="registro-cacambas" element={<RegistroCacambas />} />
+              <Route path="atrasos-ocorrencias" element={<AtrasosOcorrencias />} />
             </Route>
             <Route path="obras" element={<Obras />} />
             <Route path="notificacoes" element={<Notificacoes />} />

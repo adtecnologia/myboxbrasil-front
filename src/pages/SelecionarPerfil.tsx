@@ -10,6 +10,7 @@ const profiles = [
   { id: "locador" as ProfileType, title: "Locador", subtitle: "Fornecedor", icon: Truck },
   { id: "destino" as ProfileType, title: "Destino Final", subtitle: "Aterro / Recicladora", icon: Factory },
   { id: "prefeitura" as ProfileType, title: "Prefeitura", subtitle: "Fiscalização", icon: Building2 },
+  { id: "motorista" as ProfileType, title: "Motorista", subtitle: "Logística e Operação", icon: Truck },
 ];
 
 const SelecionarPerfil = () => {

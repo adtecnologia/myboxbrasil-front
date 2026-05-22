@@ -18,6 +18,7 @@ import {
   Search,
   RefreshCw,
   MapPin,
+  Map as MapIcon,
   Settings2,
   ShieldAlert,
   ShoppingCart,
@@ -92,8 +93,10 @@ const menuItems: MenuItem[] = [
       { label: "Solicitar locação", href: "/dashboard/pedidos/solicitar", roles: ["locatario"] },
       { label: "Ordens de Locação", href: "/dashboard/pedidos/ordens", roles: ["admin", "locador", "destino", "locatario", "prefeitura"] },
       { label: "Ocorrências", href: "/dashboard/pedidos/ocorrencias", roles: ["admin", "locador", "prefeitura"] },
+      { label: "Entregas", href: "/dashboard/operacional/entregas", roles: ["motorista"] },
+      { label: "Retiradas", href: "/dashboard/operacional/retiradas", roles: ["motorista"] },
     ],
-    roles: ["admin", "locador", "destino", "locatario", "prefeitura"],
+    roles: ["admin", "locador", "destino", "locatario", "prefeitura", "motorista"],
   },
   {
     label: "Entidades",
@@ -132,6 +135,14 @@ const menuItems: MenuItem[] = [
     ],
     roles: ["admin", "locatario", "locador"],
   },
+  {
+    label: "Logística",
+    icon: MapIcon,
+    children: [
+      { label: "Minhas Rotas", href: "/dashboard/logistica/rotas", roles: ["motorista", "admin"] },
+    ],
+    roles: ["admin", "motorista"],
+  },
   { label: "Rastreamento", icon: MapPin, href: "/dashboard/rastreamento", roles: ["locador", "prefeitura"] },
   {
     label: "Relatórios",
@@ -149,6 +160,10 @@ const menuItems: MenuItem[] = [
       { label: "Classe de resíduos", href: "/dashboard/relatorios/classe-residuos", roles: ["prefeitura"] },
       { label: "Situação locadores", href: "/dashboard/relatorios/situacao-locadores", roles: ["prefeitura"] },
       { label: "Situação destino final", href: "/dashboard/relatorios/situacao-destino", roles: ["prefeitura"] },
+      { label: "Quilometragem percorrida", href: "/dashboard/relatorios/quilometragem", roles: ["motorista"] },
+      { label: "Roteiros diários realizados", href: "/dashboard/relatorios/roteiros", roles: ["motorista"] },
+      { label: "Registro de caçambas", href: "/dashboard/relatorios/registro-cacambas", roles: ["motorista"] },
+      { label: "Atrasos e ocorrências registradas", href: "/dashboard/relatorios/atrasos-ocorrencias", roles: ["motorista"] },
     ],
   },
   {
