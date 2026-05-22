@@ -26,7 +26,7 @@ export const CLASS_INPUT_LARGE =
 
 export const POST_CATCH = () => {
   Modal.error({
-    title: 'Erro crítico!',
+    title: 'Erro crítico!!',
     content:
       'Não foi possível estabelecer uma conexão com o servidor. Por favor, entre em contato com o suporte!',
   });
