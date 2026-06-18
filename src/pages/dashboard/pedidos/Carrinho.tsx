@@ -65,28 +65,54 @@ const Carrinho = () => {
       .maybeSingle();
     if (!cart) { setCarrinhoId(null); setItems([]); setLoading(false); return; }
     setCarrinhoId(cart.id);
-    const { data: rows } = await supabase
+    const { data: rows, error: rowsErr } = await supabase
       .from("carrinho_itens")
-      .select("id, equipment_type, cacamba_id, equipamento_id, locador_id, obra_id, quantidade, preco_unitario, cacambas(modelos_cacamba(modelo)), equipamentos(nome), obras(nome)")
+      .select("id, equipment_type, cacamba_id, equipamento_id, locador_id, obra_id, quantidade, preco_unitario")
       .eq("carrinho_id", cart.id);
-    const locadorIds = Array.from(new Set((rows ?? []).map((r: any) => r.locador_id).filter(Boolean)));
-    let nomes: Record<string, string> = {};
-    if (locadorIds.length) {
-      const { data: profs } = await supabase.from("profiles").select("id, nome").in("id", locadorIds);
-      nomes = Object.fromEntries((profs ?? []).map((p: any) => [p.id, p.nome]));
+    if (rowsErr) {
+      toast.error("Erro ao carregar itens: " + rowsErr.message);
+      setItems([]); setLoading(false); return;
     }
-    setItems((rows ?? []).map((r: any) => ({
-      id: r.id,
-      name: r.equipment_type === "cacamba"
-        ? `Caçamba ${r.cacambas?.modelos_cacamba?.modelo ?? ""}`.trim()
-        : (r.equipamentos?.nome ?? "Equipamento"),
-      price: Number(r.preco_unitario) || 0,
-      quantity: r.quantidade,
-      obra: r.obra_id ?? undefined,
-      obraName: r.obras?.nome,
-      equipmentType: r.equipment_type === "cacamba" ? "cacamba" : "outros",
-      locador: nomes[r.locador_id] ?? "Geral",
-    })));
+    const list = rows ?? [];
+    const locadorIds = Array.from(new Set(list.map((r: any) => r.locador_id).filter(Boolean)));
+    const obraIds = Array.from(new Set(list.map((r: any) => r.obra_id).filter(Boolean)));
+    const cacambaIds = Array.from(new Set(list.map((r: any) => r.cacamba_id).filter(Boolean)));
+    const equipIds = Array.from(new Set(list.map((r: any) => r.equipamento_id).filter(Boolean)));
+
+    const [profsRes, obrasRes, cacRes, equipRes] = await Promise.all([
+      locadorIds.length ? supabase.from("profiles").select("id, nome").in("id", locadorIds) : Promise.resolve({ data: [] as any[] }),
+      obraIds.length ? supabase.from("obras").select("id, nome").in("id", obraIds) : Promise.resolve({ data: [] as any[] }),
+      cacambaIds.length ? supabase.from("cacambas").select("id, modelo").in("id", cacambaIds) : Promise.resolve({ data: [] as any[] }),
+      equipIds.length ? supabase.from("equipamentos").select("id, nome").in("id", equipIds) : Promise.resolve({ data: [] as any[] }),
+    ]);
+    const nomes = Object.fromEntries(((profsRes as any).data ?? []).map((p: any) => [p.id, p.nome]));
+    const obrasMap = Object.fromEntries(((obrasRes as any).data ?? []).map((o: any) => [o.id, o.nome]));
+    const cacambasMap = Object.fromEntries(((cacRes as any).data ?? []).map((c: any) => [c.id, c.modelo]));
+    const equipMap = Object.fromEntries(((equipRes as any).data ?? []).map((e: any) => [e.id, e.nome]));
+
+    const modeloIds = Array.from(new Set(Object.values(cacambasMap).filter(Boolean) as string[]));
+    let modelosMap: Record<string, string> = {};
+    if (modeloIds.length) {
+      const { data: ms } = await supabase.from("modelos_cacamba").select("id, modelo").in("id", modeloIds);
+      modelosMap = Object.fromEntries((ms ?? []).map((m: any) => [m.id, m.modelo]));
+    }
+
+    setItems(list.map((r: any) => {
+      const modeloId = r.cacamba_id ? cacambasMap[r.cacamba_id] : null;
+      const modeloNome = modeloId ? (modelosMap[modeloId] ?? "") : "";
+      return {
+        id: r.id,
+        name: r.equipment_type === "cacamba"
+          ? `Caçamba ${modeloNome}`.trim()
+          : (equipMap[r.equipamento_id] ?? "Equipamento"),
+        price: Number(r.preco_unitario) || 0,
+        quantity: r.quantidade,
+        obra: r.obra_id ?? undefined,
+        obraName: obrasMap[r.obra_id] ?? "—",
+        equipmentType: r.equipment_type === "cacamba" ? "cacamba" : "outros",
+        locador: nomes[r.locador_id] ?? "Geral",
+      };
+    }));
     setLoading(false);
   };
 
