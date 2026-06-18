@@ -1,0 +1,1 @@
+CREATE POLICY "Autenticado lê locadores" ON public.user_roles FOR SELECT TO authenticated USING (role = 'locador' AND ativo = true);

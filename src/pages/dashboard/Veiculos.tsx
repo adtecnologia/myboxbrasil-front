@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Plus, Search, Pencil, Trash2, Truck } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Plus, Pencil, Trash2, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
@@ -7,91 +7,84 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { usePagination } from "@/components/DataPagination";
 import { DataTable } from "@/components/DataTable";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuthStore } from "@/stores/useAuthStore";
+import { useLocadorTable } from "@/hooks/useLocadorTable";
+import { toast } from "sonner";
+import type { Database } from "@/integrations/supabase/types";
 
-interface Veiculo {
-  id: string;
-  tipoVeiculo: string;
-  placa: string;
-  renavam: string;
-  marca: string;
-  modelo: string;
-  versao: string;
-  anoFabricacao: string;
-  anoModelo: string;
-  combustivel: string;
-  motor: string;
-  eixos: string;
-  lotacao: string; // toneladas
-  tara: string; // toneladas
-}
-
-const mockVeiculos: Veiculo[] = [
-  {
-    id: "1",
-    tipoVeiculo: "Caminhão Poli-Guindaste",
-    placa: "ABC-1234",
-    renavam: "12345678901",
-    marca: "Mercedes-Benz",
-    modelo: "Accelo 1016",
-    versao: "BlueTec 5",
-    anoFabricacao: "2023",
-    anoModelo: "2024",
-    combustivel: "Diesel",
-    motor: "4.8",
-    eixos: "2",
-    lotacao: "6.5",
-    tara: "3.5",
-  },
-  {
-    id: "2",
-    tipoVeiculo: "Caminhão Roll-on Roll-off",
-    placa: "XYZ-9876",
-    renavam: "98765432109",
-    marca: "Volkswagen",
-    modelo: "Constellation 24.280",
-    versao: "6x2",
-    anoFabricacao: "2022",
-    anoModelo: "2022",
-    combustivel: "Diesel",
-    motor: "6.7",
-    eixos: "3",
-    lotacao: "15.0",
-    tara: "8.0",
-  },
-];
+type Veiculo = Database["public"]["Tables"]["veiculos"]["Row"];
 
 const Veiculos = () => {
-  const [items, setItems] = useState<Veiculo[]>(mockVeiculos);
+  const userId = useAuthStore((s) => s.user?.id);
+  const { rows: tiposVeiculos, loading: loadingTipos } = useLocadorTable<{ id: string; nome: string; ativo?: boolean }>("tipos_veiculos", "nome");
+  console.log("[Veiculos] tiposVeiculos:", tiposVeiculos, "loading:", loadingTipos, "userId:", userId);
+  const [items, setItems] = useState<Veiculo[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Veiculo | null>(null);
-  const isMobile = useIsMobile();
+
+  const refresh = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("veiculos")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (error) toast.error("Erro ao carregar veículos: " + error.message);
+    setItems((data ?? []) as Veiculo[]);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    refresh();
+  }, []);
 
   const filtered = items.filter((v) =>
-    v.placa.toLowerCase().includes(search.toLowerCase()) ||
-    v.modelo.toLowerCase().includes(search.toLowerCase()) ||
-    v.marca.toLowerCase().includes(search.toLowerCase())
+    (v.placa ?? "").toLowerCase().includes(search.toLowerCase()) ||
+    (v.modelo ?? "").toLowerCase().includes(search.toLowerCase()) ||
+    (v.marca ?? "").toLowerCase().includes(search.toLowerCase())
   );
 
   const { paginatedData, currentPage, pageSize, setCurrentPage, setPageSize, totalItems } = usePagination(filtered, 10);
 
-  const handleSave = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const data = Object.fromEntries(formData.entries()) as any;
-
-    if (editingItem) {
-      setItems(items.map(i => i.id === editingItem.id ? { ...i, ...data } : i));
-    } else {
-      const newItem: Veiculo = {
-        id: String(Date.now()),
-        ...data,
-      };
-      setItems([newItem, ...items]);
+    if (!userId) {
+      toast.error("Usuário não autenticado");
+      return;
     }
+    const formData = new FormData(e.currentTarget);
+    const f = Object.fromEntries(formData.entries()) as Record<string, string>;
+    const payload = {
+      locador_id: userId,
+      tipo_veiculo: f.tipoVeiculo || null,
+      placa: f.placa,
+      renavam: f.renavam || null,
+      marca: f.marca || null,
+      modelo: f.modelo || null,
+      versao: f.versao || null,
+      ano_fabricacao: f.anoFabricacao ? Number(f.anoFabricacao) : null,
+      ano_modelo: f.anoModelo ? Number(f.anoModelo) : null,
+      combustivel: f.combustivel || null,
+      motor: f.motor || null,
+      eixos: f.eixos ? Number(f.eixos) : null,
+      lotacao: f.lotacao ? Number(f.lotacao) : null,
+      tara: f.tara ? Number(f.tara) : null,
+    };
+
+    const { error } = editingItem
+      ? await supabase.from("veiculos").update(payload).eq("id", editingItem.id)
+      : await supabase.from("veiculos").insert(payload);
+
+    if (error) {
+      toast.error("Erro ao salvar: " + error.message);
+      return;
+    }
+    toast.success(editingItem ? "Veículo atualizado!" : "Veículo cadastrado!");
     setDialogOpen(false);
     setEditingItem(null);
+    refresh();
   };
 
   const handleEdit = (item: Veiculo) => {
@@ -99,10 +92,12 @@ const Veiculos = () => {
     setDialogOpen(true);
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm("Tem certeza que deseja excluir este veículo?")) {
-      setItems(items.filter(i => i.id !== id));
-    }
+  const handleDelete = async (id: string) => {
+    if (!confirm("Tem certeza que deseja excluir este veículo?")) return;
+    const { error } = await supabase.from("veiculos").delete().eq("id", id);
+    if (error) return toast.error("Erro ao excluir: " + error.message);
+    toast.success("Veículo excluído");
+    refresh();
   };
 
   return (
@@ -129,49 +124,56 @@ const Veiculos = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="tipoVeiculo">Tipo de Veículo</Label>
-                  <Select name="tipoVeiculo" defaultValue={editingItem?.tipoVeiculo || ""}>
+                  <Select name="tipoVeiculo" defaultValue={editingItem?.tipo_veiculo || ""}>
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione o tipo" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Caminhão Poli-Guindaste">Caminhão Poli-Guindaste</SelectItem>
-                      <SelectItem value="Caminhão Roll-on Roll-off">Caminhão Roll-on Roll-off</SelectItem>
-                      <SelectItem value="Caminhão Pipa">Caminhão Pipa</SelectItem>
-                      <SelectItem value="Caminhão Caçamba">Caminhão Caçamba</SelectItem>
+                      {loadingTipos && (
+                        <div className="px-2 py-1.5 text-xs text-muted-foreground">Carregando...</div>
+                      )}
+                      {!loadingTipos && tiposVeiculos.length === 0 && (
+                        <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                          Nenhum tipo cadastrado. Cadastre em Conf. Operacionais → Tipos de Veículos.
+                        </div>
+                      )}
+                      {tiposVeiculos.map((t) => (
+                        <SelectItem key={t.id} value={t.nome}>{t.nome}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="placa">Placa</Label>
-                  <Input id="placa" name="placa" defaultValue={editingItem?.placa} required placeholder="ABC-1234" />
+                  <Input id="placa" name="placa" defaultValue={editingItem?.placa ?? ""} required placeholder="ABC-1234" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="renavam">Renavam</Label>
-                  <Input id="renavam" name="renavam" defaultValue={editingItem?.renavam} required />
+                  <Input id="renavam" name="renavam" defaultValue={editingItem?.renavam ?? ""} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="marca">Marca</Label>
-                  <Input id="marca" name="marca" defaultValue={editingItem?.marca} required />
+                  <Input id="marca" name="marca" defaultValue={editingItem?.marca ?? ""} required />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="modelo">Modelo</Label>
-                  <Input id="modelo" name="modelo" defaultValue={editingItem?.modelo} required />
+                  <Input id="modelo" name="modelo" defaultValue={editingItem?.modelo ?? ""} required />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="versao">Versão</Label>
-                  <Input id="versao" name="versao" defaultValue={editingItem?.versao} />
+                  <Input id="versao" name="versao" defaultValue={editingItem?.versao ?? ""} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="anoFabricacao">Ano Fabricação</Label>
-                  <Input id="anoFabricacao" name="anoFabricacao" type="number" defaultValue={editingItem?.anoFabricacao} required />
+                  <Input id="anoFabricacao" name="anoFabricacao" type="number" defaultValue={editingItem?.ano_fabricacao ?? ""} required />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="anoModelo">Ano Modelo</Label>
-                  <Input id="anoModelo" name="anoModelo" type="number" defaultValue={editingItem?.anoModelo} required />
+                  <Input id="anoModelo" name="anoModelo" type="number" defaultValue={editingItem?.ano_modelo ?? ""} required />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="combustivel">Combustível</Label>
-                  <Select name="combustivel" defaultValue={editingItem?.combustivel || ""}>
+                  <Select name="combustivel" defaultValue={editingItem?.combustivel ?? ""}>
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione" />
                     </SelectTrigger>
@@ -186,19 +188,19 @@ const Veiculos = () => {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="motor">Motor</Label>
-                  <Input id="motor" name="motor" defaultValue={editingItem?.motor} />
+                  <Input id="motor" name="motor" defaultValue={editingItem?.motor ?? ""} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="eixos">Eixos</Label>
-                  <Input id="eixos" name="eixos" type="number" defaultValue={editingItem?.eixos} />
+                  <Input id="eixos" name="eixos" type="number" defaultValue={editingItem?.eixos ?? ""} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="lotacao">Lotação (ton)</Label>
-                  <Input id="lotacao" name="lotacao" type="number" step="0.1" defaultValue={editingItem?.lotacao} />
+                  <Input id="lotacao" name="lotacao" type="number" step="0.1" defaultValue={editingItem?.lotacao ?? ""} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="tara">Tara (ton)</Label>
-                  <Input id="tara" name="tara" type="number" step="0.1" defaultValue={editingItem?.tara} />
+                  <Input id="tara" name="tara" type="number" step="0.1" defaultValue={editingItem?.tara ?? ""} />
                 </div>
               </div>
               <DialogFooter>
@@ -230,8 +232,8 @@ const Veiculos = () => {
               </div>
             ),
           },
-          { header: "Tipo", accessor: "tipoVeiculo" },
-          { header: "Ano", accessor: (v) => `${v.anoFabricacao}/${v.anoModelo}` },
+          { header: "Tipo", accessor: "tipo_veiculo" },
+          { header: "Ano", accessor: (v) => `${v.ano_fabricacao ?? "-"}/${v.ano_modelo ?? "-"}` },
           { header: "Combustível", accessor: "combustivel" },
           { header: "Lotação", accessor: (v) => v.lotacao ? `${v.lotacao}t` : "-" },
           { header: "Tara", accessor: (v) => v.tara ? `${v.tara}t` : "-" },
@@ -260,11 +262,11 @@ const Veiculos = () => {
             <div className="grid grid-cols-2 gap-2 text-[11px]">
               <div className="bg-muted/50 rounded-md p-2">
                 <p className="text-muted-foreground mb-0.5">Tipo</p>
-                <p className="font-medium">{v.tipoVeiculo}</p>
+                <p className="font-medium">{v.tipo_veiculo}</p>
               </div>
               <div className="bg-muted/50 rounded-md p-2">
                 <p className="text-muted-foreground mb-0.5">Ano</p>
-                <p className="font-medium">{v.anoFabricacao}/{v.anoModelo}</p>
+                <p className="font-medium">{v.ano_fabricacao}/{v.ano_modelo}</p>
               </div>
               <div className="bg-muted/50 rounded-md p-2">
                 <p className="text-muted-foreground mb-0.5">Combustível</p>

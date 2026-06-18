@@ -13,11 +13,6 @@ import {
   UserPlus,
   Activity,
   Package,
-  DollarSign,
-  AlertCircle,
-  Truck,
-  ClipboardList,
-  Clock,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -108,12 +103,19 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-6 pb-10">
-      <PageHeader title="Visão Geral do Sistema" subtitle="Painel de controle administrativo MyBox">
-        <div className="flex items-center gap-3">
-          <div className="hidden md:flex items-center gap-2 bg-white/10 px-3 py-1.5 rounded-lg backdrop-blur-md border border-white/20">
-            <Activity className="h-4 w-4 text-emerald-400" />
-            <span className="text-xs font-bold text-white uppercase tracking-wider">Sistema Online</span>
-          </div>
+      <PageHeader title="Painel de Controle" subtitle="Visão geral do ecossistema MyBox">
+        <div className="flex items-center gap-2">
+          <Calendar className="h-4 w-4 text-white/70 mr-1" />
+          <Select defaultValue="5">
+            <SelectTrigger className="w-[130px] h-9 text-xs bg-white/15 border-white/20 text-white backdrop-blur-md">
+              <SelectValue placeholder="Mês" />
+            </SelectTrigger>
+            <SelectContent>
+              {months.map((m, i) => (
+                <SelectItem key={i} value={String(i + 1)}>{m}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Select defaultValue="2026">
             <SelectTrigger className="w-[100px] h-9 text-xs bg-white/15 border-white/20 text-white backdrop-blur-md">
               <SelectValue placeholder="Ano" />
@@ -123,216 +125,183 @@ const Dashboard = () => {
               <SelectItem value="2025">2025</SelectItem>
             </SelectContent>
           </Select>
-          <Button size="sm" className="bg-white text-primary hover:bg-white/90 font-bold h-9">
-            <Plus className="h-4 w-4 mr-2" /> Novo Locador
-          </Button>
         </div>
       </PageHeader>
 
-      {/* KPIs Financeiros e Operacionais */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="border-none shadow-sm bg-primary text-primary-foreground relative overflow-hidden group">
-          <div className="absolute right-[-10px] top-[-10px] opacity-10 rotate-12 group-hover:scale-110 transition-transform duration-500">
-            <DollarSign size={100} />
-          </div>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <p className="text-xs font-bold uppercase tracking-widest opacity-80">Receita Bruta (Mês)</p>
-                <h3 className="text-3xl font-black">R$ 142.580,00</h3>
-              </div>
-            </div>
-            <div className="mt-4 flex items-center gap-2">
-              <Badge className="bg-white/20 hover:bg-white/30 text-white border-0 text-[10px]">
-                <TrendingUp className="h-3 w-3 mr-1" /> +18.4%
-              </Badge>
-              <span className="text-[10px] opacity-70 font-medium italic">vs. mês anterior</span>
-            </div>
-          </CardContent>
-        </Card>
 
-        <Card className="border-none shadow-sm relative overflow-hidden group">
-          <div className="absolute right-[-10px] top-[-10px] opacity-5 rotate-12 group-hover:scale-110 transition-transform duration-500">
-            <ClipboardList size={100} />
-          </div>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Total de Locações</p>
-                <h3 className="text-3xl font-black">1.284</h3>
+      {/* Stat cards */}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+        {statCards.map((stat) => (
+          <Card key={stat.label} className="overflow-hidden border-none shadow-sm bg-card hover:shadow-md transition-shadow">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className={`rounded-lg bg-primary/10 p-2`}>
+                  <stat.icon className="h-4 w-4 text-primary" />
+                </div>
+                <Badge
+                  variant="outline"
+                  className={`text-[10px] px-1.5 py-0 h-5 font-medium border-0 ${
+                    stat.up ? "bg-emerald-500/10 text-emerald-600" : "bg-rose-500/10 text-rose-600"
+                  }`}
+                >
+                  {stat.up ? <TrendingUp className="h-3 w-3 mr-0.5" /> : <TrendingDown className="h-3 w-3 mr-0.5" />}
+                  {stat.change}
+                </Badge>
               </div>
-            </div>
-            <div className="mt-4 flex items-center gap-2">
-              <Badge className="bg-emerald-500/10 text-emerald-600 border-0 text-[10px]">
-                <TrendingUp className="h-3 w-3 mr-1" /> +5.2%
-              </Badge>
-              <span className="text-[10px] text-muted-foreground font-medium italic">em 30 dias</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-none shadow-sm relative overflow-hidden group">
-          <div className="absolute right-[-10px] top-[-10px] opacity-5 rotate-12 group-hover:scale-110 transition-transform duration-500">
-            <Truck size={100} />
-          </div>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Logística Ativa</p>
-                <h3 className="text-3xl font-black">42</h3>
-              </div>
-            </div>
-            <div className="mt-4 flex items-center gap-2">
-              <div className="flex -space-x-2">
-                {[1,2,3].map(i => (
-                  <div key={i} className="h-5 w-5 rounded-full border-2 border-background bg-muted overflow-hidden">
-                    <img src={`https://i.pravatar.cc/150?u=${i+10}`} alt="" />
-                  </div>
-                ))}
-              </div>
-              <span className="text-[10px] text-muted-foreground font-medium">motoristas em rota agora</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-none shadow-sm relative overflow-hidden group">
-          <div className="absolute right-[-10px] top-[-10px] opacity-5 rotate-12 group-hover:scale-110 transition-transform duration-500">
-            <Container size={100} />
-          </div>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Taxa de Ocupação</p>
-                <h3 className="text-3xl font-black">74%</h3>
-              </div>
-            </div>
-            <div className="mt-4">
-              <Progress value={74} className="h-1.5" />
-              <p className="text-[10px] text-muted-foreground mt-2 font-medium">842 caçambas em campo</p>
-            </div>
-          </CardContent>
-        </Card>
+              <p className="text-2xl font-bold tracking-tight text-foreground">{stat.value}</p>
+              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mt-1">{stat.label}</p>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Gráfico Principal */}
-        <Card className="lg:col-span-2 border-none shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between pb-6">
-            <div>
-              <CardTitle className="text-lg">Crescimento de Mercado</CardTitle>
-              <CardDescription className="text-sm">Volume transacionado por região</CardDescription>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" className="h-8 text-[10px] font-bold uppercase">Exportar PDF</Button>
+      {/* Charts row 1 */}
+      <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+        <Card className="border-none shadow-sm">
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-lg">Fluxo de Locações</CardTitle>
+                <CardDescription className="text-sm">Volume de ordens de serviço nos últimos meses</CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary" className="bg-primary/10 text-primary border-0">
+                  +12% vs mês anterior
+                </Badge>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={320}>
+            <ResponsiveContainer width="100%" height={300}>
               <AreaChart data={ordensData}>
                 <defs>
-                  <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.2} />
+                  <linearGradient id="colorOrdens" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
                     <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.1} />
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted-foreground))" vertical={false} opacity={0.1} />
                 <XAxis 
                   dataKey="name" 
-                  tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} 
+                  tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} 
                   axisLine={false} 
                   tickLine={false} 
+                  dy={10}
                 />
                 <YAxis 
-                  tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} 
+                  tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} 
                   axisLine={false} 
                   tickLine={false} 
+                  width={35} 
                 />
                 <Tooltip 
-                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                  contentStyle={{ 
+                    backgroundColor: "hsl(var(--card))", 
+                    borderRadius: "12px", 
+                    border: "1px solid hsl(var(--border))",
+                    boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)"
+                  }} 
                 />
                 <Area 
                   type="monotone" 
                   dataKey="value" 
                   stroke="hsl(var(--primary))" 
-                  fillOpacity={1} 
-                  fill="url(#colorValue)" 
-                  strokeWidth={3}
+                  fill="url(#colorOrdens)" 
+                  strokeWidth={3} 
+                  dot={{ r: 4, fill: "hsl(var(--primary))", strokeWidth: 2, stroke: "#fff" }} 
+                  activeDot={{ r: 6, strokeWidth: 0 }}
                 />
               </AreaChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
-        {/* Top Municípios e Alertas */}
-        <div className="space-y-6">
-          <Card className="border-none shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-lg">Municípios Líderes</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {municipios.map((m) => (
-                <div key={m.name} className="flex items-center gap-4">
-                  <div className="h-10 w-10 rounded-full bg-primary/5 flex items-center justify-center shrink-0">
-                    <MapPin className="h-5 w-5 text-primary" />
-                  </div>
-                  <div className="flex-1 space-y-1">
-                    <div className="flex justify-between text-xs font-bold uppercase tracking-tight">
-                      <span>{m.name.split(' / ')[0]}</span>
-                      <span className="text-primary">{m.pct}%</span>
+        <Card className="border-none shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg">Status da Frota</CardTitle>
+            <CardDescription className="text-sm">Distribuição atual das caçambas</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[200px] w-full mt-4">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={cacambasData} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} vertical={false} />
+                  <XAxis type="number" hide />
+                  <YAxis 
+                    dataKey="name" 
+                    type="category" 
+                    tick={{ fontSize: 11, fontWeight: 500 }} 
+                    width={85} 
+                    axisLine={false} 
+                    tickLine={false} 
+                  />
+                  <Tooltip 
+                    cursor={{ fill: 'transparent' }}
+                    contentStyle={{ borderRadius: "8px", border: "1px solid hsl(var(--border))" }}
+                  />
+                  <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={20}>
+                    {cacambasData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="mt-6 space-y-4">
+              <Separator className="opacity-50" />
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Principais Municípios</p>
+                <div className="space-y-4">
+                  {municipios.map((m) => (
+                    <div key={m.name} className="space-y-1.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-medium text-foreground">{m.name.split(' / ')[0]}</span>
+                        <span className="font-bold">{m.count} <span className="text-muted-foreground font-normal">loc.</span></span>
+                      </div>
+                      <Progress value={m.pct} className="h-1.5 bg-muted" />
                     </div>
-                    <Progress value={m.pct} className="h-1.5" />
-                  </div>
+                  ))}
                 </div>
-              ))}
-            </CardContent>
-          </Card>
-
-          <Card className="border-none shadow-sm bg-rose-50 dark:bg-rose-500/5 border border-rose-200 dark:border-rose-500/20">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2 text-rose-700 dark:text-rose-400 font-black">
-                <AlertCircle className="h-5 w-5" />
-                Alertas Críticos
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="text-[11px] font-medium p-2 rounded bg-white/50 dark:bg-black/20 border border-rose-200/50">
-                <span className="font-bold text-rose-600">Documentação:</span> 3 locadores com alvarás vencendo em 48h.
               </div>
-              <div className="text-[11px] font-medium p-2 rounded bg-white/50 dark:bg-black/20 border border-rose-200/50">
-                <span className="font-bold text-rose-600">Operacional:</span> 8 caçambas com tempo de locação excedido em 5 dias.
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Tabela de Ordens */}
-        <Card className="border-none shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-lg">Ordens Críticas</CardTitle>
-            <Button variant="link" size="sm" className="text-xs font-bold uppercase tracking-wider text-primary">Ver Todas</Button>
+      {/* Bottom Row */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Card className="lg:col-span-2 border-none shadow-sm">
+          <CardHeader className="pb-4 border-b">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-lg">Ordens Recentes</CardTitle>
+                <CardDescription className="text-sm">Acompanhamento em tempo real</CardDescription>
+              </div>
+              <Button variant="ghost" size="sm" className="text-xs text-primary font-semibold hover:bg-primary/5">
+                Ver Todas <ArrowRight className="h-4 w-4 ml-1" />
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             <div className="divide-y divide-border">
               {recentOrders.map((order) => (
-                <div key={order.id} className="px-6 py-4 flex items-center justify-between hover:bg-muted/30 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-black text-xs">
+                <div key={order.id} className="flex items-center justify-between px-6 py-4 hover:bg-muted/30 transition-colors group">
+                  <div className="flex items-center gap-4">
+                    <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center font-bold text-xs text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary transition-colors">
                       {order.id.replace('#', '')}
                     </div>
                     <div>
-                      <p className="text-sm font-bold">{order.client}</p>
-                      <p className="text-[10px] text-muted-foreground flex items-center gap-1 uppercase tracking-wider font-semibold">
-                        <Clock className="h-3 w-3" /> {order.date}
-                      </p>
+                      <p className="text-sm font-semibold text-foreground">{order.client}</p>
+                      <p className="text-xs text-muted-foreground">{order.date}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <Badge variant="outline" className={`text-[10px] font-black uppercase tracking-widest px-2 py-0 border-0 ${statusColor[order.status]}`}>
+                  <div className="flex items-center gap-6">
+                    <div className="text-right hidden sm:block">
+                      <p className="text-sm font-bold text-foreground">{order.amount}</p>
+                    </div>
+                    <Badge variant="outline" className={`text-[10px] px-2.5 py-0.5 font-medium border-0 ${statusColor[order.status] || ""}`}>
                       {order.status}
                     </Badge>
-                    <span className="text-sm font-black text-foreground tabular-nums">{order.amount}</span>
                   </div>
                 </div>
               ))}
@@ -340,33 +309,50 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        {/* Registro de Atividades Recentes */}
-        <Card className="border-none shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-lg">Logs de Atividade</CardTitle>
+        <Card className="border-none shadow-sm flex flex-col">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-lg">Resumo de Atividade</CardTitle>
+            <CardDescription className="text-sm">Últimas 24 horas</CardDescription>
           </CardHeader>
-          <CardContent className="p-0">
-            <div className="px-6 space-y-6 pb-6">
-              {[
-                { type: 'user', msg: 'Novo locador "EcoEntulho" aprovado', time: '12:45', color: 'bg-emerald-500' },
-                { type: 'order', msg: 'Alteração de status Ordem #1284', time: '11:20', color: 'bg-blue-500' },
-                { type: 'system', msg: 'Backup automático concluído', time: '04:00', color: 'bg-purple-500' },
-                { type: 'alert', msg: 'Falha de login detectada - IP: 187.32.1.4', time: '02:15', color: 'bg-rose-500' },
-              ].map((log, i) => (
-                <div key={i} className="flex gap-4 items-start relative">
-                  {i !== 3 && <div className="absolute left-[11px] top-6 bottom-[-24px] w-[2px] bg-border" />}
-                  <div className={`h-6 w-6 rounded-full ${log.color} flex items-center justify-center border-4 border-background shrink-0 z-10`}>
-                    <div className="h-1.5 w-1.5 rounded-full bg-white" />
-                  </div>
-                  <div className="flex-1 pt-0.5">
-                    <div className="flex justify-between items-center mb-1">
-                      <p className="text-xs font-bold text-foreground">{log.msg}</p>
-                      <span className="text-[10px] font-bold text-muted-foreground">{log.time}</span>
-                    </div>
-                    <p className="text-[10px] text-muted-foreground font-medium italic">Sistema de Monitoramento em Tempo Real</p>
-                  </div>
+          <CardContent className="flex-1 space-y-6">
+            <div className="space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="mt-1 h-2 w-2 rounded-full bg-primary shrink-0" />
+                <div className="space-y-1">
+                  <p className="text-xs font-medium leading-none">Novo cliente cadastrado</p>
+                  <p className="text-[11px] text-muted-foreground">Há 2 minutos por Maria Silva</p>
                 </div>
-              ))}
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="mt-1 h-2 w-2 rounded-full bg-blue-500 shrink-0" />
+                <div className="space-y-1">
+                  <p className="text-xs font-medium leading-none">Ordem #1234 atualizada</p>
+                  <p className="text-[11px] text-muted-foreground">Há 15 minutos pelo sistema</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="mt-1 h-2 w-2 rounded-full bg-orange-500 shrink-0" />
+                <div className="space-y-1">
+                  <p className="text-xs font-medium leading-none">Alerta de caçamba atrasada</p>
+                  <p className="text-[11px] text-muted-foreground">Há 1 hora em Mirassol/SP</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="mt-1 h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
+                <div className="space-y-1">
+                  <p className="text-xs font-medium leading-none">Pagamento confirmado</p>
+                  <p className="text-[11px] text-muted-foreground">Há 3 horas - R$ 450,00</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="mt-auto pt-6 border-t">
+              <div className="bg-primary/5 rounded-xl p-4 border border-primary/10">
+                <h4 className="text-xs font-bold text-primary mb-1 uppercase tracking-wider">Dica do dia</h4>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Você sabia que otimizar as rotas pode reduzir os custos de combustível em até 15%? Confira o novo módulo de logística.
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>

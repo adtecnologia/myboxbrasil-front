@@ -1,4 +1,5 @@
 import * as React from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -47,17 +48,30 @@ interface EquipamentoFormProps {
   isLoading?: boolean;
 }
 
-const TIPOS_EQUIPAMENTO = [
-  "Prensa Hidráulica",
-  "Triturador",
-  "Esteira Transportadora",
-  "Empilhadeira",
-  "Compactador",
-  "Outro",
-];
+const PrecoInput = ({ id, label, value, onChange, placeholder }: { id: string; label: string; value: string; onChange: (v: string) => void; placeholder?: string }) => (
+  <div className="space-y-2">
+    <Label htmlFor={id} className="text-xs">
+      {label} <span className="text-destructive">*</span>
+    </Label>
+    <div className="relative">
+      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">R$</span>
+      <Input id={id} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder || "0,00"} className="pl-9" />
+    </div>
+  </div>
+);
 
 export const EquipamentoForm: React.FC<EquipamentoFormProps> = ({ initialData, onSubmit, onCancel, isLoading }) => {
   const [activeTab, setActiveTab] = React.useState("dados");
+  const [tipos, setTipos] = React.useState<Array<{ id: string; nome: string }>>([]);
+
+  React.useEffect(() => {
+    supabase
+      .from("tipos_equipamentos")
+      .select("id, nome")
+      .eq("ativo", true)
+      .order("nome", { ascending: true })
+      .then(({ data }) => setTipos(data ?? []));
+  }, []);
 
   const [tipoEquipamento, setTipoEquipamento] = React.useState(initialData?.tipoEquipamento || "");
   const [nome, setNome] = React.useState(initialData?.nome || "");
@@ -217,18 +231,6 @@ export const EquipamentoForm: React.FC<EquipamentoFormProps> = ({ initialData, o
     });
   };
 
-  const PrecoInput = ({ id, label, value, onChange, placeholder }: { id: string; label: string; value: string; onChange: (v: string) => void; placeholder?: string }) => (
-    <div className="space-y-2">
-      <Label htmlFor={id} className="text-xs">
-        {label} <span className="text-destructive">*</span>
-      </Label>
-      <div className="relative">
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">R$</span>
-        <Input id={id} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder || "0,00"} className="pl-9" />
-      </div>
-    </div>
-  );
-
   return (
     <form onSubmit={handleSubmit} className="flex flex-col h-full overflow-hidden">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
@@ -274,9 +276,15 @@ export const EquipamentoForm: React.FC<EquipamentoFormProps> = ({ initialData, o
                       <SelectValue placeholder="Selecione o tipo" />
                     </SelectTrigger>
                     <SelectContent>
-                      {TIPOS_EQUIPAMENTO.map((t) => (
-                        <SelectItem key={t} value={t}>{t}</SelectItem>
-                      ))}
+                      {tipos.length === 0 ? (
+                        <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                          Nenhum tipo cadastrado
+                        </div>
+                      ) : (
+                        tipos.map((t) => (
+                          <SelectItem key={t.id} value={t.nome}>{t.nome}</SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                 </div>

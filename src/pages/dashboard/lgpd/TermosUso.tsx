@@ -1,54 +1,62 @@
-import { useState } from "react";
-import { Search, Eye, Download, FileText } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Eye, Download, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { FileUp } from "lucide-react";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { DataPagination, usePagination } from "@/components/DataPagination";
+import { usePagination } from "@/components/DataPagination";
 import { DataTable } from "@/components/DataTable";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface DocumentoVersao {
   id: string;
-  data: string;
-  versao: string;
   titulo: string;
-  situacao: "Ativo" | "Histórico";
-  uploadPor: string;
+  versao: string;
+  conteudo: string;
+  situacao: "ativo" | "historico";
+  upload_por: string | null;
+  created_at: string;
 }
 
-const mockTermos: DocumentoVersao[] = [
-  { id: "1", data: "14/05/2026", versao: "2.1.0", titulo: "Termos de Uso Geral v2.1", situacao: "Ativo", uploadPor: "Admin Sistema" },
-  { id: "2", data: "10/01/2026", versao: "2.0.0", titulo: "Termos de Uso Geral v2.0", situacao: "Histórico", uploadPor: "Admin Sistema" },
-  { id: "3", data: "15/06/2025", versao: "1.0.0", titulo: "Termos de Uso Inicial", situacao: "Histórico", uploadPor: "Suporte Técnico" },
-];
-
 const TermosUso = () => {
-  const [termos, setTermos] = useState<DocumentoVersao[]>(mockTermos);
+  const [termos, setTermos] = useState<DocumentoVersao[]>([]);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const isMobile = useIsMobile();
+  const [viewing, setViewing] = useState<DocumentoVersao | null>(null);
 
-  const handleSave = (e: React.FormEvent<HTMLFormElement>) => {
+  const load = async () => {
+    const { data, error } = await supabase
+      .from("termos_uso")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (error) { toast.error(error.message); return; }
+    setTermos((data ?? []) as DocumentoVersao[]);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
-    
-    const novo: DocumentoVersao = {
-      id: String(Date.now()),
-      data: new Date().toLocaleDateString('pt-BR'),
-      versao: form.get("versao") as string,
+    const { error: upErr } = await supabase
+      .from("termos_uso")
+      .update({ situacao: "historico" })
+      .eq("situacao", "ativo");
+    if (upErr) { toast.error(upErr.message); return; }
+    const { error } = await supabase.from("termos_uso").insert({
       titulo: form.get("titulo") as string,
-      situacao: "Ativo",
-      uploadPor: "Admin Sistema"
-    };
-
-    // Desativa versões anteriores se a nova for ativa
-    setTermos([novo, ...termos.map(t => ({ ...t, situacao: "Histórico" as const }))]);
+      versao: form.get("versao") as string,
+      conteudo: form.get("conteudo") as string,
+      situacao: "ativo",
+      upload_por: "Admin Sistema",
+    });
+    if (error) { toast.error(error.message); return; }
+    toast.success("Nova versão publicada!");
     setDialogOpen(false);
+    load();
   };
 
   const filtered = termos.filter((t) =>
@@ -57,6 +65,8 @@ const TermosUso = () => {
   );
 
   const { paginatedData, currentPage, pageSize, setCurrentPage, setPageSize, totalItems } = usePagination(filtered, 10);
+
+  const fmtDate = (d: string) => new Date(d).toLocaleDateString("pt-BR");
 
   return (
     <div className="space-y-6">
@@ -85,12 +95,8 @@ const TermosUso = () => {
                 <Input id="versao" name="versao" required placeholder="Ex: 2.2.0" />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="arquivo">Upload PDF</Label>
-                <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 flex flex-col items-center justify-center gap-2 bg-muted/50">
-                  <FileUp className="h-8 w-8 text-muted-foreground/30" />
-                  <p className="text-xs text-muted-foreground">Arraste ou clique para selecionar o arquivo PDF</p>
-                  <Input id="arquivo" name="arquivo" type="file" accept=".pdf" className="max-w-xs mt-2" required />
-                </div>
+                <Label htmlFor="conteudo">Conteúdo</Label>
+                <Textarea id="conteudo" name="conteudo" required rows={10} placeholder="Texto completo dos termos de uso..." />
               </div>
               <DialogFooter>
                 <Button type="submit" className="w-full">Publicar Nova Versão</Button>
@@ -106,18 +112,18 @@ const TermosUso = () => {
         searchValue={search}
         onSearchChange={setSearch}
         columns={[
-          { header: "Data", accessor: "data", className: "text-sm" },
+          { header: "Data", accessor: (t) => fmtDate(t.created_at), className: "text-sm" },
           { header: "Versão", accessor: "versao", className: "font-mono text-xs" },
           { header: "Título", accessor: "titulo", className: "font-medium" },
           {
             header: "Situação",
             accessor: (t) => (
-              <Badge variant={t.situacao === "Ativo" ? "default" : "secondary"}>
-                {t.situacao}
+              <Badge variant={t.situacao === "ativo" ? "default" : "secondary"}>
+                {t.situacao === "ativo" ? "Ativo" : "Histórico"}
               </Badge>
             ),
           },
-          { header: "Upload feito por", accessor: "uploadPor", className: "text-sm" },
+          { header: "Upload feito por", accessor: (t) => t.upload_por ?? "—", className: "text-sm" },
         ]}
         renderMobileCard={(t) => (
           <div className="rounded-lg border border-border bg-background p-4 space-y-3">
@@ -126,33 +132,25 @@ const TermosUso = () => {
                 <p className="font-bold text-sm text-foreground truncate">{t.titulo}</p>
                 <p className="text-xs text-muted-foreground">Versão: {t.versao}</p>
               </div>
-              <Badge variant={t.situacao === "Ativo" ? "default" : "secondary"} className="text-[10px]">
-                {t.situacao}
+              <Badge variant={t.situacao === "ativo" ? "default" : "secondary"} className="text-[10px]">
+                {t.situacao === "ativo" ? "Ativo" : "Histórico"}
               </Badge>
             </div>
             <div className="text-xs text-muted-foreground grid grid-cols-2 gap-2">
-              <div>Data: {t.data}</div>
-              <div className="truncate">Por: {t.uploadPor}</div>
+              <div>Data: {fmtDate(t.created_at)}</div>
+              <div className="truncate">Por: {t.upload_por ?? "—"}</div>
             </div>
             <div className="flex gap-2 pt-2 border-t">
-              <Button variant="outline" size="sm" className="flex-1 h-8 text-[10px]">
+              <Button variant="outline" size="sm" className="flex-1 h-8 text-[10px]" onClick={() => setViewing(t)}>
                 <Eye className="mr-1 h-3 w-3" /> Visualizar
-              </Button>
-              <Button variant="outline" size="sm" className="flex-1 h-8 text-[10px]">
-                <Download className="mr-1 h-3 w-3" /> Download
               </Button>
             </div>
           </div>
         )}
         actions={(t) => (
-          <>
-            <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg hover:border-primary hover:text-primary shadow-sm" title="Visualizar">
-              <Eye className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg hover:border-primary hover:text-primary shadow-sm" title="Download">
-              <Download className="h-4 w-4" />
-            </Button>
-          </>
+          <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg hover:border-primary hover:text-primary shadow-sm" title="Visualizar" onClick={() => setViewing(t)}>
+            <Eye className="h-4 w-4" />
+          </Button>
         )}
         pagination={{
           totalItems,
@@ -162,6 +160,15 @@ const TermosUso = () => {
           onPageSizeChange: setPageSize,
         }}
       />
+
+      <Dialog open={!!viewing} onOpenChange={(o) => !o && setViewing(null)}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{viewing?.titulo}</DialogTitle>
+          </DialogHeader>
+          <div className="text-sm whitespace-pre-wrap text-foreground">{viewing?.conteudo}</div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

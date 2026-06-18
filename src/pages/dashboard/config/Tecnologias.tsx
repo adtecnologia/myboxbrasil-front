@@ -10,21 +10,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { DataPagination, usePagination } from "@/components/DataPagination";
 import { DataTable } from "@/components/DataTable";
+import { useLocadorTable } from "@/hooks/useLocadorTable";
 
 interface Tecnologia {
   id: string;
   nome: string;
-  descricao: string;
+  descricao: string | null;
 }
 
-const mockTecnologias: Tecnologia[] = [
-  { id: "1", nome: "Incineração", descricao: "Processo de destruição térmica realizado sob alta temperatura." },
-  { id: "2", nome: "Autoclavagem", descricao: "Tratamento térmico por meio de vapor sob pressão." },
-  { id: "3", nome: "Aterro Sanitário", descricao: "Disposição final de resíduos sólidos no solo sem danos à saúde pública." },
-];
-
 const TecnologiasTratamento = () => {
-  const [tecnologias, setTecnologias] = useState<Tecnologia[]>(mockTecnologias);
+  const { rows: tecnologias, create, update, remove } = useLocadorTable<Tecnologia>("tecnologias_tratamento");
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTech, setEditingTech] = useState<Tecnologia | null>(null);
@@ -32,34 +27,28 @@ const TecnologiasTratamento = () => {
 
   const filtered = tecnologias.filter((t) =>
     t.nome.toLowerCase().includes(search.toLowerCase()) ||
-    t.descricao.toLowerCase().includes(search.toLowerCase())
+    (t.descricao ?? "").toLowerCase().includes(search.toLowerCase())
   );
 
   const { paginatedData, currentPage, pageSize, setCurrentPage, setPageSize, totalItems } = usePagination(filtered, 10);
 
-  const handleSave = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
     const nome = form.get("nome") as string;
     const descricao = form.get("descricao") as string;
 
-    if (editingTech) {
-      setTecnologias(tecnologias.map(t => t.id === editingTech.id ? { ...t, nome, descricao } : t));
-    } else {
-      const novo: Tecnologia = {
-        id: String(Date.now()),
-        nome,
-        descricao,
-      };
-      setTecnologias([novo, ...tecnologias]);
+    const ok = editingTech
+      ? await update(editingTech.id, { nome, descricao })
+      : await create({ nome, descricao });
+    if (ok) {
+      setDialogOpen(false);
+      setEditingTech(null);
     }
-    
-    setDialogOpen(false);
-    setEditingTech(null);
   };
 
-  const handleDelete = (id: string) => {
-    setTecnologias(tecnologias.filter(t => t.id !== id));
+  const handleDelete = async (id: string) => {
+    await remove(id);
   };
 
   const openEdit = (tech: Tecnologia) => {

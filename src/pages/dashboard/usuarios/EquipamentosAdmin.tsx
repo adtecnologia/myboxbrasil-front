@@ -1,13 +1,14 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Image as ImageIcon, Plus, Pencil, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { DataPagination, usePagination } from "@/components/DataPagination";
+import { usePagination } from "@/components/DataPagination";
 import { DataTable } from "@/components/DataTable";
 import { EquipamentoForm, EquipamentoFormData } from "@/components/EquipamentoForm";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 interface EquipamentoAdmin {
   id: string;
@@ -26,51 +27,16 @@ interface EquipamentoAdmin {
   unidades: { id: string; codigo: string; disponivel: boolean }[];
 }
 
-const mockEquipamentos: EquipamentoAdmin[] = [
-  {
-    id: "1",
-    locador: "Silva Transportes",
-    tipoEquipamento: "Prensa Hidráulica",
-    nome: "Prensa X-500",
-    valorDiaria: "150,00",
-    valorSemanal: "800,00",
-    valorQuinzenal: "1.500,00",
-    valorMensal: "2.800,00",
-    descricao: "",
-    orientacoesOperacao: "",
-    orientacoesSeguranca: "",
-    fotos: [],
-    unidades: [
-      { id: "e1", codigo: "EQP-001", disponivel: true },
-      { id: "e2", codigo: "EQP-002", disponivel: false },
-    ],
-  },
-  {
-    id: "2",
-    locador: "Oliveira Entulhos",
-    tipoEquipamento: "Triturador",
-    nome: "Triturador T-200",
-    valorDiaria: "200,00",
-    valorSemanal: "1.100,00",
-    valorQuinzenal: "2.000,00",
-    valorMensal: "3.500,00",
-    descricao: "",
-    orientacoesOperacao: "",
-    orientacoesSeguranca: "",
-    fotos: [],
-    unidades: [
-      { id: "e3", codigo: "EQP-003", disponivel: true },
-    ],
-  },
-];
-
 const EquipamentosAdmin = () => {
-  const [equipamentos, setEquipamentos] = useState<EquipamentoAdmin[]>(mockEquipamentos);
+  const [equipamentos, setEquipamentos] = useState<EquipamentoAdmin[]>([]);
+  const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editing, setEditing] = useState<EquipamentoAdmin | null>(null);
   const activeProfileType = useAuthStore((s) => s.activeProfileType());
+  const user = useAuthStore((s) => s.user);
   const isLocador = activeProfileType === "locador";
+  const canSeeLocador = activeProfileType === "admin" || activeProfileType === "prefeitura";
 
   const filtered = equipamentos.filter((e) =>
     e.locador.toLowerCase().includes(search.toLowerCase()) ||
@@ -80,55 +46,129 @@ const EquipamentosAdmin = () => {
 
   const { paginatedData, currentPage, pageSize, setCurrentPage, setPageSize, totalItems } = usePagination(filtered, 10);
 
-  const handleCreate = (data: EquipamentoFormData) => {
-    const novo: EquipamentoAdmin = {
-      id: Math.random().toString(36).substr(2, 9),
-      locador: "Meu Locador",
-      tipoEquipamento: data.tipoEquipamento,
-      nome: data.nome,
-      valorDiaria: data.precoDiario,
-      valorSemanal: data.precoSemanal,
-      valorQuinzenal: data.precoQuinzenal,
-      valorMensal: data.precoMensal,
-      descricao: data.descricao,
-      orientacoesOperacao: data.orientacoesOperacao,
-      orientacoesSeguranca: data.orientacoesSeguranca,
-      fotos: data.fotos,
-      unidades: data.unidades,
-    };
-    setEquipamentos([novo, ...equipamentos]);
-    setIsDialogOpen(false);
-    toast.success("Equipamento cadastrado com sucesso!");
+  const toNum = (s: string) => (s ? Number(String(s).replace(/\./g, "").replace(",", ".")) : 0);
+  const fmt = (n: number | null | undefined) => (n != null ? String(n) : "");
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("equipamentos")
+      .select(`
+        id, locador_id, tipo_equipamento, nome,
+        preco_diario, preco_semanal, preco_quinzenal, preco_mensal,
+        descricao, orientacoes_operacao, orientacoes_seguranca,
+        equipamento_unidades ( id, codigo, disponivel ),
+        equipamento_fotos ( url )
+      `)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      toast.error("Erro ao carregar equipamentos: " + error.message);
+      setLoading(false);
+      return;
+    }
+    const locadorIds = Array.from(new Set((data ?? []).map((e: any) => e.locador_id).filter(Boolean)));
+    let nomes: Record<string, string> = {};
+    if (locadorIds.length) {
+      const { data: profs } = await supabase
+        .from("profiles")
+        .select("id, nome")
+        .in("id", locadorIds);
+      nomes = Object.fromEntries((profs ?? []).map((p: any) => [p.id, p.nome]));
+    }
+    setEquipamentos((data ?? []).map((e: any) => ({
+      id: e.id,
+      locador: nomes[e.locador_id] ?? "—",
+      tipoEquipamento: e.tipo_equipamento,
+      nome: e.nome,
+      valorDiaria: fmt(e.preco_diario),
+      valorSemanal: fmt(e.preco_semanal),
+      valorQuinzenal: fmt(e.preco_quinzenal),
+      valorMensal: fmt(e.preco_mensal),
+      descricao: e.descricao ?? "",
+      orientacoesOperacao: e.orientacoes_operacao ?? "",
+      orientacoesSeguranca: e.orientacoes_seguranca ?? "",
+      fotos: (e.equipamento_fotos ?? []).map((f: any) => f.url),
+      unidades: e.equipamento_unidades ?? [],
+    })));
+    setLoading(false);
+  }, [user?.name]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const persistChildren = async (equipamentoId: string, data: EquipamentoFormData) => {
+    const ops: PromiseLike<unknown>[] = [];
+    if (data.unidades.length) {
+      ops.push(supabase.from("equipamento_unidades").insert(
+        data.unidades.map((u) => ({ equipamento_id: equipamentoId, codigo: u.codigo, disponivel: u.disponivel }))
+      ));
+    }
+    if (data.fotos.length) {
+      ops.push(supabase.from("equipamento_fotos").insert(
+        data.fotos.map((url, ordem) => ({ equipamento_id: equipamentoId, url, ordem }))
+      ));
+    }
+    await Promise.all(ops);
   };
 
-  const handleEdit = (data: EquipamentoFormData) => {
+  const handleCreate = async (data: EquipamentoFormData) => {
+    if (!user?.id) { toast.error("Sessão inválida."); return; }
+    const { data: inserted, error } = await supabase
+      .from("equipamentos")
+      .insert({
+        locador_id: user.id,
+        tipo_equipamento: data.tipoEquipamento,
+        nome: data.nome,
+        preco_diario: toNum(data.precoDiario),
+        preco_semanal: toNum(data.precoSemanal),
+        preco_quinzenal: toNum(data.precoQuinzenal),
+        preco_mensal: toNum(data.precoMensal),
+        descricao: data.descricao,
+        orientacoes_operacao: data.orientacoesOperacao,
+        orientacoes_seguranca: data.orientacoesSeguranca,
+      })
+      .select("id").single();
+    if (error || !inserted) { toast.error("Erro ao cadastrar: " + (error?.message ?? "")); return; }
+    await persistChildren(inserted.id, data);
+    setIsDialogOpen(false);
+    toast.success("Equipamento cadastrado com sucesso!");
+    load();
+  };
+
+  const handleEdit = async (data: EquipamentoFormData) => {
     if (!editing) return;
-    setEquipamentos(equipamentos.map((e) =>
-      e.id === editing.id
-        ? {
-            ...e,
-            tipoEquipamento: data.tipoEquipamento,
-            nome: data.nome,
-            valorDiaria: data.precoDiario,
-            valorSemanal: data.precoSemanal,
-            valorQuinzenal: data.precoQuinzenal,
-            valorMensal: data.precoMensal,
-            descricao: data.descricao,
-            orientacoesOperacao: data.orientacoesOperacao,
-            orientacoesSeguranca: data.orientacoesSeguranca,
-            fotos: data.fotos,
-            unidades: data.unidades,
-          }
-        : e
-    ));
+    const id = editing.id;
+    const { error } = await supabase
+      .from("equipamentos")
+      .update({
+        tipo_equipamento: data.tipoEquipamento,
+        nome: data.nome,
+        preco_diario: toNum(data.precoDiario),
+        preco_semanal: toNum(data.precoSemanal),
+        preco_quinzenal: toNum(data.precoQuinzenal),
+        preco_mensal: toNum(data.precoMensal),
+        descricao: data.descricao,
+        orientacoes_operacao: data.orientacoesOperacao,
+        orientacoes_seguranca: data.orientacoesSeguranca,
+      })
+      .eq("id", id);
+    if (error) { toast.error("Erro ao atualizar: " + error.message); return; }
+    await Promise.all([
+      supabase.from("equipamento_unidades").delete().eq("equipamento_id", id),
+      supabase.from("equipamento_fotos").delete().eq("equipamento_id", id),
+    ]);
+    await persistChildren(id, data);
     setEditing(null);
     setIsDialogOpen(false);
     toast.success("Equipamento atualizado com sucesso!");
+    load();
   };
 
-  const handleDelete = (id: string) => {
-    setEquipamentos(equipamentos.filter((e) => e.id !== id));
+  const handleDelete = async (id: string) => {
+    const { error } = await supabase.from("equipamentos").delete().eq("id", id);
+    if (error) { toast.error("Erro ao excluir: " + error.message); return; }
     toast.success("Equipamento removido com sucesso!");
+    load();
   };
 
   return (
@@ -176,7 +216,7 @@ const EquipamentosAdmin = () => {
       </div>
 
       <DataTable<EquipamentoAdmin>
-        title={`${equipamentos.length} equipamentos registrados`}
+        title={loading ? "Carregando…" : `${equipamentos.length} equipamentos registrados`}
         data={paginatedData}
         searchValue={search}
         onSearchChange={setSearch}
@@ -192,7 +232,7 @@ const EquipamentosAdmin = () => {
             align: "center",
             className: "w-16",
           },
-          { header: "Locador", accessor: "locador", className: "font-medium text-sm" },
+          ...(canSeeLocador ? [{ header: "Locador", accessor: "locador" as const, className: "font-medium text-sm" }] : []),
           {
             header: "Equipamento",
             accessor: (e) => (

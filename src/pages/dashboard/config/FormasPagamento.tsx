@@ -1,38 +1,40 @@
 import { useState } from "react";
-import { Search } from "lucide-react";
+import { Search, Plus, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { DataPagination, usePagination } from "@/components/DataPagination";
 import { DataTable } from "@/components/DataTable";
+import { useLocadorTable } from "@/hooks/useLocadorTable";
 
 interface FormaPagamento {
   id: string;
   nome: string;
-  situacao: "Ativo" | "Inativo";
+  ativo: boolean;
 }
 
-const mockFormas: FormaPagamento[] = [
-  { id: "1", nome: "Cartão Débito", situacao: "Inativo" },
-  { id: "2", nome: "Cartão Crédito", situacao: "Ativo" },
-  { id: "3", nome: "Pix", situacao: "Inativo" },
-  { id: "4", nome: "Boleto 7 Dias", situacao: "Ativo" },
-  { id: "5", nome: "Boleto 15 Dias", situacao: "Ativo" },
-  { id: "6", nome: "Boleto 30 Dias", situacao: "Ativo" },
-];
-
 const FormasPagamento = () => {
-  const [formas, setFormas] = useState<FormaPagamento[]>(mockFormas);
+  const { rows: formas, create, update, remove } = useLocadorTable<FormaPagamento>("formas_pagamento");
   const [search, setSearch] = useState("");
+  const [dialogOpen, setDialogOpen] = useState(false);
   const isMobile = useIsMobile();
 
-  const toggleSituacao = (id: string) => {
-    setFormas(formas.map(f => 
-      f.id === id ? { ...f, situacao: f.situacao === "Ativo" ? "Inativo" : "Ativo" } : f
-    ));
+  const toggleSituacao = async (f: FormaPagamento) => {
+    await update(f.id, { ativo: !f.ativo });
+  };
+
+  const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const nome = (new FormData(e.currentTarget).get("nome") as string)?.trim();
+    if (!nome) return;
+    const ok = await create({ nome, ativo: true });
+    if (ok) setDialogOpen(false);
   };
 
   const filtered = formas.filter((f) =>
@@ -48,6 +50,27 @@ const FormasPagamento = () => {
           <h1 className="text-xl sm:text-2xl font-bold">Formas de Pagamento</h1>
           <p className="text-sm text-white/75">Gerencie a disponibilidade das formas de pagamento</p>
         </div>
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="bg-white/20 hover:bg-white/30 text-white border-0">
+              <Plus className="mr-2 h-4 w-4" /> Nova Forma
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Nova Forma de Pagamento</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleCreate} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="nome">Nome</Label>
+                <Input id="nome" name="nome" required placeholder="Ex.: Pix" />
+              </div>
+              <DialogFooter>
+                <Button type="submit">Cadastrar</Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <DataTable<FormaPagamento>
@@ -60,8 +83,8 @@ const FormasPagamento = () => {
           { 
             header: "Situação", 
             accessor: (f) => (
-              <Badge variant={f.situacao === "Ativo" ? "default" : "secondary"}>
-                {f.situacao}
+              <Badge variant={f.ativo ? "default" : "secondary"}>
+                {f.ativo ? "Ativo" : "Inativo"}
               </Badge>
             ),
             className: "w-32"
@@ -72,24 +95,29 @@ const FormasPagamento = () => {
             <div className="min-w-0 flex-1">
               <p className="font-medium text-sm text-foreground">{f.nome}</p>
               <div className="mt-1">
-                <Badge variant={f.situacao === "Ativo" ? "default" : "secondary"} className="text-[10px] h-5">
-                  {f.situacao}
+                <Badge variant={f.ativo ? "default" : "secondary"} className="text-[10px] h-5">
+                  {f.ativo ? "Ativo" : "Inativo"}
                 </Badge>
               </div>
             </div>
-            <div className="ml-4">
+            <div className="ml-4 flex items-center gap-2">
               <Switch 
-                checked={f.situacao === "Ativo"} 
-                onCheckedChange={() => toggleSituacao(f.id)} 
+                checked={f.ativo}
+                onCheckedChange={() => toggleSituacao(f)}
               />
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => remove(f.id)}>
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
             </div>
           </div>
         )}
         actions={(f) => (
-          <Switch 
-            checked={f.situacao === "Ativo"} 
-            onCheckedChange={() => toggleSituacao(f.id)} 
-          />
+          <div className="flex items-center gap-2">
+            <Switch checked={f.ativo} onCheckedChange={() => toggleSituacao(f)} />
+            <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg hover:border-destructive hover:text-destructive shadow-sm text-destructive" onClick={() => remove(f.id)} title="Excluir">
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
         )}
         pagination={{
           totalItems,

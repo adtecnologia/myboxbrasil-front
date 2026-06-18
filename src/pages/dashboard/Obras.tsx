@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, Search, Pencil, Trash2, MapPin, Building2, Phone, Calendar, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -7,7 +7,9 @@ import { DataTable } from "@/components/DataTable";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { usePagination } from "@/components/DataPagination";
 import { ObraForm } from "@/components/dashboard/obras/ObraForm";
-
+import { supabase } from "@/integrations/supabase/client";
+import { useAuthStore } from "@/stores/useAuthStore";
+import { toast } from "sonner";
 
 interface Obra {
   id: string;
@@ -15,7 +17,7 @@ interface Obra {
   rua: string;
   numero: string;
   bairro: string;
-  complemento: string;
+  complemento: string | null;
   cidade: string;
   estado: string;
   responsavel: string;
@@ -25,44 +27,50 @@ interface Obra {
   status: "ativa" | "finalizada";
 }
 
-const mockObras: Obra[] = [
-  { 
-    id: "1", 
-    nome: "Residencial Solar", 
-    rua: "Rua Mirassol", 
-    numero: "216", 
-    bairro: "Vila Redentora", 
-    complemento: "Bloco A",
-    cidade: "São José do Rio Preto", 
-    estado: "SP",
-    responsavel: "Pietro Lorenzo", 
-    telefone: "(11) 98888-7777", 
-    dataInicio: "10/01/2026", 
-    dataFinalEstimada: "10/12/2026",
-    status: "ativa" 
-  },
-  { 
-    id: "2", 
-    nome: "Edifício Mar", 
-    rua: "Av. Atlântica", 
-    numero: "500", 
-    bairro: "Centro", 
-    complemento: "Cobertura",
-    cidade: "Balneário Camboriú", 
-    estado: "SC",
-    responsavel: "Julia Rebeca", 
-    telefone: "(11) 97777-6666", 
-    dataInicio: "15/01/2026", 
-    dataFinalEstimada: "15/01/2027",
-    status: "ativa" 
-  },
-];
+const formatDateBR = (iso: string) => {
+  if (!iso) return "";
+  const [y, m, d] = iso.split("-");
+  return `${d}/${m}/${y}`;
+};
 
 const Obras = () => {
-  const [obras, setObras] = useState<Obra[]>(mockObras);
+  const userId = useAuthStore((s) => s.session?.user.id);
+  const [obras, setObras] = useState<Obra[]>([]);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingObra, setEditingObra] = useState<Obra | null>(null);
+
+  const load = async () => {
+    const { data, error } = await supabase
+      .from("obras")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (error) {
+      toast.error("Erro ao carregar obras");
+      return;
+    }
+    setObras(
+      (data ?? []).map((o: any) => ({
+        id: o.id,
+        nome: o.nome,
+        rua: o.rua,
+        numero: o.numero,
+        bairro: o.bairro,
+        complemento: o.complemento,
+        cidade: o.cidade,
+        estado: o.estado,
+        responsavel: o.responsavel,
+        telefone: o.telefone,
+        dataInicio: formatDateBR(o.data_inicio),
+        dataFinalEstimada: formatDateBR(o.data_final_estimada),
+        status: o.status,
+      }))
+    );
+  };
+
+  useEffect(() => {
+    load();
+  }, []);
 
   const filtered = obras.filter((o) =>
     o.nome.toLowerCase().includes(search.toLowerCase()) ||
@@ -72,19 +80,44 @@ const Obras = () => {
 
   const { paginatedData, currentPage, pageSize, setCurrentPage, setPageSize, totalItems } = usePagination(filtered, 10);
 
-  const handleSave = (data: any) => {
+  const handleSave = async (data: any) => {
+    if (!userId) {
+      toast.error("Você precisa estar autenticado");
+      return;
+    }
+    const payload = {
+      user_id: userId,
+      nome: data.nome,
+      rua: data.rua,
+      numero: data.numero,
+      bairro: data.bairro,
+      complemento: data.complemento || null,
+      cidade: data.cidade,
+      estado: data.estado,
+      responsavel: data.responsavel,
+      telefone: data.telefone,
+      data_inicio: data.dataInicio,
+      data_final_estimada: data.dataFinalEstimada,
+    };
     if (editingObra) {
-      setObras(obras.map(o => o.id === editingObra.id ? { ...o, ...data } : o));
+      const { error } = await supabase.from("obras").update(payload).eq("id", editingObra.id);
+      if (error) return toast.error("Erro ao atualizar obra");
+      toast.success("Obra atualizada");
     } else {
-      const nova: Obra = {
-        id: Math.random().toString(36).substr(2, 9),
-        ...data,
-        status: "ativa"
-      };
-      setObras([nova, ...obras]);
+      const { error } = await supabase.from("obras").insert(payload);
+      if (error) return toast.error("Erro ao cadastrar obra");
+      toast.success("Obra cadastrada");
     }
     setDialogOpen(false);
     setEditingObra(null);
+    load();
+  };
+
+  const handleDelete = async (id: string) => {
+    const { error } = await supabase.from("obras").delete().eq("id", id);
+    if (error) return toast.error("Erro ao excluir obra");
+    toast.success("Obra excluída");
+    load();
   };
 
 
@@ -187,7 +220,7 @@ const Obras = () => {
             }}>
               <Pencil className="h-4 w-4" />
             </Button>
-            <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg text-destructive">
+            <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg text-destructive" onClick={() => handleDelete(o.id)}>
               <Trash2 className="h-4 w-4" />
             </Button>
           </>

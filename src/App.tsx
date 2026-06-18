@@ -7,17 +7,24 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import Index from "./pages/Index.tsx";
 import Cadastro from "./pages/Cadastro.tsx";
 import RecuperarSenha from "./pages/RecuperarSenha.tsx";
+import ResetSenha from "./pages/ResetSenha.tsx";
 import SelecionarPerfil from "./pages/SelecionarPerfil.tsx";
 import DashboardLayout from "./components/DashboardLayout.tsx";
+import { SessionInitializer, RequireAuth, RequireProfile } from "./components/AuthGate.tsx";
 import Dashboard from "./pages/Dashboard.tsx";
-import Logistica from "./pages/dashboard/Logistica.tsx";
+import Logistica from "./pages/dashboard/logistica/index.tsx";
 import MinhasRotas from "./pages/dashboard/logistica/MinhasRotas.tsx";
+import RotasAgendadas from "./pages/dashboard/logistica/RotasAgendadas.tsx";
+import AgendarRota from "./pages/dashboard/logistica/AgendarRota.tsx";
+import HistoricoRotas from "./pages/dashboard/logistica/HistoricoRotas.tsx";
 import Operacional from "./pages/dashboard/Operacional.tsx";
+import PainelOperacional from "./pages/dashboard/operacional/PainelOperacional.tsx";
 import Clientes from "./pages/dashboard/Clientes.tsx";
 import Transportadores from "./pages/dashboard/Transportadores.tsx";
 import Geradores from "./pages/dashboard/Geradores.tsx";
 import Documentos from "./pages/dashboard/Documentos.tsx";
 import Financeiro from "./pages/dashboard/Financeiro.tsx";
+import PainelFinanceiro from "./pages/dashboard/financeiro/PainelFinanceiro.tsx";
 import Locacoes from "./pages/dashboard/relatorios/Locacoes.tsx";
 import LocacoesBairro from "./pages/dashboard/relatorios/LocacoesBairro.tsx";
 import LocacoesObra from "./pages/dashboard/relatorios/LocacoesObra.tsx";
@@ -74,10 +81,20 @@ import Quilometragem from "./pages/dashboard/relatorios/Quilometragem.tsx";
 import Roteiros from "./pages/dashboard/relatorios/Roteiros.tsx";
 import RegistroCacambas from "./pages/dashboard/relatorios/RegistroCacambas.tsx";
 import AtrasosOcorrencias from "./pages/dashboard/relatorios/AtrasosOcorrencias.tsx";
+import PainelFrota from "./pages/dashboard/frota/PainelFrota.tsx";
+import OcorrenciasFrota from "./pages/dashboard/frota/OcorrenciasFrota.tsx";
+import ManutencoesFrota from "./pages/dashboard/frota/ManutencoesFrota.tsx";
 
 
 
 import NotFound from "./pages/NotFound.tsx";
+import PainelAtivos from "./pages/dashboard/ativos/PainelAtivos.tsx";
+import OcorrenciasAtivos from "./pages/dashboard/ativos/OcorrenciasAtivos.tsx";
+import ManutencoesAtivos from "./pages/dashboard/ativos/ManutencoesAtivos.tsx";
+import PainelDocumentos from "./pages/dashboard/documentos/PainelDocumentos.tsx";
+import MinhasLicencas from "./pages/dashboard/documentos/MinhasLicencas.tsx";
+import PainelObras from "./pages/dashboard/obras/PainelObras.tsx";
+import PainelUsuarios from "./pages/dashboard/usuarios/PainelUsuarios.tsx";
 
 const queryClient = new QueryClient();
 
@@ -88,20 +105,26 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <SessionInitializer>
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/cadastro" element={<Cadastro />} />
           <Route path="/recuperar-senha" element={<RecuperarSenha />} />
-          <Route path="/selecionar-perfil" element={<SelecionarPerfil />} />
-          <Route path="/dashboard" element={<DashboardLayout />}>
+          <Route path="/reset-password" element={<ResetSenha />} />
+          <Route path="/selecionar-perfil" element={<RequireAuth><SelecionarPerfil /></RequireAuth>} />
+          <Route path="/dashboard" element={<RequireAuth><RequireProfile><DashboardLayout /></RequireProfile></RequireAuth>}>
             <Route index element={<Dashboard />} />
-            <Route path="operacional" element={<Operacional />} />
+            <Route path="operacional" element={<PainelOperacional />} />
+            <Route path="operacional/entradas" element={<Operacional />} />
             <Route path="operacional/entregas" element={<Entregas />} />
             <Route path="operacional/retiradas" element={<Retiradas />} />
             <Route path="operacional/ocorrencias" element={<OcorrenciasMotorista />} />
             
             <Route path="logistica" element={<Logistica />} />
             <Route path="logistica/rotas" element={<MinhasRotas />} />
+            <Route path="logistica/agendadas" element={<RotasAgendadas />} />
+            <Route path="logistica/agendar" element={<AgendarRota />} />
+            <Route path="logistica/historico" element={<HistoricoRotas />} />
             <Route path="pedidos" element={<PedidosList />} />
             <Route path="pedidos/solicitar" element={<SolicitarCacamba />} />
             <Route path="pedidos/carrinho" element={<Carrinho />} />
@@ -111,12 +134,19 @@ const App = () => (
             <Route path="pedidos/:id" element={<PedidoDetalhes />} />
             <Route path="pedidos/:id/mapa" element={<PedidoMapa />} />
             <Route path="clientes" element={<Clientes />} />
-            <Route path="locadores" element={<Transportadores />} />
-            <Route path="locatarios" element={<Geradores />} />
+            <Route path="locadores" element={<Locadores />} />
+            <Route path="transportadores" element={<Transportadores />} />
+            <Route path="locatarios" element={<Locatarios />} />
+            <Route path="geradores" element={<Geradores />} />
             <Route path="prefeituras" element={<Prefeituras />} />
             <Route path="destinadores" element={<Destinadores />} />
-            <Route path="documentos" element={<Documentos />} />
-            <Route path="financeiro" element={<Financeiro />} />
+            <Route path="documentos">
+              <Route index element={<PainelDocumentos />} />
+              <Route path="listagem" element={<Documentos />} />
+              <Route path="licencas" element={<MinhasLicencas />} />
+            </Route>
+            <Route path="financeiro" element={<PainelFinanceiro />} />
+            <Route path="financeiro/cobrancas" element={<Financeiro />} />
             <Route path="financeiro/despesas" element={<Despesas />} />
             <Route path="financeiro/faturas" element={<Faturas />} />
             <Route path="financeiro/minha-conta" element={<MinhaConta />} />
@@ -141,16 +171,32 @@ const App = () => (
               <Route path="registro-cacambas" element={<RegistroCacambas />} />
               <Route path="atrasos-ocorrencias" element={<AtrasosOcorrencias />} />
             </Route>
-            <Route path="obras" element={<Obras />} />
+            <Route path="obras">
+              <Route index element={<PainelObras />} />
+              <Route path="listagem" element={<Obras />} />
+            </Route>
             <Route path="notificacoes" element={<Notificacoes />} />
             <Route path="perfil" element={<Perfil />} />
             <Route path="configuracoes" element={<Configuracoes />} />
-            <Route path="veiculos" element={<Veiculos />} />
+            <Route path="frota">
+              <Route index element={<PainelFrota />} />
+              <Route path="veiculos" element={<Veiculos />} />
+              <Route path="ocorrencias" element={<OcorrenciasFrota />} />
+              <Route path="manutencoes" element={<ManutencoesFrota />} />
+            </Route>
             <Route path="rastreamento" element={<Rastreamento />} />
+            <Route path="ativos">
+              <Route index element={<PainelAtivos />} />
+              <Route path="cacambas" element={<CacambasAdmin />} />
+              <Route path="equipamentos" element={<EquipamentosAdmin />} />
+              <Route path="ocorrencias" element={<OcorrenciasAtivos />} />
+              <Route path="manutencoes" element={<ManutencoesAtivos />} />
+            </Route>
             <Route path="cacambas" element={<CacambasAdmin />} />
             <Route path="equipamentos" element={<EquipamentosAdmin />} />
             <Route path="usuarios">
-              <Route index element={<ListagemUsuarios />} />
+              <Route index element={<PainelUsuarios />} />
+              <Route path="listagem" element={<ListagemUsuarios />} />
               <Route path="roles" element={<RolesPermissoes />} />
             </Route>
             <Route path="localidades">
@@ -173,6 +219,7 @@ const App = () => (
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
+        </SessionInitializer>
       </BrowserRouter>
     </TooltipProvider>
     </ThemeProvider>

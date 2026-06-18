@@ -12,60 +12,48 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useIsMobile } from "@/hooks/use-mobile";
 import { DataPagination, usePagination } from "@/components/DataPagination";
 import { DataTable } from "@/components/DataTable";
+import { useLocadorTable } from "@/hooks/useLocadorTable";
 
 interface TipoEquipamento {
   id: string;
-  foto?: string;
-  tipo: string;
-  descricao: string;
-  situacao: "Ativo" | "Inativo";
+  foto_url?: string | null;
+  nome: string;
+  descricao: string | null;
+  ativo: boolean;
 }
 
-const mockEquipamentos: TipoEquipamento[] = [
-  { id: "1", tipo: "Prensa Hidráulica", descricao: "Equipamento para compactação de resíduos recicláveis.", situacao: "Ativo" },
-  { id: "2", tipo: "Triturador", descricao: "Utilizado para fragmentação de materiais diversos.", situacao: "Ativo" },
-  { id: "3", tipo: "Esteira Transportadora", descricao: "Movimentação de carga em linha de triagem.", situacao: "Inativo" },
-];
-
 const TiposEquipamentos = () => {
-  const [equipamentos, setEquipamentos] = useState<TipoEquipamento[]>(mockEquipamentos);
+  const { rows: equipamentos, create, update, remove } = useLocadorTable<TipoEquipamento>("tipos_equipamentos");
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEquip, setEditingEquip] = useState<TipoEquipamento | null>(null);
   const isMobile = useIsMobile();
 
   const filtered = equipamentos.filter((e) =>
-    e.tipo.toLowerCase().includes(search.toLowerCase()) ||
-    e.descricao.toLowerCase().includes(search.toLowerCase())
+    e.nome.toLowerCase().includes(search.toLowerCase()) ||
+    (e.descricao ?? "").toLowerCase().includes(search.toLowerCase())
   );
 
   const { paginatedData, currentPage, pageSize, setCurrentPage, setPageSize, totalItems } = usePagination(filtered, 10);
 
-  const handleSave = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
-    const tipo = form.get("tipo") as string;
+    const nome = form.get("tipo") as string;
     const descricao = form.get("descricao") as string;
-    const situacao = form.get("situacao") as "Ativo" | "Inativo";
+    const ativo = (form.get("situacao") as string) === "Ativo";
 
-    if (editingEquip) {
-      setEquipamentos(equipamentos.map(e => e.id === editingEquip.id ? { ...e, tipo, descricao, situacao } : e));
-    } else {
-      const novo: TipoEquipamento = {
-        id: String(Date.now()),
-        tipo,
-        descricao,
-        situacao,
-      };
-      setEquipamentos([novo, ...equipamentos]);
+    const ok = editingEquip
+      ? await update(editingEquip.id, { nome, descricao, ativo })
+      : await create({ nome, descricao, ativo });
+    if (ok) {
+      setDialogOpen(false);
+      setEditingEquip(null);
     }
-    
-    setDialogOpen(false);
-    setEditingEquip(null);
   };
 
-  const handleDelete = (id: string) => {
-    setEquipamentos(equipamentos.filter(e => e.id !== id));
+  const handleDelete = async (id: string) => {
+    await remove(id);
   };
 
   const openEdit = (equip: TipoEquipamento) => {
@@ -98,8 +86,8 @@ const TiposEquipamentos = () => {
                 <Label htmlFor="foto">Foto do Equipamento</Label>
                 <div className="flex items-center gap-4">
                   <div className="h-16 w-16 rounded border-2 border-dashed border-muted-foreground/25 flex items-center justify-center bg-muted/50 overflow-hidden">
-                    {editingEquip?.foto ? (
-                      <img src={editingEquip.foto} alt="Preview" className="h-full w-full object-cover" />
+                    {editingEquip?.foto_url ? (
+                      <img src={editingEquip.foto_url} alt="Preview" className="h-full w-full object-cover" />
                     ) : (
                       <ImageIcon className="h-6 w-6 text-muted-foreground/30" />
                     )}
@@ -109,15 +97,15 @@ const TiposEquipamentos = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="tipo">Tipo de Equipamento</Label>
-                <Input id="tipo" name="tipo" defaultValue={editingEquip?.tipo} required placeholder="Ex: Prensa Hidráulica" />
+                <Input id="tipo" name="tipo" defaultValue={editingEquip?.nome} required placeholder="Ex: Prensa Hidráulica" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="descricao">Descrição</Label>
-                <Textarea id="descricao" name="descricao" defaultValue={editingEquip?.descricao} required placeholder="Descreva a finalidade..." />
+                <Textarea id="descricao" name="descricao" defaultValue={editingEquip?.descricao ?? ""} required placeholder="Descreva a finalidade..." />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="situacao">Situação</Label>
-                <Select name="situacao" defaultValue={editingEquip?.situacao || "Ativo"}>
+                <Select name="situacao" defaultValue={editingEquip ? (editingEquip.ativo ? "Ativo" : "Inativo") : "Ativo"}>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione a situação" />
                   </SelectTrigger>
@@ -151,13 +139,13 @@ const TiposEquipamentos = () => {
             align: "center",
             className: "w-16",
           },
-          { header: "Tipo", accessor: "tipo", className: "font-medium w-1/4" },
-          { header: "Descrição", accessor: "descricao", className: "text-muted-foreground" },
+          { header: "Tipo", accessor: "nome", className: "font-medium w-1/4" },
+          { header: "Descrição", accessor: (e) => e.descricao ?? "", className: "text-muted-foreground" },
           {
             header: "Situação",
             accessor: (e) => (
-              <Badge variant={e.situacao === "Ativo" ? "default" : "secondary"}>
-                {e.situacao}
+              <Badge variant={e.ativo ? "default" : "secondary"}>
+                {e.ativo ? "Ativo" : "Inativo"}
               </Badge>
             ),
             className: "w-24",
@@ -171,8 +159,8 @@ const TiposEquipamentos = () => {
                   <ImageIcon className="h-5 w-5 text-muted-foreground/50" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="font-medium text-sm text-foreground truncate">{e.tipo}</p>
-                  <p className="text-xs text-muted-foreground line-clamp-1">{e.descricao}</p>
+                  <p className="font-medium text-sm text-foreground truncate">{e.nome}</p>
+                  <p className="text-xs text-muted-foreground line-clamp-1">{e.descricao ?? ""}</p>
                 </div>
               </div>
               <div className="flex gap-1 shrink-0 ml-2">
@@ -185,8 +173,8 @@ const TiposEquipamentos = () => {
               </div>
             </div>
             <div className="pt-1">
-              <Badge variant={e.situacao === "Ativo" ? "default" : "secondary"} className="text-[10px] h-5">
-                {e.situacao}
+              <Badge variant={e.ativo ? "default" : "secondary"} className="text-[10px] h-5">
+                {e.ativo ? "Ativo" : "Inativo"}
               </Badge>
             </div>
           </div>

@@ -9,79 +9,47 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { DataPagination, usePagination } from "@/components/DataPagination";
 import { EntityForm } from "@/components/EntityForm";
 import { DataTable } from "@/components/DataTable";
+import { useEntities, type EntityProfile } from "@/hooks/useEntities";
+import { toast } from "sonner";
 
-interface Prefeitura {
-  id: string;
-  nome: string;
-  documento: string;
-  cidade: string;
-  estado: string;
-  foto: string;
-}
-
-const mockPrefeituras: Prefeitura[] = [
-  { id: "1", nome: "Prefeitura Municipal de São José do Rio Preto", documento: "46.588.950/0001-80", cidade: "São José do Rio Preto", estado: "SP", foto: "SJ" },
-  { id: "2", nome: "Prefeitura Municipal de Mirassol", documento: "45.123.456/0001-99", cidade: "Mirassol", estado: "SP", foto: "PM" },
-  { id: "3", nome: "Prefeitura Municipal de Bady Bassitt", documento: "44.321.654/0001-00", cidade: "Bady Bassitt", estado: "SP", foto: "PB" },
-];
+const initials = (n: string) => (n || "").trim().substring(0, 2).toUpperCase() || "PM";
 
 const Prefeituras = () => {
-  const [prefeituras, setPrefeituras] = useState<Prefeitura[]>(mockPrefeituras);
+  const { rows: prefeituras, update } = useEntities("prefeitura");
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState<Prefeitura | null>(null);
+  const [editingItem, setEditingItem] = useState<EntityProfile | null>(null);
   const isMobile = useIsMobile();
 
   const filtered = prefeituras.filter((p) =>
     p.nome.toLowerCase().includes(search.toLowerCase()) ||
-    p.documento.includes(search) ||
-    p.cidade.toLowerCase().includes(search.toLowerCase())
+    (p.documento ?? "").includes(search) ||
+    (p.cidade ?? "").toLowerCase().includes(search.toLowerCase())
   );
 
   const { paginatedData, currentPage, pageSize, setCurrentPage, setPageSize, totalItems } = usePagination(filtered, 10);
 
-  const handleAdd = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const form = new FormData(e.currentTarget);
-    const novo: Prefeitura = {
-      id: String(prefeituras.length + 1),
-      nome: form.get("nome") as string,
-      documento: form.get("documento") as string,
-      cidade: form.get("cidade") as string,
-      estado: form.get("estado") as string,
-      foto: (form.get("nome") as string)?.substring(0, 2).toUpperCase() || "PM",
-    };
-    setPrefeituras([novo, ...prefeituras]);
-    setDialogOpen(false);
-  };
-
-  const handleEdit = (item: Prefeitura) => {
+  const handleEdit = (item: EntityProfile) => {
     setEditingItem(item);
     setDialogOpen(true);
   };
 
-  const handleSave = (data: any) => {
-    if (editingItem) {
-      setPrefeituras(prefeituras.map(p => p.id === editingItem.id ? {
-        ...p,
-        nome: data.nomeRazaoSocial,
-        documento: data.documento,
-        cidade: data.cidade,
-        estado: data.estado,
-        foto: data.nomeRazaoSocial.substring(0, 2).toUpperCase(),
-      } : p));
-    } else {
-      setPrefeituras([{
-        id: String(prefeituras.length + 1),
-        nome: data.nomeRazaoSocial,
-        documento: data.documento,
-        cidade: data.cidade,
-        estado: data.estado,
-        foto: data.nomeRazaoSocial.substring(0, 2).toUpperCase(),
-      }, ...prefeituras]);
+  const handleSave = async (data: any) => {
+    if (!editingItem) {
+      toast.info("Novos cadastros devem ser feitos via tela de Cadastro de Usuário.");
+      setDialogOpen(false);
+      return;
     }
-    setDialogOpen(false);
-    setEditingItem(null);
+    const ok = await update(editingItem.id, {
+      nome: data.nomeRazaoSocial,
+      documento: data.documento,
+      cidade: data.cidade,
+      estado: data.estado,
+    });
+    if (ok) {
+      setDialogOpen(false);
+      setEditingItem(null);
+    }
   };
 
   return (
@@ -103,9 +71,9 @@ const Prefeituras = () => {
             <EntityForm 
               initialData={editingItem ? {
                 nomeRazaoSocial: editingItem.nome,
-                documento: editingItem.documento,
-                cidade: editingItem.cidade,
-                estado: editingItem.estado,
+                documento: editingItem.documento ?? "",
+                cidade: editingItem.cidade ?? "",
+                estado: editingItem.estado ?? "",
               } : undefined}
               onSubmit={handleSave} 
             />
@@ -113,7 +81,7 @@ const Prefeituras = () => {
         </Dialog>
       </div>
 
-      <DataTable<Prefeitura>
+      <DataTable<EntityProfile>
         title={`${prefeituras.length} prefeituras cadastradas`}
         data={paginatedData}
         searchValue={search}
@@ -123,25 +91,25 @@ const Prefeituras = () => {
             header: "Foto",
             accessor: (p) => (
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">
-                {p.foto}
+                {initials(p.nome)}
               </div>
             ),
           },
           { header: "Nome", accessor: "nome", className: "font-medium" },
-          { header: "Documento", accessor: "documento" },
-          { header: "Cidade", accessor: "cidade" },
-          { header: "Estado", accessor: "estado" },
+          { header: "Documento", accessor: (p) => p.documento ?? "—" },
+          { header: "Cidade", accessor: (p) => p.cidade ?? "—" },
+          { header: "Estado", accessor: (p) => p.estado ?? "—" },
         ]}
         renderMobileCard={(p) => (
           <div className="rounded-lg border border-border bg-background p-4 space-y-2">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-xs">
-                  {p.foto}
+                  {initials(p.nome)}
                 </div>
                 <div>
                   <p className="font-medium text-sm text-foreground">{p.nome}</p>
-                  <p className="text-xs text-muted-foreground">{p.documento}</p>
+                  <p className="text-xs text-muted-foreground">{p.documento ?? "—"}</p>
                 </div>
               </div>
               <div className="flex gap-1">
@@ -150,7 +118,7 @@ const Prefeituras = () => {
               </div>
             </div>
             <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{p.cidade} - {p.estado}</span>
+              <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{p.cidade ?? "—"} - {p.estado ?? "—"}</span>
             </div>
           </div>
         )}

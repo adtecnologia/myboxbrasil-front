@@ -1,5 +1,6 @@
 import * as React from "react";
 import { Input } from "@/components/ui/input";
+import { supabase } from "@/integrations/supabase/client";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -63,6 +64,21 @@ export const CacambaForm: React.FC<CacambaFormProps> = ({ initialData, onSubmit,
   
   // Dados básicos
   const [modelo, setModelo] = React.useState(initialData?.modelo || "");
+  const [modelosList, setModelosList] = React.useState<Array<{ id: string; modelo: string; capacidade: string }>>([]);
+  const [classesResiduo, setClassesResiduo] = React.useState<Array<{ id: string; nome: string; descricao: string | null }>>([]);
+
+  React.useEffect(() => {
+    supabase
+      .from("modelos_cacamba")
+      .select("id, modelo, capacidade")
+      .order("modelo", { ascending: true })
+      .then(({ data }) => setModelosList(data ?? []));
+    supabase
+      .from("classes_residuo")
+      .select("id, nome, descricao")
+      .order("nome", { ascending: true })
+      .then(({ data }) => setClassesResiduo(data ?? []));
+  }, []);
   const [material, setMaterial] = React.useState(initialData?.material || "");
   const [peso, setPeso] = React.useState(initialData?.peso || "");
   const [cores, setCores] = React.useState(initialData?.cores || "");
@@ -290,11 +306,17 @@ export const CacambaForm: React.FC<CacambaFormProps> = ({ initialData, onSubmit,
                     <SelectValue placeholder="Selecione o modelo" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="mini-3m">Mini 3m³</SelectItem>
-                    <SelectItem value="padrao-4m">Padrão 4m³</SelectItem>
-                    <SelectItem value="media-5m">Média 5m³</SelectItem>
-                    <SelectItem value="grande-7m">Grande 7m³</SelectItem>
-                    <SelectItem value="extra-10m">Extra 10m³</SelectItem>
+                    {modelosList.length === 0 ? (
+                      <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                        Nenhum modelo cadastrado
+                      </div>
+                    ) : (
+                      modelosList.map((m) => (
+                        <SelectItem key={m.id} value={m.id}>
+                          {m.modelo} ({m.capacidade})
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -464,7 +486,12 @@ export const CacambaForm: React.FC<CacambaFormProps> = ({ initialData, onSubmit,
             </div>
             
             <div className="space-y-2">
-              {RESIDUOS_CLASSES.map((classe) => {
+              {classesResiduo.length === 0 && (
+                <p className="text-xs text-muted-foreground text-center py-4">
+                  Nenhuma classe de resíduo cadastrada.
+                </p>
+              )}
+              {classesResiduo.map((classe) => {
                 const ativo = residuosSelecionados.includes(classe.id);
                 return (
                   <Card 
@@ -476,8 +503,10 @@ export const CacambaForm: React.FC<CacambaFormProps> = ({ initialData, onSubmit,
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-sm mb-1">{classe.titulo}</p>
-                        <p className="text-xs text-muted-foreground leading-relaxed">{classe.descricao}</p>
+                        <p className="font-semibold text-sm mb-1">{classe.nome}</p>
+                        {classe.descricao && (
+                          <p className="text-xs text-muted-foreground leading-relaxed">{classe.descricao}</p>
+                        )}
                       </div>
                       <Switch 
                         checked={ativo} 

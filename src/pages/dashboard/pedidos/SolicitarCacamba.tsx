@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { 
   Building2, 
   ChevronRight, 
@@ -29,13 +29,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { ObraForm } from "@/components/dashboard/obras/ObraForm";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
-import { useCartStore } from "@/stores/useCartStore";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuthStore } from "@/stores/useAuthStore";
 
 
 const SolicitarCacamba = () => {
   const navigate = useNavigate();
-  const addItem = useCartStore(state => state.addItem);
+  const userId = useAuthStore((s) => s.session?.user.id);
   const [step, setStep] = useState(1);
   const [selectedObra, setSelectedObra] = useState("");
   const [equipmentType, setEquipmentType] = useState<"cacamba" | "outros" | null>(null);
@@ -51,10 +52,171 @@ const SolicitarCacamba = () => {
 
   const [isNewObraOpen, setIsNewObraOpen] = useState(false);
   
-  const [obras, setObras] = useState([
-    { id: "1", nome: "Edifício Horizonte", endereco: "Rua Mirassol, 216 - Vila Redentora" },
-    { id: "2", nome: "Residencial Parque", endereco: "Av. Alberto Andaló, 1000 - Centro" },
-  ]);
+  const [obras, setObras] = useState<{ id: string; nome: string; endereco: string }[]>([]);
+  const [modelosCacamba, setModelosCacamba] = useState<{ id: string; label: string; modelo: string; description: string; preco: number; popular: boolean }[]>([]);
+  const [residuos, setResiduos] = useState<{ id: string; label: string; icon: string }[]>([]);
+  const [locadores, setLocadores] = useState<{ id: string; nome: string; rating: number; reviews: number; logo: string }[]>([]);
+  const [categories, setCategories] = useState<{ id: string; label: string; icon: string; nome: string }[]>([]);
+  const [cacambasDisponiveis, setCacambasDisponiveis] = useState<{ id: string; nome: string; locador: string; locador_id: string; modelo: string; tipo_locacao: string; status: string; price: string; precoNumber: number; residuos: string[] }[]>([]);
+  const [equipamentosDisponiveis, setEquipamentosDisponiveis] = useState<{ id: string; nome: string; locador: string; locador_id: string; tipo_equipamento: string; status: string; price: string }[]>([]);
+
+  const initialsFrom = (n: string) => n.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase();
+  const fmtBRL = (n: number) => `R$ ${(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
+
+  // Load obras (only user's own — RLS already enforces this)
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("obras")
+        .select("id, nome, rua, numero, bairro, cidade, estado")
+        .order("created_at", { ascending: false });
+      setObras((data ?? []).map((o: any) => ({
+        id: o.id,
+        nome: o.nome,
+        endereco: `${o.rua}, ${o.numero} - ${o.bairro}, ${o.cidade}/${o.estado}`,
+      })));
+    })();
+  }, [userId]);
+
+  // Load modelos de caçamba
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("modelos_cacamba")
+        .select("id, modelo, capacidade, preco_minimo")
+        .order("modelo");
+      setModelosCacamba((data ?? []).map((m: any) => ({
+        id: m.id,
+        label: m.modelo,
+        modelo: m.modelo,
+        description: m.capacidade ? `Capacidade de ${m.capacidade}` : "",
+        preco: Number(m.preco_minimo) || 0,
+        popular: false,
+      })));
+    })();
+  }, []);
+
+  // Load classes de resíduo
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("classes_residuo")
+        .select("id, nome")
+        .order("nome");
+      setResiduos((data ?? []).map((r: any) => ({
+        id: r.id,
+        label: r.nome,
+        icon: "♻️",
+      })));
+    })();
+  }, []);
+
+  // Load locadores (profiles with locador role)
+  useEffect(() => {
+    (async () => {
+      const { data: roles } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .eq("role", "locador")
+        .eq("ativo", true);
+      const ids = Array.from(new Set((roles ?? []).map((r: any) => r.user_id)));
+      if (!ids.length) { setLocadores([]); return; }
+      const { data: profs } = await supabase
+        .from("profiles")
+        .select("id, nome")
+        .in("id", ids);
+      setLocadores((profs ?? []).map((p: any) => ({
+        id: p.id,
+        nome: p.nome,
+        rating: 0,
+        reviews: 0,
+        logo: initialsFrom(p.nome || "L"),
+      })));
+    })();
+  }, []);
+
+  // Load tipos de equipamentos (categories)
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("tipos_equipamentos")
+        .select("id, nome")
+        .eq("ativo", true)
+        .order("nome");
+      setCategories((data ?? []).map((t: any) => ({
+        id: t.id,
+        nome: t.nome,
+        label: t.nome,
+        icon: "🛠️",
+      })));
+    })();
+  }, []);
+
+  // Load caçambas (step 7) — filtered by previously chosen modelo / locador / locacao / residuos
+  useEffect(() => {
+    if (equipmentType !== "cacamba" || step < 7) return;
+    (async () => {
+      const { data, error } = await supabase
+        .from("cacambas")
+        .select("id, locador_id, modelo, tipo_locacao, preco_externo, preco_interno");
+      if (error) {
+        toast.error("Erro ao carregar caçambas: " + error.message);
+      }
+      const filtered = data ?? [];
+      const locadorIds = Array.from(new Set(filtered.map((c: any) => c.locador_id)));
+      let nomes: Record<string, string> = {};
+      if (locadorIds.length) {
+        const { data: profs } = await supabase.from("profiles").select("id, nome").in("id", locadorIds);
+        nomes = Object.fromEntries((profs ?? []).map((p: any) => [p.id, p.nome]));
+      }
+      setCacambasDisponiveis(filtered.map((c: any) => {
+        const preco = locacaoType === "externa" ? Number(c.preco_externo) : Number(c.preco_interno) || Number(c.preco_externo) || 0;
+        const modeloNome = modelosCacamba.find(m => m.id === c.modelo)?.modelo ?? c.modelo;
+        return {
+          id: c.id,
+          nome: `Caçamba ${modeloNome}`,
+          locador: nomes[c.locador_id] ?? "—",
+          locador_id: c.locador_id,
+          modelo: c.modelo,
+          tipo_locacao: c.tipo_locacao,
+          status: "Disponível",
+          price: fmtBRL(preco),
+          precoNumber: preco,
+          residuos: [],
+        };
+      }));
+    })();
+  }, [step, equipmentType, selectedModelo, selectedLocador, locacaoType, selectedResiduos, modelosCacamba]);
+
+  // Load equipamentos (step 5 for "outros") — filtered by tipo + locador
+  useEffect(() => {
+    if (equipmentType !== "outros" || step < 5) return;
+    (async () => {
+      const tipoName = categories.find(c => c.id === selectedEquipmentCategory)?.nome;
+      let query = supabase
+        .from("equipamentos")
+        .select("id, locador_id, nome, tipo_equipamento, preco_diario");
+      if (tipoName) query = query.eq("tipo_equipamento", tipoName);
+      if (selectedLocador) query = query.eq("locador_id", selectedLocador);
+      const { data } = await query;
+      const rows = data ?? [];
+      const locadorIds = Array.from(new Set(rows.map((c: any) => c.locador_id)));
+      let nomes: Record<string, string> = {};
+      if (locadorIds.length) {
+        const { data: profs } = await supabase.from("profiles").select("id, nome").in("id", locadorIds);
+        nomes = Object.fromEntries((profs ?? []).map((p: any) => [p.id, p.nome]));
+      }
+      setEquipamentosDisponiveis(rows.map((e: any) => ({
+        id: e.id,
+        nome: e.nome,
+        locador: nomes[e.locador_id] ?? "—",
+        locador_id: e.locador_id,
+        tipo_equipamento: e.tipo_equipamento,
+        status: "Disponível",
+        price: fmtBRL(Number(e.preco_diario) || 0),
+      })));
+    })();
+  }, [step, equipmentType, selectedEquipmentCategory, selectedLocador, categories]);
 
   const equipmentTypes = [
     { 
@@ -76,39 +238,6 @@ const SolicitarCacamba = () => {
   const locacaoTypes = [
     { id: "interna", label: "Locação Interna", description: "Dentro do canteiro de obras", icon: Home },
     { id: "externa", label: "Locação Externa", description: "Em via pública ou calçada", icon: Globe },
-  ];
-
-  const modelosCacamba = [
-    { id: "1", label: "Estacionária C4", description: "Capacidade de 4m³", preco: 250, popular: true },
-    { id: "2", label: "Estacionária C7", description: "Capacidade de 7m³", preco: 350, popular: false },
-    { id: "3", label: "Roll-on 10m³", description: "Capacidade de 10m³", preco: 450, popular: false },
-  ];
-
-  const residuos = [
-    { id: "alvenaria", label: "Alvenaria", icon: "🧱" },
-    { id: "madeira", label: "Madeira", icon: "🪵" },
-    { id: "gesso", label: "Gesso", icon: "⚪" },
-    { id: "misturado", label: "Misturado", icon: "♻️" },
-  ];
-
-  const locadores = [
-    { id: "1", nome: "EcoEntulho", rating: 4.8, reviews: 124, logo: "EE" },
-    { id: "2", nome: "Disk Caçamba", rating: 4.5, reviews: 89, logo: "DC" },
-    { id: "3", nome: "Mega Locações", rating: 4.9, reviews: 256, logo: "ML" },
-  ];
-
-  const equipamentosDisponiveis = [
-    { id: "eq1", nome: "Cacamba C4 - Ref 082", locador: "EcoEntulho", status: "Disponível", price: "R$ 250,00" },
-    { id: "eq2", nome: "Cacamba C4 - Ref 145", locador: "EcoEntulho", status: "Disponível", price: "R$ 250,00" },
-    { id: "eq3", nome: "Cacamba C4 - Ref 201", locador: "EcoEntulho", status: "Disponível", price: "R$ 250,00" },
-  ];
-
-  const categories = [
-    { id: "escavacao", label: "Escavação", icon: "🚜" },
-    { id: "ferramentas", label: "Ferramentas Manuais", icon: "🛠️" },
-    { id: "geradores", label: "Geradores e Energia", icon: "⚡" },
-    { id: "limpeza", label: "Limpeza e Organização", icon: "🧹" },
-    { id: "seguranca", label: "Segurança e Sinalização", icon: "🚧" },
   ];
 
   const totalSteps = equipmentType === "cacamba" ? 8 : 6;
@@ -277,19 +406,55 @@ const SolicitarCacamba = () => {
                 <div className="space-y-3 pt-4">
                   <Button 
                     className="w-full h-14 sm:h-16 text-lg sm:text-xl font-black rounded-xl sm:rounded-2xl shadow-xl shadow-primary/30 hover:translate-y-[-2px] active:translate-y-[0px] transition-all bg-primary hover:bg-primary/90"
-                    onClick={() => {
-                      addItem({
-                        id: selectedProduct.id,
-                        name: selectedProduct.nome,
-                        price: priceNumber,
-                        quantity: quantity,
-                        obra: selectedObra,
-                        obraName: obra?.nome,
-                        locacaoType: locacaoType,
-                        residuos: selectedResiduos,
-                        equipmentType: selectedProduct.equipmentType,
-                        locador: selectedProduct.locador
-                      });
+                    onClick={async () => {
+                      if (!userId) {
+                        toast.error("Faça login para adicionar ao carrinho.");
+                        return;
+                      }
+                      // 1) Buscar carrinho aberto do locatário ou criar um novo
+                      let carrinhoId: string | null = null;
+                      const { data: existing, error: findErr } = await supabase
+                        .from("carrinhos")
+                        .select("id")
+                        .eq("locatario_id", userId)
+                        .eq("status", "aberto")
+                        .maybeSingle();
+                      if (findErr) {
+                        toast.error("Erro ao acessar carrinho: " + findErr.message);
+                        return;
+                      }
+                      if (existing) {
+                        carrinhoId = existing.id;
+                      } else {
+                        const { data: novo, error: insErr } = await supabase
+                          .from("carrinhos")
+                          .insert({ locatario_id: userId })
+                          .select("id")
+                          .single();
+                        if (insErr || !novo) {
+                          toast.error("Erro ao criar carrinho: " + (insErr?.message ?? ""));
+                          return;
+                        }
+                        carrinhoId = novo.id;
+                      }
+                      // 2) Inserir item no carrinho
+                      const isCacamba = selectedProduct.equipmentType === "cacamba";
+                      const { error: itemErr } = await supabase
+                        .from("carrinho_itens")
+                        .insert({
+                          carrinho_id: carrinhoId,
+                          equipment_type: isCacamba ? "cacamba" : "equipamento",
+                          cacamba_id: isCacamba ? selectedProduct.id : null,
+                          equipamento_id: !isCacamba ? selectedProduct.id : null,
+                          locador_id: selectedProduct.locador_id ?? null,
+                          obra_id: selectedObra || null,
+                          quantidade: quantity,
+                          preco_unitario: priceNumber,
+                        });
+                      if (itemErr) {
+                        toast.error("Erro ao adicionar item: " + itemErr.message);
+                        return;
+                      }
                       toast.success("Adicionado ao carrinho!");
                       navigate("/dashboard/pedidos/carrinho");
                     }}
@@ -636,7 +801,7 @@ const SolicitarCacamba = () => {
                       </div>
                     )}
                     <div className="flex flex-col gap-4 mt-8">
-                        <Button variant="ghost" className="h-14 rounded-xl" onClick={nextStep}>
+                        <Button variant="ghost" className="h-14 rounded-xl" onClick={() => { setSelectedLocador(""); nextStep(); }}>
                         Ver todos sem filtrar por locador <ArrowRight className="ml-2 h-5 w-5" />
                         </Button>
                         <Button variant="outline" className="h-14 rounded-xl" onClick={prevStep}>
@@ -803,7 +968,7 @@ const SolicitarCacamba = () => {
                   </div>
                 )}
                 <div className="flex flex-col gap-4 mt-8">
-                    <Button variant="ghost" className="h-14 rounded-xl" onClick={nextStep}>
+                    <Button variant="ghost" className="h-14 rounded-xl" onClick={() => { setSelectedLocador(""); nextStep(); }}>
                     Ver todos sem filtrar por locador <ArrowRight className="ml-2 h-5 w-5" />
                     </Button>
                     <Button variant="outline" className="h-14 rounded-xl" onClick={prevStep}>
@@ -825,7 +990,12 @@ const SolicitarCacamba = () => {
                 subtitle="Selecione o equipamento ideal para finalizar seu pedido."
               />
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {equipamentosDisponiveis.map(e => (
+                {cacambasDisponiveis.length === 0 && (
+                  <div className="col-span-full text-center py-12 bg-muted/30 rounded-3xl border-2 border-dashed">
+                    <p className="text-muted-foreground font-medium">Nenhuma caçamba disponível com os filtros selecionados.</p>
+                  </div>
+                )}
+                {cacambasDisponiveis.map(e => (
                   <Card key={e.id} className="group border-2 rounded-3xl overflow-hidden hover:shadow-2xl transition-all hover:border-primary/40">
                     <div className="h-40 bg-muted flex items-center justify-center relative">
                         <Trash2 className="h-16 w-16 text-muted-foreground/30 group-hover:scale-110 transition-transform duration-500" />

@@ -10,87 +10,48 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { DataPagination, usePagination } from "@/components/DataPagination";
 import { EntityForm } from "@/components/EntityForm";
 import { DataTable } from "@/components/DataTable";
+import { useEntities, type EntityProfile } from "@/hooks/useEntities";
+import { toast } from "sonner";
 
-interface Destinador {
-  id: string;
-  nome: string;
-  documento: string;
-  licencaAmbiental: string;
-  cidade: string;
-  estado: string;
-  taxa: string;
-  logo: string;
-}
-
-const mockDestinadores: Destinador[] = [
-  { id: "1", nome: "Aterro Sanitário Regional", documento: "12.345.678/0001-90", licencaAmbiental: "LP 123/2023", cidade: "São José do Rio Preto", estado: "SP", taxa: "10%", logo: "AR" },
-  { id: "2", nome: "Recicladora Eco S.A.", documento: "98.765.432/0001-10", licencaAmbiental: "LO 456/2022", cidade: "Mirassol", estado: "SP", taxa: "8%", logo: "RE" },
-  { id: "3", nome: "Incinera Brasil", documento: "11.222.333/0001-44", licencaAmbiental: "LI 789/2024", cidade: "Catanduva", estado: "SP", taxa: "12%", logo: "IB" },
-];
+const initials = (n: string) => (n || "").trim().substring(0, 2).toUpperCase() || "DF";
 
 const Destinadores = () => {
-  const [destinadores, setDestinadores] = useState<Destinador[]>(mockDestinadores);
+  const { rows: destinadores, update } = useEntities("destino");
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState<Destinador | null>(null);
+  const [editingItem, setEditingItem] = useState<EntityProfile | null>(null);
   const activeProfileType = useAuthStore((state) => state.activeProfileType());
   const isReadOnly = activeProfileType === "prefeitura";
   const isMobile = useIsMobile();
 
   const filtered = destinadores.filter((d) =>
     d.nome.toLowerCase().includes(search.toLowerCase()) ||
-    d.documento.includes(search) ||
-    d.licencaAmbiental.toLowerCase().includes(search.toLowerCase())
+    (d.documento ?? "").includes(search)
   );
 
   const { paginatedData, currentPage, pageSize, setCurrentPage, setPageSize, totalItems } = usePagination(filtered, 10);
 
-  const handleAdd = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const form = new FormData(e.currentTarget);
-    const novo: Destinador = {
-      id: String(destinadores.length + 1),
-      nome: form.get("nome") as string,
-      documento: form.get("documento") as string,
-      licencaAmbiental: form.get("licenca") as string,
-      cidade: form.get("cidade") as string,
-      estado: form.get("estado") as string,
-      taxa: "0%",
-      logo: (form.get("nome") as string)?.substring(0, 2).toUpperCase() || "DF",
-    };
-    setDestinadores([novo, ...destinadores]);
-    setDialogOpen(false);
-  };
-
-  const handleEdit = (item: Destinador) => {
+  const handleEdit = (item: EntityProfile) => {
     setEditingItem(item);
     setDialogOpen(true);
   };
 
-  const handleSave = (data: any) => {
-    if (editingItem) {
-      setDestinadores(destinadores.map(d => d.id === editingItem.id ? {
-        ...d,
-        nome: data.nomeRazaoSocial,
-        documento: data.documento,
-        cidade: data.cidade,
-        estado: data.estado,
-        logo: data.nomeRazaoSocial.substring(0, 2).toUpperCase(),
-      } : d));
-    } else {
-      setDestinadores([{
-        id: String(destinadores.length + 1),
-        nome: data.nomeRazaoSocial,
-        documento: data.documento,
-        licencaAmbiental: "Não informada",
-        cidade: data.cidade,
-        estado: data.estado,
-        taxa: "0%",
-        logo: data.nomeRazaoSocial.substring(0, 2).toUpperCase(),
-      }, ...destinadores]);
+  const handleSave = async (data: any) => {
+    if (!editingItem) {
+      toast.info("Novos cadastros devem ser feitos via tela de Cadastro de Usuário.");
+      setDialogOpen(false);
+      return;
     }
-    setDialogOpen(false);
-    setEditingItem(null);
+    const ok = await update(editingItem.id, {
+      nome: data.nomeRazaoSocial,
+      documento: data.documento,
+      cidade: data.cidade,
+      estado: data.estado,
+    });
+    if (ok) {
+      setDialogOpen(false);
+      setEditingItem(null);
+    }
   };
 
   return (
@@ -113,9 +74,9 @@ const Destinadores = () => {
               <EntityForm 
                 initialData={editingItem ? {
                   nomeRazaoSocial: editingItem.nome,
-                  documento: editingItem.documento,
-                  cidade: editingItem.cidade,
-                  estado: editingItem.estado,
+                  documento: editingItem.documento ?? "",
+                  cidade: editingItem.cidade ?? "",
+                  estado: editingItem.estado ?? "",
                 } : undefined}
                 onSubmit={handleSave} 
               />
@@ -124,7 +85,7 @@ const Destinadores = () => {
         )}
       </div>
 
-      <DataTable<Destinador>
+      <DataTable<EntityProfile>
         title={`${destinadores.length} destinadores cadastrados`}
         data={paginatedData}
         searchValue={search}
@@ -134,27 +95,26 @@ const Destinadores = () => {
             header: "Logo",
             accessor: (d) => (
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">
-                {d.logo}
+                {initials(d.nome)}
               </div>
             ),
           },
           { header: "Nome", accessor: "nome", className: "font-medium" },
-          { header: "Licença Ambiental", accessor: "licencaAmbiental" },
-          { header: "Documento", accessor: "documento" },
-          { header: "Cidade", accessor: "cidade" },
-          { header: "Estado", accessor: "estado" },
-          ...(!isReadOnly ? [{ header: "Taxa", accessor: "taxa" as keyof Destinador }] : []),
+          { header: "Documento", accessor: (d) => d.documento ?? "—" },
+          { header: "Celular", accessor: (d) => d.celular ?? "—" },
+          { header: "Cidade", accessor: (d) => d.cidade ?? "—" },
+          { header: "Estado", accessor: (d) => d.estado ?? "—" },
         ]}
         renderMobileCard={(d) => (
           <div className="rounded-lg border border-border bg-background p-4 space-y-2">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-xs">
-                  {d.logo}
+                  {initials(d.nome)}
                 </div>
                 <div>
                   <p className="font-medium text-sm text-foreground">{d.nome}</p>
-                  <p className="text-xs text-muted-foreground">{d.documento}</p>
+                  <p className="text-xs text-muted-foreground">{d.documento ?? "—"}</p>
                 </div>
               </div>
               <div className="flex gap-1">
@@ -169,9 +129,7 @@ const Destinadores = () => {
               </div>
             </div>
             <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1"><ShieldCheck className="h-3 w-3" />{d.licencaAmbiental}</span>
-              <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{d.cidade}/{d.estado}</span>
-              {!isReadOnly && <span className="flex items-center gap-1 font-semibold text-primary">Taxa: {d.taxa}</span>}
+              <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{d.cidade ?? "—"}/{d.estado ?? "—"}</span>
             </div>
           </div>
         )}

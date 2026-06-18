@@ -10,21 +10,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { DataPagination, usePagination } from "@/components/DataPagination";
 import { DataTable } from "@/components/DataTable";
+import { useLocadorTable } from "@/hooks/useLocadorTable";
 
 interface ClasseResiduo {
   id: string;
   nome: string;
-  descricao: string;
+  descricao: string | null;
 }
 
-const mockClasses: ClasseResiduo[] = [
-  { id: "1", nome: "Classe I - Perigosos", descricao: "Resíduos que apresentam periculosidade (inflamabilidade, corrosividade, etc)." },
-  { id: "2", nome: "Classe II A - Não Inertes", descricao: "Resíduos que podem ter propriedades como biodegradabilidade, combustibilidade ou solubilidade em água." },
-  { id: "3", nome: "Classe II B - Inertes", descricao: "Resíduos que não apresentam nenhum de seus constituintes solubilizados em concentrações superiores aos padrões de potabilidade de água." },
-];
-
 const ClassesResiduo = () => {
-  const [classes, setClasses] = useState<ClasseResiduo[]>(mockClasses);
+  const { rows: classes, loading, create, update, remove } = useLocadorTable<ClasseResiduo>("classes_residuo");
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingClass, setEditingClass] = useState<ClasseResiduo | null>(null);
@@ -32,34 +27,28 @@ const ClassesResiduo = () => {
 
   const filtered = classes.filter((c) =>
     c.nome.toLowerCase().includes(search.toLowerCase()) ||
-    c.descricao.toLowerCase().includes(search.toLowerCase())
+    (c.descricao ?? "").toLowerCase().includes(search.toLowerCase())
   );
 
   const { paginatedData, currentPage, pageSize, setCurrentPage, setPageSize, totalItems } = usePagination(filtered, 10);
 
-  const handleSave = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
     const nome = form.get("nome") as string;
     const descricao = form.get("descricao") as string;
 
-    if (editingClass) {
-      setClasses(classes.map(c => c.id === editingClass.id ? { ...c, nome, descricao } : c));
-    } else {
-      const novo: ClasseResiduo = {
-        id: String(Date.now()),
-        nome,
-        descricao,
-      };
-      setClasses([novo, ...classes]);
+    const ok = editingClass
+      ? await update(editingClass.id, { nome, descricao })
+      : await create({ nome, descricao });
+    if (ok) {
+      setDialogOpen(false);
+      setEditingClass(null);
     }
-    
-    setDialogOpen(false);
-    setEditingClass(null);
   };
 
-  const handleDelete = (id: string) => {
-    setClasses(classes.filter(c => c.id !== id));
+  const handleDelete = async (id: string) => {
+    await remove(id);
   };
 
   const openEdit = (classe: ClasseResiduo) => {

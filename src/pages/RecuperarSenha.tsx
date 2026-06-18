@@ -5,15 +5,24 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import myboxLogo from "@/assets/mybox-logo.png";
 
 const RecuperarSenha = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [enviado, setEnviado] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    setLoading(false);
+    if (error) { toast.error(error.message); return; }
     setEnviado(true);
   };
 
@@ -60,8 +69,8 @@ const RecuperarSenha = () => {
                     </div>
                   </div>
 
-                  <Button type="submit" className="w-full h-11 text-sm font-semibold shadow-md hover:shadow-lg transition-shadow">
-                    Enviar link de recuperação
+                  <Button type="submit" disabled={loading} className="w-full h-11 text-sm font-semibold shadow-md hover:shadow-lg transition-shadow">
+                    {loading ? "Enviando..." : "Enviar link de recuperação"}
                   </Button>
                 </form>
 

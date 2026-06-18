@@ -9,40 +9,32 @@ import { Label } from "@/components/ui/label";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { DataPagination, usePagination } from "@/components/DataPagination";
 import { DataTable } from "@/components/DataTable";
+import { useLocadorTable } from "@/hooks/useLocadorTable";
 
 interface ModeloCacamba {
   id: string;
-  foto?: string;
+  foto_url?: string | null;
   modelo: string;
   capacidade: string;
-  medidaA: string;
-  medidaB: string;
-  medidaC: string;
-  medidaD: string;
-  medidaE: string;
-  medidaF: string;
-  precoMinimo: string;
+  medida_a: string | null;
+  medida_b: string | null;
+  medida_c: string | null;
+  medida_d: string | null;
+  medida_e: string | null;
+  medida_f: string | null;
+  preco_minimo: number | null;
 }
 
-const mockModelos: ModeloCacamba[] = [
-  { 
-    id: "1", 
-    modelo: "Padrão 4m³", 
-    capacidade: "4m³", 
-    medidaA: "250", medidaB: "160", medidaC: "110", medidaD: "170", medidaE: "150", medidaF: "120",
-    precoMinimo: "250,00"
-  },
-  { 
-    id: "2", 
-    modelo: "Mini 3m³", 
-    capacidade: "3m³", 
-    medidaA: "200", medidaB: "150", medidaC: "90", medidaD: "150", medidaE: "140", medidaF: "100",
-    precoMinimo: "200,00"
-  },
-];
+const MEDIDAS = ["a", "b", "c", "d", "e", "f"] as const;
+const parsePreco = (v: string) => {
+  const n = Number(String(v).replace(/\./g, "").replace(",", "."));
+  return Number.isFinite(n) ? n : null;
+};
+const formatPreco = (v: number | null) =>
+  v == null ? "" : v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const ModelosCacamba = () => {
-  const [modelos, setModelos] = useState<ModeloCacamba[]>(mockModelos);
+  const { rows: modelos, create, update, remove } = useLocadorTable<ModeloCacamba>("modelos_cacamba");
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingModelo, setEditingModelo] = useState<ModeloCacamba | null>(null);
@@ -55,38 +47,31 @@ const ModelosCacamba = () => {
 
   const { paginatedData, currentPage, pageSize, setCurrentPage, setPageSize, totalItems } = usePagination(filtered, 10);
 
-  const handleSave = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
-    
-    const dados: Partial<ModeloCacamba> = {
+    const dados = {
       modelo: form.get("modelo") as string,
       capacidade: (form.get("capacidade") as string) + "m³",
-      medidaA: form.get("medidaA") as string,
-      medidaB: form.get("medidaB") as string,
-      medidaC: form.get("medidaC") as string,
-      medidaD: form.get("medidaD") as string,
-      medidaE: form.get("medidaE") as string,
-      medidaF: form.get("medidaF") as string,
-      precoMinimo: form.get("precoMinimo") as string,
+      medida_a: form.get("medidaA") as string,
+      medida_b: form.get("medidaB") as string,
+      medida_c: form.get("medidaC") as string,
+      medida_d: form.get("medidaD") as string,
+      medida_e: form.get("medidaE") as string,
+      medida_f: form.get("medidaF") as string,
+      preco_minimo: parsePreco(form.get("precoMinimo") as string),
     };
-
-    if (editingModelo) {
-      setModelos(modelos.map(m => m.id === editingModelo.id ? { ...m, ...dados } : m));
-    } else {
-      const novo: ModeloCacamba = {
-        id: String(Date.now()),
-        ...dados as any
-      };
-      setModelos([novo, ...modelos]);
+    const ok = editingModelo
+      ? await update(editingModelo.id, dados)
+      : await create(dados);
+    if (ok) {
+      setDialogOpen(false);
+      setEditingModelo(null);
     }
-    
-    setDialogOpen(false);
-    setEditingModelo(null);
   };
 
-  const handleDelete = (id: string) => {
-    setModelos(modelos.filter(m => m.id !== id));
+  const handleDelete = async (id: string) => {
+    await remove(id);
   };
 
   const openEdit = (modelo: ModeloCacamba) => {
@@ -120,8 +105,8 @@ const ModelosCacamba = () => {
                   <Label htmlFor="foto">Foto do Modelo</Label>
                   <div className="flex items-center gap-4">
                     <div className="h-20 w-20 rounded border-2 border-dashed border-muted-foreground/25 flex items-center justify-center bg-muted/50 overflow-hidden">
-                      {editingModelo?.foto ? (
-                        <img src={editingModelo.foto} alt="Preview" className="h-full w-full object-cover" />
+                      {editingModelo?.foto_url ? (
+                        <img src={editingModelo.foto_url} alt="Preview" className="h-full w-full object-cover" />
                       ) : (
                         <ImageIcon className="h-8 w-8 text-muted-foreground/30" />
                       )}
@@ -143,14 +128,14 @@ const ModelosCacamba = () => {
                   {['A', 'B', 'C', 'D', 'E', 'F'].map((m) => (
                     <div key={m} className="space-y-1">
                       <Label htmlFor={`medida${m}`} className="text-[10px] uppercase font-bold text-muted-foreground">Medida {m} (m)</Label>
-                      <Input id={`medida${m}`} name={`medida${m}`} defaultValue={(editingModelo as any)?.[`medida${m}`]} required placeholder="0.00" className="h-8 text-xs text-center" />
+                      <Input id={`medida${m}`} name={`medida${m}`} defaultValue={(editingModelo as any)?.[`medida_${m.toLowerCase()}`] ?? ""} required placeholder="0.00" className="h-8 text-xs text-center" />
                     </div>
                   ))}
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="precoMinimo">Preço Mínimo (R$)</Label>
-                  <Input id="precoMinimo" name="precoMinimo" defaultValue={editingModelo?.precoMinimo} required placeholder="0,00" isCurrency />
+                  <Input id="precoMinimo" name="precoMinimo" defaultValue={formatPreco(editingModelo?.preco_minimo ?? null)} required placeholder="0,00" isCurrency />
                 </div>
               </div>
               <DialogFooter>
@@ -180,13 +165,13 @@ const ModelosCacamba = () => {
           { header: "Capac.", accessor: "capacidade" },
           ...['A', 'B', 'C', 'D', 'E', 'F'].map(l => ({
             header: l,
-            accessor: (m: ModeloCacamba) => (m as any)[`medida${l}`],
+            accessor: (m: ModeloCacamba) => (m as any)[`medida_${l.toLowerCase()}`] ?? "",
             align: "center" as const,
             className: "text-xs text-muted-foreground w-12"
           })),
           { 
             header: "Preço Mínimo", 
-            accessor: (m) => <span className="font-semibold text-primary">R$ {m.precoMinimo}</span>,
+            accessor: (m) => <span className="font-semibold text-primary">R$ {formatPreco(m.preco_minimo)}</span>,
             className: "w-32"
           },
         ]}
@@ -216,14 +201,14 @@ const ModelosCacamba = () => {
               {['A', 'B', 'C', 'D', 'E', 'F'].map((label) => (
                 <div key={label}>
                   <div className="font-bold text-muted-foreground">{label}</div>
-                  <div>{(m as any)[`medida${label}`]}</div>
+                  <div>{(m as any)[`medida_${label.toLowerCase()}`] ?? ""}</div>
                 </div>
               ))}
             </div>
             
             <div className="flex justify-between items-center text-xs font-semibold">
               <span className="text-muted-foreground">Preço Mínimo:</span>
-              <span className="text-primary font-bold">R$ {m.precoMinimo}</span>
+              <span className="text-primary font-bold">R$ {formatPreco(m.preco_minimo)}</span>
             </div>
           </div>
         )}

@@ -1,4 +1,16 @@
-import { useCartStore, CartItem } from "@/stores/useCartStore";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuthStore } from "@/stores/useAuthStore";
+
+export interface CartItem {
+  id: string;
+  name: string;
+  price: number;
+  quantity: number;
+  obra?: string;
+  obraName?: string;
+  equipmentType: "cacamba" | "outros";
+  locador?: string;
+}
 import { 
   Trash2, 
   ShoppingCart, 
@@ -32,23 +44,75 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-// Mock data for credit terms per vendor
-const LOCADORES_INFO: Record<string, { faturamento: boolean; prazos: number[] }> = {
-  "EcoEntulho": { faturamento: true, prazos: [7, 14, 28] },
-  "Disk Caçamba": { faturamento: false, prazos: [] },
-  "Mega Locações": { faturamento: true, prazos: [15, 30] },
-  "LocaTudo": { faturamento: false, prazos: [] },
-  "Geral": { faturamento: false, prazos: [] }
-};
-
-// Mock for existing open invoices
-const FATURAS_EM_ABERTO: Record<string, { valorAtual: number; dataFechamento: string }> = {
-  "EcoEntulho": { valorAtual: 1250.00, dataFechamento: "25/05/2026" }
-};
+const LOCADORES_INFO: Record<string, { faturamento: boolean; prazos: number[] }> = {};
+const FATURAS_EM_ABERTO: Record<string, { valorAtual: number; dataFechamento: string }> = {};
 
 const Carrinho = () => {
-  const { items, removeItem, updateQuantity, total, clearCart } = useCartStore();
   const navigate = useNavigate();
+  const userId = useAuthStore((s) => s.session?.user.id);
+  const [items, setItems] = useState<CartItem[]>([]);
+  const [carrinhoId, setCarrinhoId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const loadCart = async () => {
+    if (!userId) { setItems([]); setLoading(false); return; }
+    setLoading(true);
+    const { data: cart } = await supabase
+      .from("carrinhos")
+      .select("id")
+      .eq("locatario_id", userId)
+      .eq("status", "aberto")
+      .maybeSingle();
+    if (!cart) { setCarrinhoId(null); setItems([]); setLoading(false); return; }
+    setCarrinhoId(cart.id);
+    const { data: rows } = await supabase
+      .from("carrinho_itens")
+      .select("id, equipment_type, cacamba_id, equipamento_id, locador_id, obra_id, quantidade, preco_unitario, cacambas(modelos_cacamba(modelo)), equipamentos(nome), obras(nome)")
+      .eq("carrinho_id", cart.id);
+    const locadorIds = Array.from(new Set((rows ?? []).map((r: any) => r.locador_id).filter(Boolean)));
+    let nomes: Record<string, string> = {};
+    if (locadorIds.length) {
+      const { data: profs } = await supabase.from("profiles").select("id, nome").in("id", locadorIds);
+      nomes = Object.fromEntries((profs ?? []).map((p: any) => [p.id, p.nome]));
+    }
+    setItems((rows ?? []).map((r: any) => ({
+      id: r.id,
+      name: r.equipment_type === "cacamba"
+        ? `Caçamba ${r.cacambas?.modelos_cacamba?.modelo ?? ""}`.trim()
+        : (r.equipamentos?.nome ?? "Equipamento"),
+      price: Number(r.preco_unitario) || 0,
+      quantity: r.quantidade,
+      obra: r.obra_id ?? undefined,
+      obraName: r.obras?.nome,
+      equipmentType: r.equipment_type === "cacamba" ? "cacamba" : "outros",
+      locador: nomes[r.locador_id] ?? "Geral",
+    })));
+    setLoading(false);
+  };
+
+  useEffect(() => { loadCart(); }, [userId]);
+
+  const removeItem = async (id: string) => {
+    const { error } = await supabase.from("carrinho_itens").delete().eq("id", id);
+    if (error) { toast.error("Erro ao remover: " + error.message); return; }
+    setItems(prev => prev.filter(i => i.id !== id));
+  };
+
+  const updateQuantity = async (id: string, quantity: number) => {
+    const { error } = await supabase.from("carrinho_itens").update({ quantidade: quantity }).eq("id", id);
+    if (error) { toast.error("Erro ao atualizar: " + error.message); return; }
+    setItems(prev => prev.map(i => i.id === id ? { ...i, quantity } : i));
+  };
+
+  const total = () => items.reduce((acc, i) => acc + i.price * i.quantity, 0);
+
+  const clearCart = async () => {
+    if (carrinhoId) {
+      await supabase.from("carrinhos").update({ status: "confirmado", confirmado_at: new Date().toISOString() }).eq("id", carrinhoId);
+    }
+    setItems([]);
+    setCarrinhoId(null);
+  };
   const [vendorPaymentMethods, setVendorPaymentMethods] = useState<Record<string, string>>({});
   const [prazosSelecionados, setPrazosSelecionados] = useState<Record<string, string>>({});
   
@@ -113,9 +177,13 @@ const Carrinho = () => {
     }
   };
 
-  const finalizeOrder = () => {
+  const finalizeOrder = async () => {
+    if (!carrinhoId) { toast.error("Carrinho não encontrado."); return; }
+    const { error } = await supabase.rpc("confirmar_carrinho", { _carrinho_id: carrinhoId });
+    if (error) { toast.error("Erro ao confirmar: " + error.message); return; }
     toast.success("Pedido enviado com sucesso!");
-    clearCart();
+    setItems([]);
+    setCarrinhoId(null);
     navigate("/dashboard/pedidos");
   };
 

@@ -344,9 +344,9 @@ const FullscreenZoomControl = () => {
 
 type TabKey = "entregas" | "locadas" | "analise" | "cdf";
 
-const allTabsConfig: { key: TabKey; label: string; data: Ordem[]; mode: "agendar-entrega" | "view" | "agendar-retirada" | "view-analise" | "view-cdf" }[] = [
-  { key: "entregas", label: "Entregas", data: [...pendentes, ...transito], mode: "agendar-entrega" },
-  { key: "locadas", label: "Locadas", data: locadas, mode: "agendar-retirada" },
+const allTabsConfig: { key: TabKey; label: string; data: Ordem[]; mode: "view" | "view-analise" | "view-cdf" }[] = [
+  { key: "entregas", label: "Entregas", data: [...pendentes, ...transito], mode: "view" },
+  { key: "locadas", label: "Locadas", data: locadas, mode: "view" },
   { key: "analise", label: "Em Análise", data: analise, mode: "view-analise" },
   { key: "cdf", label: "CDF Emitido", data: cdf, mode: "view-cdf" },
 ];
@@ -637,10 +637,10 @@ const OrdensTable = ({ data, mode, selected, setSelected, onFocusLocatario, isDe
 
   const isLocatario = activeProfileType === "locatario";
   const isPrefeitura = activeProfileType === "prefeitura";
-  const showCheckbox = !isLocatario && !isPrefeitura && (mode === "agendar-entrega" || mode === "agendar-retirada");
+  const showCheckbox = false;
   const toggle = (id: string) => setSelected(selected.includes(id) ? selected.filter(x => x !== id) : [...selected, id]);
 
-  const firstColLabel = mode === "agendar-retirada" || mode === "view-cdf" ? "Data Locação" : mode === "view-analise" ? "Data Retirada" : "Data Pedido";
+  const firstColLabel = mode === "view" && data === locadas ? "Data Locação" : mode === "view-cdf" ? "Data Locação" : mode === "view-analise" ? "Data Retirada" : "Data Pedido";
   const localLabel = mode === "view-analise" ? "Local destino" : "Local locação";
 
   return (
@@ -698,12 +698,12 @@ const OrdensTable = ({ data, mode, selected, setSelected, onFocusLocatario, isDe
           ),
         },
         
-        ...(mode !== "agendar-entrega" ? [{
+        ...(data === locadas || mode === "view-analise" || mode === "view-cdf" ? [{
           header: "Locação",
           accessor: (o: Ordem) => <DriverVehicleCell motorista={o.locacao?.motorista} veiculo={o.locacao?.veiculo} />,
         }] : []),
         {
-          header: mode === "agendar-entrega" || mode === "view" ? "Data Entrega" : "Retirada",
+          header: mode === "view" && data === pendentes ? "Data Entrega" : "Retirada",
           accessor: (o) => <DriverVehicleCell motorista={o.retirada?.motorista} veiculo={o.retirada?.veiculo} data={o.retirada?.data} status={o.retirada?.status} />,
         },
       ]}
@@ -729,7 +729,7 @@ const OrdensTable = ({ data, mode, selected, setSelected, onFocusLocatario, isDe
                 <Hand className="h-4 w-4" />
               </Button>
             )}
-            {!isLocatario && !isDestinoFinal && (mode === "view-analise" || mode === "view-cdf" || mode === "agendar-retirada") && (
+            {!isLocatario && !isDestinoFinal && (mode === "view-analise" || mode === "view-cdf" || (mode === "view" && data === locadas)) && (
               <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg hover:border-primary hover:text-primary shadow-sm">
                 <Camera className="h-4 w-4" />
               </Button>
@@ -829,12 +829,6 @@ const OrdensLocacao = () => {
                   set current(val) { mapRefs.current[t.key] = val; }
                 } as React.MutableRefObject<L.Map | null>}
               />
-              {(t.mode === "agendar-entrega" || t.mode === "agendar-retirada") && (
-                <AgendamentoModal 
-                  tipo={t.mode === "agendar-entrega" ? "entrega" : "retirada"} 
-                  selectedCount={selectedByTab[t.key].length} 
-                />
-              )}
               {activeProfileType === "locatario" && t.key === "locadas" && (
                 <PedirRetiradaModal />
               )}

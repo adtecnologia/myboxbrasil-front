@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Plus, Search, Pencil, Trash2, Phone, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,16 +23,38 @@ interface Locatario {
   pedidosRealizados: number;
 }
 
-const mockLocatarios: Locatario[] = [
-  { id: "1", nome: "Ricardo Santos", documento: "444.555.666-77", telefone: "(11) 99999-8888", email: "ricardo@obras.com", status: "ativo", pedidosRealizados: 12 },
-  { id: "2", nome: "Ana Paula Lima", documento: "111.222.333-44", telefone: "(11) 98888-9999", email: "ana@engenharia.com", status: "ativo", pedidosRealizados: 5 },
-];
-
 const Locatarios = ({ hideHeader = false }: { hideHeader?: boolean }) => {
-  const [locatarios, setLocatarios] = useState<Locatario[]>(mockLocatarios);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const isMobile = useIsMobile();
+
+  const { data: locatarios = [] } = useQuery({
+    queryKey: ["locatarios"],
+    queryFn: async (): Promise<Locatario[]> => {
+      const { data: roles, error } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .eq("role", "locatario")
+        .eq("ativo", true);
+      if (error) throw error;
+      const ids = (roles ?? []).map((r) => r.user_id);
+      if (ids.length === 0) return [];
+      const { data: profiles, error: pErr } = await supabase
+        .from("profiles")
+        .select("id, nome, documento, celular, telefone, email, ativo")
+        .in("id", ids);
+      if (pErr) throw pErr;
+      return (profiles ?? []).map((p) => ({
+        id: p.id,
+        nome: p.nome ?? "",
+        documento: p.documento ?? "",
+        telefone: p.celular ?? p.telefone ?? "",
+        email: p.email ?? "",
+        status: p.ativo ? "ativo" : "inativo",
+        pedidosRealizados: 0,
+      }));
+    },
+  });
 
   const filtered = locatarios.filter((c) =>
     c.nome.toLowerCase().includes(search.toLowerCase()) ||
@@ -41,17 +65,6 @@ const Locatarios = ({ hideHeader = false }: { hideHeader?: boolean }) => {
 
   const handleAdd = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const form = new FormData(e.currentTarget);
-    const novo: Locatario = {
-      id: String(locatarios.length + 1),
-      nome: form.get("nome") as string,
-      documento: form.get("documento") as string,
-      telefone: form.get("telefone") as string,
-      email: form.get("email") as string,
-      status: "ativo",
-      pedidosRealizados: 0,
-    };
-    setLocatarios([novo, ...locatarios]);
     setDialogOpen(false);
   };
 

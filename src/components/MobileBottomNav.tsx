@@ -151,13 +151,12 @@ export function MobileBottomNav() {
                             ? "bg-primary/10 text-primary font-medium"
                             : "text-foreground"
                         }`}
-                        onClick={() => {
-                          navigate(item.href);
-                          handleOpenChange(false);
-                        }}
+                        asChild
                       >
-                        <item.icon className="h-4 w-4" />
-                        {item.label}
+                        <Link to={item.href} onClick={() => handleOpenChange(false)}>
+                          <item.icon className="h-4 w-4" />
+                          {item.label}
+                        </Link>
                       </Button>
                     )
                   )}
@@ -165,7 +164,8 @@ export function MobileBottomNav() {
                   <Button
                     variant="ghost"
                     className="w-full justify-start h-11 text-sm text-muted-foreground gap-3"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.preventDefault();
                       navigate("/selecionar-perfil");
                       handleOpenChange(false);
                     }}
@@ -176,7 +176,8 @@ export function MobileBottomNav() {
                   <Button
                     variant="ghost"
                     className="w-full justify-start h-11 text-sm text-destructive gap-3"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.preventDefault();
                       navigate("/");
                       handleOpenChange(false);
                     }}
@@ -221,12 +222,11 @@ export function MobileBottomNav() {
                               ? "bg-primary/10 text-primary font-medium"
                               : "text-foreground"
                           }`}
-                          onClick={() => {
-                            navigate(child.href);
-                            handleOpenChange(false);
-                          }}
+                          asChild
                         >
-                          {child.label}
+                          <Link to={child.href} onClick={() => handleOpenChange(false)}>
+                            {child.label}
+                          </Link>
                         </Button>
                       ))}
                     </div>

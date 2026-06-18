@@ -9,53 +9,41 @@ import { Label } from "@/components/ui/label";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { DataPagination, usePagination } from "@/components/DataPagination";
 import { DataTable } from "@/components/DataTable";
+import { useLocadorTable } from "@/hooks/useLocadorTable";
 
 interface TipoVeiculo {
   id: string;
-  tipo: string;
+  nome: string;
 }
 
-const mockTipos: TipoVeiculo[] = [
-  { id: "1", tipo: "Caminhão Poli-Guindaste" },
-  { id: "2", tipo: "Caminhão Roll-on Roll-off" },
-  { id: "3", tipo: "Caminhão Pipa" },
-  { id: "4", tipo: "Caminhão Caçamba" },
-];
-
 const TiposVeiculos = () => {
-  const [tipos, setTipos] = useState<TipoVeiculo[]>(mockTipos);
+  const { rows: tipos, create, update, remove } = useLocadorTable<TipoVeiculo>("tipos_veiculos");
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTipo, setEditingTipo] = useState<TipoVeiculo | null>(null);
   const isMobile = useIsMobile();
 
   const filtered = tipos.filter((t) =>
-    t.tipo.toLowerCase().includes(search.toLowerCase())
+    t.nome.toLowerCase().includes(search.toLowerCase())
   );
 
   const { paginatedData, currentPage, pageSize, setCurrentPage, setPageSize, totalItems } = usePagination(filtered, 10);
 
-  const handleSave = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
-    const tipoValue = form.get("tipo") as string;
-
-    if (editingTipo) {
-      setTipos(tipos.map(t => t.id === editingTipo.id ? { ...t, tipo: tipoValue } : t));
-    } else {
-      const novo: TipoVeiculo = {
-        id: String(Date.now()),
-        tipo: tipoValue,
-      };
-      setTipos([novo, ...tipos]);
+    const nome = form.get("tipo") as string;
+    const ok = editingTipo
+      ? await update(editingTipo.id, { nome })
+      : await create({ nome });
+    if (ok) {
+      setDialogOpen(false);
+      setEditingTipo(null);
     }
-    
-    setDialogOpen(false);
-    setEditingTipo(null);
   };
 
-  const handleDelete = (id: string) => {
-    setTipos(tipos.filter(t => t.id !== id));
+  const handleDelete = async (id: string) => {
+    await remove(id);
   };
 
   const openEdit = (t: TipoVeiculo) => {
@@ -86,7 +74,7 @@ const TiposVeiculos = () => {
             <form onSubmit={handleSave} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="tipo">Tipo de Veículo</Label>
-                <Input id="tipo" name="tipo" defaultValue={editingTipo?.tipo} required placeholder="Ex: Caminhão Poli-Guindaste" />
+                <Input id="tipo" name="tipo" defaultValue={editingTipo?.nome} required placeholder="Ex: Caminhão Poli-Guindaste" />
               </div>
               <DialogFooter>
                 <Button type="submit">{editingTipo ? "Salvar Alterações" : "Cadastrar"}</Button>
@@ -102,13 +90,13 @@ const TiposVeiculos = () => {
         searchValue={search}
         onSearchChange={setSearch}
         columns={[
-          { header: "Tipo", accessor: "tipo", className: "font-medium" },
+          { header: "Tipo", accessor: "nome", className: "font-medium" },
         ]}
         renderMobileCard={(t) => (
           <div className="rounded-lg border border-border bg-background p-4 space-y-2">
             <div className="flex items-start justify-between">
               <div>
-                <p className="font-medium text-sm text-foreground">{t.tipo}</p>
+                <p className="font-medium text-sm text-foreground">{t.nome}</p>
               </div>
               <div className="flex gap-1 shrink-0">
                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(t)}>

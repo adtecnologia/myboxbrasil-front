@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Search, Image as ImageIcon, Plus, Pencil, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { Image as ImageIcon, Plus, Pencil, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/DataTable";
@@ -11,74 +11,43 @@ import {
   DialogTitle, 
   DialogTrigger 
 } from "@/components/ui/dialog";
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
-} from "@/components/ui/dropdown-menu";
 import { CacambaForm, CacambaFormData } from "@/components/CacambaForm";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { usePagination } from "@/components/DataPagination";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 interface CacambaAdmin {
   id: string;
-  foto?: string;
   locador: string;
+  modelo: string;
   modeloCacamba: string;
+  material: string;
+  peso: string;
   tipoLocacao: "Externo" | "Interno" | "Ambos";
   precoExterno: string;
   precoInterno: string;
   diasExterno: number;
   diasInterno: number;
+  tipoTampa: "articulada" | "corredica" | "sem";
   tampa: "Sim" | "Não";
   cor: string;
+  residuos: string[];
+  fotos: string[];
   unidades: { id: string; codigo: string; disponivel: boolean; manutencao: boolean }[];
 }
 
-const mockCacambas: CacambaAdmin[] = [
-  { 
-    id: "1", 
-    locador: "Silva Transportes", 
-    modeloCacamba: "Padrão 4m³", 
-    tipoLocacao: "Ambos",
-    precoExterno: "250,00",
-    precoInterno: "200,00",
-    diasExterno: 3,
-    diasInterno: 5,
-    tampa: "Não",
-    cor: "Azul",
-    unidades: [
-      { id: "u1", codigo: "CAC-001", disponivel: true, manutencao: false },
-      { id: "u2", codigo: "CAC-002", disponivel: false, manutencao: false },
-    ]
-  },
-  { 
-    id: "2", 
-    locador: "Oliveira Entulhos", 
-    modeloCacamba: "Mini 3m³", 
-    tipoLocacao: "Externo",
-    precoExterno: "180,00",
-    precoInterno: "-",
-    diasExterno: 2,
-    diasInterno: 0,
-    tampa: "Sim",
-    cor: "Verde",
-    unidades: [
-      { id: "u3", codigo: "CAC-003", disponivel: true, manutencao: false },
-    ]
-  },
-];
-
 const CacambasAdmin = () => {
-  const [cacambas, setCacambas] = useState<CacambaAdmin[]>(mockCacambas);
+  const [cacambas, setCacambas] = useState<CacambaAdmin[]>([]);
+  const [modelosMap, setModelosMap] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCacamba, setEditingCacamba] = useState<CacambaAdmin | null>(null);
   const activeProfileType = useAuthStore((state) => state.activeProfileType());
+  const user = useAuthStore((state) => state.user);
   const isLocador = activeProfileType === "locador";
+  const canSeeLocador = activeProfileType === "admin" || activeProfileType === "prefeitura";
 
   const filtered = cacambas.filter((v) =>
     v.locador.toLowerCase().includes(search.toLowerCase()) ||
@@ -88,67 +57,196 @@ const CacambasAdmin = () => {
 
   const { paginatedData, currentPage, pageSize, setCurrentPage, setPageSize, totalItems } = usePagination(filtered, 10);
 
-  const modeloLabel = (id: string) => {
-    const map: Record<string, string> = {
-      "mini-3m": "Mini 3m³",
-      "padrao-4m": "Padrão 4m³",
-      "media-5m": "Média 5m³",
-      "grande-7m": "Grande 7m³",
-      "extra-10m": "Extra 10m³",
-    };
-    return map[id] || id;
+  const modeloLabel = useCallback(
+    (id: string) => modelosMap[id] ?? id,
+    [modelosMap]
+  );
+
+  useEffect(() => {
+    supabase
+      .from("modelos_cacamba")
+      .select("id, modelo, capacidade")
+      .then(({ data }) => {
+        const map: Record<string, string> = {};
+        (data ?? []).forEach((m: any) => {
+          map[m.id] = `${m.modelo} (${m.capacidade})`;
+        });
+        setModelosMap(map);
+      });
+  }, []);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("cacambas")
+      .select(`
+        id, locador_id, modelo, material, peso, cores, tipo_tampa, tipo_locacao,
+        dias_externo, dias_interno, preco_externo, preco_interno,
+        cacamba_unidades ( id, codigo, disponivel, manutencao ),
+        cacamba_residuos ( classe ),
+        cacamba_fotos ( url )
+      `)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      toast.error("Erro ao carregar caçambas: " + error.message);
+      setLoading(false);
+      return;
+    }
+
+    const locadorIds = Array.from(new Set((data ?? []).map((c: any) => c.locador_id).filter(Boolean)));
+    let nomes: Record<string, string> = {};
+    if (locadorIds.length) {
+      const { data: profs } = await supabase
+        .from("profiles")
+        .select("id, nome")
+        .in("id", locadorIds);
+      nomes = Object.fromEntries((profs ?? []).map((p: any) => [p.id, p.nome]));
+    }
+
+    const mapped: CacambaAdmin[] = (data ?? []).map((c: any) => ({
+      id: c.id,
+      locador: nomes[c.locador_id] ?? "—",
+      modelo: c.modelo,
+      modeloCacamba: modeloLabel(c.modelo),
+      material: c.material ?? "",
+      peso: c.peso != null ? String(c.peso) : "",
+      tipoLocacao: c.tipo_locacao,
+      precoExterno: c.preco_externo != null ? String(c.preco_externo) : "",
+      precoInterno: c.preco_interno != null ? String(c.preco_interno) : "",
+      diasExterno: c.dias_externo ?? 0,
+      diasInterno: c.dias_interno ?? 0,
+      tipoTampa: c.tipo_tampa,
+      tampa: c.tipo_tampa === "sem" ? "Não" : "Sim",
+      cor: c.cores ?? "",
+      residuos: (c.cacamba_residuos ?? []).map((r: any) => r.classe),
+      fotos: (c.cacamba_fotos ?? []).map((f: any) => f.url),
+      unidades: c.cacamba_unidades ?? [],
+    }));
+    setCacambas(mapped);
+    setLoading(false);
+  }, [modeloLabel]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const persistChildren = async (cacambaId: string, data: CacambaFormData) => {
+    const ops: PromiseLike<unknown>[] = [];
+    if (data.unidades.length) {
+      ops.push(
+        supabase.from("cacamba_unidades").insert(
+          data.unidades.map((u) => ({
+            cacamba_id: cacambaId,
+            codigo: u.codigo,
+            disponivel: u.disponivel,
+            manutencao: u.manutencao,
+          }))
+        )
+      );
+    }
+    if (data.residuos.length) {
+      ops.push(
+        supabase.from("cacamba_residuos").insert(
+          data.residuos.map((classe) => ({ cacamba_id: cacambaId, classe }))
+        )
+      );
+    }
+    if (data.fotos.length) {
+      ops.push(
+        supabase.from("cacamba_fotos").insert(
+          data.fotos.map((url, ordem) => ({ cacamba_id: cacambaId, url, ordem }))
+        )
+      );
+    }
+    await Promise.all(ops);
   };
 
-  const handleCreate = (data: CacambaFormData) => {
-    const newCacamba: CacambaAdmin = {
-      id: Math.random().toString(36).substr(2, 9),
-      locador: "Meu Locador",
-      modeloCacamba: modeloLabel(data.modelo),
-      tipoLocacao: data.tipoLocacao,
-      precoExterno: data.precoExterno,
-      precoInterno: data.precoInterno,
-      diasExterno: Number(data.diasExterno) || 0,
-      diasInterno: Number(data.diasInterno) || 0,
-      tampa: data.tipoTampa === "sem" ? "Não" : "Sim",
-      cor: data.cores,
-      unidades: data.unidades,
-    };
-    
-    setCacambas([newCacamba, ...cacambas]);
+  const handleCreate = async (data: CacambaFormData) => {
+    if (!user?.id) {
+      toast.error("Sessão inválida.");
+      return;
+    }
+    const { data: inserted, error } = await supabase
+      .from("cacambas")
+      .insert({
+        locador_id: user.id,
+        modelo: data.modelo,
+        material: data.material,
+        peso: data.peso ? Number(data.peso) : null,
+        cores: data.cores,
+        tipo_tampa: data.tipoTampa,
+        tipo_locacao: data.tipoLocacao,
+        dias_externo: Number(data.diasExterno) || 0,
+        dias_interno: Number(data.diasInterno) || 0,
+        preco_externo: data.precoExterno ? Number(String(data.precoExterno).replace(",", ".")) : 0,
+        preco_interno: data.precoInterno ? Number(String(data.precoInterno).replace(",", ".")) : 0,
+      })
+      .select("id")
+      .single();
+
+    if (error || !inserted) {
+      toast.error("Erro ao cadastrar: " + (error?.message ?? ""));
+      return;
+    }
+
+    try {
+      await persistChildren(inserted.id, data);
+    } catch (e) {
+      toast.error("Caçamba criada, mas falha ao salvar dados relacionados.");
+    }
+
     setIsDialogOpen(false);
     toast.success("Caçamba cadastrada com sucesso!");
+    load();
   };
 
-  const handleEdit = (data: CacambaFormData) => {
+  const handleEdit = async (data: CacambaFormData) => {
     if (!editingCacamba) return;
-    
-    const updated = cacambas.map(c => 
-      c.id === editingCacamba.id 
-        ? { 
-            ...c, 
-            modeloCacamba: modeloLabel(data.modelo),
-            tipoLocacao: data.tipoLocacao,
-            precoExterno: data.precoExterno,
-            precoInterno: data.precoInterno,
-            diasExterno: Number(data.diasExterno) || 0,
-            diasInterno: Number(data.diasInterno) || 0,
-            tampa: data.tipoTampa === "sem" ? "Não" : "Sim" as "Sim" | "Não",
-            cor: data.cores,
-            unidades: data.unidades,
-          } 
+    const id = editingCacamba.id;
 
-        : c
-    );
-    
-    setCacambas(updated);
+    const { error } = await supabase
+      .from("cacambas")
+      .update({
+        modelo: data.modelo,
+        material: data.material,
+        peso: data.peso ? Number(data.peso) : null,
+        cores: data.cores,
+        tipo_tampa: data.tipoTampa,
+        tipo_locacao: data.tipoLocacao,
+        dias_externo: Number(data.diasExterno) || 0,
+        dias_interno: Number(data.diasInterno) || 0,
+        preco_externo: data.precoExterno ? Number(String(data.precoExterno).replace(",", ".")) : 0,
+        preco_interno: data.precoInterno ? Number(String(data.precoInterno).replace(",", ".")) : 0,
+      })
+      .eq("id", id);
+
+    if (error) {
+      toast.error("Erro ao atualizar: " + error.message);
+      return;
+    }
+
+    await Promise.all([
+      supabase.from("cacamba_unidades").delete().eq("cacamba_id", id),
+      supabase.from("cacamba_residuos").delete().eq("cacamba_id", id),
+      supabase.from("cacamba_fotos").delete().eq("cacamba_id", id),
+    ]);
+    await persistChildren(id, data);
+
     setEditingCacamba(null);
     setIsDialogOpen(false);
     toast.success("Caçamba atualizada com sucesso!");
+    load();
   };
 
-  const handleDelete = (id: string) => {
-    setCacambas(cacambas.filter(c => c.id !== id));
+  const handleDelete = async (id: string) => {
+    const { error } = await supabase.from("cacambas").delete().eq("id", id);
+    if (error) {
+      toast.error("Erro ao excluir: " + error.message);
+      return;
+    }
     toast.success("Caçamba removida com sucesso!");
+    load();
   };
 
   return (
@@ -175,13 +273,18 @@ const CacambasAdmin = () => {
               </DialogHeader>
               <CacambaForm 
                 initialData={editingCacamba ? {
+                  modelo: editingCacamba.modelo,
+                  material: editingCacamba.material,
+                  peso: editingCacamba.peso,
                   tipoLocacao: editingCacamba.tipoLocacao,
                   precoExterno: editingCacamba.precoExterno,
                   precoInterno: editingCacamba.precoInterno,
                   diasExterno: editingCacamba.diasExterno.toString(),
                   diasInterno: editingCacamba.diasInterno.toString(),
-                  tipoTampa: editingCacamba.tampa === "Sim" ? "articulada" : "sem",
+                  tipoTampa: editingCacamba.tipoTampa,
                   cores: editingCacamba.cor,
+                  residuos: editingCacamba.residuos,
+                  fotos: editingCacamba.fotos,
                   unidades: editingCacamba.unidades,
                 } : undefined}
 
@@ -194,7 +297,7 @@ const CacambasAdmin = () => {
       </div>
 
       <DataTable<CacambaAdmin>
-        title={`${cacambas.length} caçambas registradas`}
+        title={loading ? "Carregando…" : `${cacambas.length} caçambas registradas`}
         data={paginatedData}
         searchValue={search}
         onSearchChange={setSearch}
@@ -210,7 +313,7 @@ const CacambasAdmin = () => {
             align: "center",
             className: "w-16",
           },
-          { header: "Locador", accessor: "locador", className: "font-medium text-sm" },
+          ...(canSeeLocador ? [{ header: "Locador", accessor: "locador" as const, className: "font-medium text-sm" }] : []),
           { 
             header: "Modelo", 
             accessor: (v) => (

@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Plus, Search, Pencil, Trash2, Phone, Mail, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,16 +23,38 @@ interface Locador {
   empresa: string;
 }
 
-const mockLocadores: Locador[] = [
-  { id: "1", nome: "João Silva", documento: "123.456.789-00", telefone: "(11) 98888-7777", email: "joao@transportes.com", status: "ativo", empresa: "Silva Transportes" },
-  { id: "2", nome: "Maria Oliveira", documento: "987.654.321-11", telefone: "(11) 97777-6666", email: "maria@caçambas.com", status: "ativo", empresa: "Oliveira Entulhos" },
-];
-
 const Locadores = ({ hideHeader = false }: { hideHeader?: boolean }) => {
-  const [locadores, setLocadores] = useState<Locador[]>(mockLocadores);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const isMobile = useIsMobile();
+
+  const { data: locadores = [] } = useQuery({
+    queryKey: ["locadores"],
+    queryFn: async (): Promise<Locador[]> => {
+      const { data: roles, error } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .eq("role", "locador")
+        .eq("ativo", true);
+      if (error) throw error;
+      const ids = Array.from(new Set((roles ?? []).map((r) => r.user_id)));
+      if (ids.length === 0) return [];
+      const { data: profiles, error: pErr } = await supabase
+        .from("profiles")
+        .select("id, nome, nome_fantasia, documento, celular, telefone, email, ativo")
+        .in("id", ids);
+      if (pErr) throw pErr;
+      return (profiles ?? []).map((p) => ({
+        id: p.id,
+        nome: p.nome ?? "",
+        documento: p.documento ?? "",
+        telefone: p.celular ?? p.telefone ?? "",
+        email: p.email ?? "",
+        status: p.ativo ? "ativo" : "inativo",
+        empresa: p.nome_fantasia ?? "",
+      }));
+    },
+  });
 
   const filtered = locadores.filter((c) =>
     c.nome.toLowerCase().includes(search.toLowerCase()) ||
@@ -42,17 +66,6 @@ const Locadores = ({ hideHeader = false }: { hideHeader?: boolean }) => {
 
   const handleAdd = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const form = new FormData(e.currentTarget);
-    const novo: Locador = {
-      id: String(locadores.length + 1),
-      nome: form.get("nome") as string,
-      documento: form.get("documento") as string,
-      telefone: form.get("telefone") as string,
-      email: form.get("email") as string,
-      status: "ativo",
-      empresa: form.get("empresa") as string,
-    };
-    setLocadores([novo, ...locadores]);
     setDialogOpen(false);
   };
 

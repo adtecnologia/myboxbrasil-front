@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,8 @@ import { useTheme } from "next-themes";
 import myboxLogo from "@/assets/mybox-logo.png";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { formatCPF, formatCNPJ, formatCelular, formatTelefone, formatCEP } from "@/lib/auth-utils";
 
 const Field = ({
   label,
@@ -39,11 +41,85 @@ const Field = ({
 const Perfil = () => {
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
-  const { user, activeProfile, logout } = useAuthStore();
+  const { user, activeProfile, logout, refreshUser } = useAuthStore();
   const profile = activeProfile();
-  const [tipoPessoa, setTipoPessoa] = useState<"fisica" | "juridica">("juridica");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    tipo_pessoa: "juridica" as "fisica" | "juridica",
+    nome: "",
+    nome_fantasia: "",
+    email: "",
+    email_secundario: "",
+    celular: "",
+    telefone: "",
+    descricao: "",
+    resp_nome: "",
+    resp_cpf: "",
+    resp_cargo: "",
+    resp_departamento: "",
+    resp_email: "",
+    resp_email_secundario: "",
+    resp_telefone: "",
+    resp_celular: "",
+    cep: "",
+    logradouro: "",
+    numero: "",
+    complemento: "",
+    bairro: "",
+    cidade_estado: "",
+  });
+  const setField = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) =>
+    setForm((prev) => ({ ...prev, [key]: value }));
+
   const [copied, setCopied] = useState(false);
   const sharingCode = "MB-8492-X1";
+
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (cancelled) return;
+      if (error) {
+        toast.error("Não foi possível carregar o perfil.");
+      } else if (data) {
+        setForm({
+          tipo_pessoa: (data.tipo_pessoa as "fisica" | "juridica") ?? "juridica",
+          nome: data.nome ?? "",
+          nome_fantasia: data.nome_fantasia ?? "",
+          email: data.email ?? "",
+          email_secundario: data.email_secundario ?? "",
+          celular: data.celular ?? "",
+          telefone: data.telefone ?? "",
+          descricao: data.descricao ?? "",
+          resp_nome: data.resp_nome ?? "",
+          resp_cpf: data.resp_cpf ?? "",
+          resp_cargo: data.resp_cargo ?? "",
+          resp_departamento: data.resp_departamento ?? "",
+          resp_email: data.resp_email ?? "",
+          resp_email_secundario: data.resp_email_secundario ?? "",
+          resp_telefone: data.resp_telefone ?? "",
+          resp_celular: data.resp_celular ?? "",
+          cep: data.cep ?? "",
+          logradouro: data.logradouro ?? "",
+          numero: data.numero ?? "",
+          complemento: data.complemento ?? "",
+          bairro: data.bairro ?? "",
+          cidade_estado: data.cidade && data.estado ? `${data.cidade} - ${data.estado}` : "",
+        });
+      }
+      setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   const handleCopyCode = () => {
     navigator.clipboard.writeText(sharingCode);
@@ -56,17 +132,70 @@ const Perfil = () => {
     locatario: "Locatário PF",
     locador: "Locador",
     destino: "Destino Final",
-    administrador: "Administrador",
+    admin: "Administrador",
+    prefeitura: "Prefeitura",
+    motorista: "Motorista",
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast.success("Perfil atualizado com sucesso!");
+    if (!user?.id) return;
+    setSaving(true);
+    const [cidade, estado] = form.cidade_estado.includes(" - ")
+      ? form.cidade_estado.split(" - ")
+      : [form.cidade_estado || null, null];
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        tipo_pessoa: form.tipo_pessoa,
+        nome: form.nome,
+        nome_fantasia: form.nome_fantasia || null,
+        email: form.email || null,
+        email_secundario: form.email_secundario || null,
+        celular: form.celular || null,
+        telefone: form.telefone || null,
+        descricao: form.descricao || null,
+        resp_nome: form.resp_nome || null,
+        resp_cpf: form.resp_cpf || null,
+        resp_cargo: form.resp_cargo || null,
+        resp_departamento: form.resp_departamento || null,
+        resp_email: form.resp_email || null,
+        resp_email_secundario: form.resp_email_secundario || null,
+        resp_telefone: form.resp_telefone || null,
+        resp_celular: form.resp_celular || null,
+        cep: form.cep || null,
+        logradouro: form.logradouro || null,
+        numero: form.numero || null,
+        complemento: form.complemento || null,
+        bairro: form.bairro || null,
+        cidade: cidade || null,
+        estado: estado || null,
+      })
+      .eq("id", user.id);
+    setSaving(false);
+    if (error) {
+      toast.error("Erro ao salvar: " + error.message);
+    } else {
+      toast.success("Perfil atualizado com sucesso!");
+      await refreshUser();
+    }
   };
 
-  const handleChangePassword = (e: React.FormEvent) => {
+  const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast.success("Senha alterada com sucesso!");
+    const formEl = e.target as HTMLFormElement;
+    const novaSenha = (formEl.elements.namedItem("nova_senha") as HTMLInputElement)?.value;
+    if (!novaSenha || novaSenha.length < 6) {
+      toast.error("A nova senha precisa ter ao menos 6 caracteres.");
+      return;
+    }
+    const { error } = await supabase.auth.updateUser({ password: novaSenha });
+    if (error) {
+      toast.error("Erro ao alterar senha: " + error.message);
+    } else {
+      toast.success("Senha alterada com sucesso!");
+      formEl.reset();
+    }
   };
 
   const handleDelete = () => {
@@ -117,7 +246,7 @@ const Perfil = () => {
                 {user?.name || "MyBox Brasil"}
               </h3>
               <Badge className="mt-2 bg-primary/10 text-primary border-0 font-medium">
-                {perfilLabel[profile?.profileType || "administrador"] || "Administrador"}
+                {perfilLabel[profile?.profileType || "admin"] || "Administrador"}
               </Badge>
             </CardContent>
           </Card>
@@ -159,10 +288,10 @@ const Perfil = () => {
               </div>
               <form onSubmit={handleChangePassword} className="space-y-3">
                 <Field label="Senha Atual" required>
-                  <Input type="password" placeholder="Senha Atual" />
+                  <Input type="password" name="senha_atual" placeholder="Senha Atual" />
                 </Field>
                 <Field label="Senha Nova" required>
-                  <Input type="password" placeholder="Senha Nova" />
+                  <Input type="password" name="nova_senha" placeholder="Senha Nova" />
                 </Field>
                 <div className="flex justify-end pt-1">
                   <Button type="submit" size="sm">Alterar</Button>
@@ -217,32 +346,62 @@ const Perfil = () => {
             <form onSubmit={handleSave} className="space-y-6">
               {/* Linha 1: razão e fantasia */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Field label={tipoPessoa === "fisica" ? "Nome Completo" : "Razão Social"} required>
-                  <Input defaultValue="MyBox Brasil" />
+                <Field label={form.tipo_pessoa === "fisica" ? "Nome Completo" : "Razão Social"} required>
+                  <Input
+                    value={form.nome}
+                    onChange={(e) => setField("nome", e.target.value)}
+                    disabled={loading}
+                  />
                 </Field>
                 <Field label="Nome Fantasia">
-                  <Input placeholder="Nome Fantasia" />
+                  <Input
+                    value={form.nome_fantasia}
+                    onChange={(e) => setField("nome_fantasia", e.target.value)}
+                    placeholder="Nome Fantasia"
+                  />
                 </Field>
               </div>
 
               {/* Linha 2: emails e telefones */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <Field label="E-mail Principal" required>
-                  <Input type="email" defaultValue="contato@myboxbrasil.com" />
+                  <Input
+                    type="email"
+                    value={form.email}
+                    onChange={(e) => setField("email", e.target.value)}
+                  />
                 </Field>
                 <Field label="E-mail Secundário">
-                  <Input type="email" placeholder="E-mail Secundário" />
+                  <Input
+                    type="email"
+                    value={form.email_secundario}
+                    onChange={(e) => setField("email_secundario", e.target.value)}
+                    placeholder="E-mail Secundário"
+                  />
                 </Field>
                 <Field label="Celular" required>
-                  <Input placeholder="(00) 00000-0000" />
+                  <Input
+                    value={form.celular}
+                    onChange={(e) => setField("celular", formatCelular(e.target.value))}
+                    placeholder="(00) 00000-0000"
+                  />
                 </Field>
                 <Field label="Telefone">
-                  <Input placeholder="(00) 0000-0000" />
+                  <Input
+                    value={form.telefone}
+                    onChange={(e) => setField("telefone", formatTelefone(e.target.value))}
+                    placeholder="(00) 0000-0000"
+                  />
                 </Field>
               </div>
 
               <Field label="Breve descrição e/ou preferências">
-                <Textarea rows={4} placeholder="Breve descrição e/ou preferências" />
+                <Textarea
+                  rows={4}
+                  value={form.descricao}
+                  onChange={(e) => setField("descricao", e.target.value)}
+                  placeholder="Breve descrição e/ou preferências"
+                />
               </Field>
 
               <div>
@@ -250,30 +409,64 @@ const Perfil = () => {
                 <h4 className="text-sm font-bold text-foreground mt-4 mb-3">Responsável</h4>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <Field label="Nome">
-                    <Input placeholder="Responsável - Nome" />
+                    <Input
+                      value={form.resp_nome}
+                      onChange={(e) => setField("resp_nome", e.target.value)}
+                      placeholder="Responsável - Nome"
+                    />
                   </Field>
                   <Field label="CPF">
-                    <Input placeholder="000.000.000-00" />
+                    <Input
+                      value={form.resp_cpf}
+                      onChange={(e) => setField("resp_cpf", formatCPF(e.target.value))}
+                      placeholder="000.000.000-00"
+                    />
                   </Field>
                   <Field label="Cargo">
-                    <Input placeholder="Responsável - Cargo" />
+                    <Input
+                      value={form.resp_cargo}
+                      onChange={(e) => setField("resp_cargo", e.target.value)}
+                      placeholder="Responsável - Cargo"
+                    />
                   </Field>
                   <Field label="Departamento">
-                    <Input placeholder="Responsável - Departamento" />
+                    <Input
+                      value={form.resp_departamento}
+                      onChange={(e) => setField("resp_departamento", e.target.value)}
+                      placeholder="Responsável - Departamento"
+                    />
                   </Field>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
                   <Field label="E-mail Principal">
-                    <Input type="email" placeholder="Responsável - E-mail Principal" />
+                    <Input
+                      type="email"
+                      value={form.resp_email}
+                      onChange={(e) => setField("resp_email", e.target.value)}
+                      placeholder="Responsável - E-mail Principal"
+                    />
                   </Field>
                   <Field label="E-mail Secundário">
-                    <Input type="email" placeholder="Responsável - E-mail Secundário" />
+                    <Input
+                      type="email"
+                      value={form.resp_email_secundario}
+                      onChange={(e) => setField("resp_email_secundario", e.target.value)}
+                      placeholder="Responsável - E-mail Secundário"
+                    />
                   </Field>
                   <Field label="Telefone">
-                    <Input placeholder="(00) 0000-0000" />
+                    <Input
+                      value={form.resp_telefone}
+                      onChange={(e) => setField("resp_telefone", formatTelefone(e.target.value))}
+                      placeholder="(00) 0000-0000"
+                    />
                   </Field>
                   <Field label="Celular">
-                    <Input placeholder="(00) 00000-0000" />
+                    <Input
+                      value={form.resp_celular}
+                      onChange={(e) => setField("resp_celular", formatCelular(e.target.value))}
+                      placeholder="(00) 00000-0000"
+                    />
                   </Field>
                 </div>
               </div>
@@ -283,33 +476,56 @@ const Perfil = () => {
                 <h4 className="text-sm font-bold text-foreground mt-4 mb-3">Endereço</h4>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <Field label="CEP" required>
-                    <Input placeholder="00000-000" />
+                    <Input
+                      value={form.cep}
+                      onChange={(e) => setField("cep", formatCEP(e.target.value))}
+                      placeholder="00000-000"
+                    />
                   </Field>
                   <div className="md:col-span-3">
                     <Field label="Logradouro" required>
-                      <Input placeholder="Logradouro" />
+                      <Input
+                        value={form.logradouro}
+                        onChange={(e) => setField("logradouro", e.target.value)}
+                        placeholder="Logradouro"
+                      />
                     </Field>
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
                   <Field label="Número" required>
-                    <Input placeholder="Número" />
+                    <Input
+                      value={form.numero}
+                      onChange={(e) => setField("numero", e.target.value)}
+                      placeholder="Número"
+                    />
                   </Field>
                   <Field label="Complemento">
-                    <Input placeholder="Complemento" />
+                    <Input
+                      value={form.complemento}
+                      onChange={(e) => setField("complemento", e.target.value)}
+                      placeholder="Complemento"
+                    />
                   </Field>
                   <Field label="Bairro" required>
-                    <Input placeholder="Bairro" />
+                    <Input
+                      value={form.bairro}
+                      onChange={(e) => setField("bairro", e.target.value)}
+                      placeholder="Bairro"
+                    />
                   </Field>
                   <Field label="Cidade - Estado" required>
-                    <Select>
+                    <Select
+                      value={form.cidade_estado}
+                      onValueChange={(v) => setField("cidade_estado", v)}
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="Cidade" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="srp-sp">São José do Rio Preto - SP</SelectItem>
-                        <SelectItem value="mir-sp">Mirassol - SP</SelectItem>
-                        <SelectItem value="bad-sp">Bady Bassitt - SP</SelectItem>
+                        <SelectItem value="São José do Rio Preto - SP">São José do Rio Preto - SP</SelectItem>
+                        <SelectItem value="Mirassol - SP">Mirassol - SP</SelectItem>
+                        <SelectItem value="Bady Bassitt - SP">Bady Bassitt - SP</SelectItem>
                       </SelectContent>
                     </Select>
                   </Field>
@@ -317,8 +533,8 @@ const Perfil = () => {
               </div>
 
               <div className="flex justify-end pt-2">
-                <Button type="submit" className="gap-2">
-                  <Save className="h-4 w-4" /> Salvar
+                <Button type="submit" className="gap-2" disabled={saving || loading}>
+                  <Save className="h-4 w-4" /> {saving ? "Salvando..." : "Salvar"}
                 </Button>
               </div>
             </form>

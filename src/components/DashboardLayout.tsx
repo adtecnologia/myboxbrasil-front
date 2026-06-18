@@ -60,14 +60,16 @@ function CartButton() {
       variant="ghost"
       size="icon"
       className="relative h-9 w-9 text-muted-foreground hover:text-foreground"
-      onClick={() => navigate("/dashboard/pedidos/carrinho")}
+      asChild
     >
-      <ShoppingCart className="h-5 w-5" />
-      {totalCount > 0 && (
-        <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-white shadow-sm">
-          {totalCount}
-        </span>
-      )}
+      <Link to="/dashboard/pedidos/carrinho">
+        <ShoppingCart className="h-5 w-5" />
+        {totalCount > 0 && (
+          <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-white shadow-sm">
+            {totalCount}
+          </span>
+        )}
+      </Link>
     </Button>
   );
 }
@@ -88,13 +90,14 @@ const menuItems: MenuItem[] = [
     label: "Operacional", 
     icon: ClipboardList, 
     children: [
-      { label: "Entrada de Resíduos", href: "/dashboard/operacional", roles: ["admin", "destino"] },
+      { label: "Painel Operacional", href: "/dashboard/operacional", roles: ["admin", "locador", "destino", "locatario"] },
       { label: "Gestão de Pedidos", href: "/dashboard/pedidos", roles: ["admin", "locador", "locatario"] },
-      { label: "Solicitar locação", href: "/dashboard/pedidos/solicitar", roles: ["locatario"] },
       { label: "Ordens de Locação", href: "/dashboard/pedidos/ordens", roles: ["admin", "locador", "destino", "locatario", "prefeitura"] },
-      { label: "Ocorrências", href: "/dashboard/pedidos/ocorrencias", roles: ["locador", "prefeitura"] },
-      { label: "Entregas", href: "/dashboard/operacional/entregas", roles: [] },
-      { label: "Retiradas", href: "/dashboard/operacional/retiradas", roles: [] },
+      { label: "Ocorrências", href: "/dashboard/pedidos/ocorrencias", roles: ["admin", "locador", "prefeitura", "locatario"] },
+      { label: "Entrada de Resíduos", href: "/dashboard/operacional/entradas", roles: ["destino"] },
+      { label: "Solicitar locação", href: "/dashboard/pedidos/solicitar", roles: ["locatario"] },
+      { label: "Entregas", href: "/dashboard/operacional/entregas", roles: ["locador"] },
+      { label: "Retiradas", href: "/dashboard/operacional/retiradas", roles: ["locador"] },
     ],
     roles: ["admin", "locador", "destino", "locatario", "prefeitura"],
   },
@@ -102,30 +105,65 @@ const menuItems: MenuItem[] = [
     label: "Entidades",
     icon: Building2,
     children: [
-      { label: "Locadores", href: "/dashboard/locadores" },
+      { label: "Locadores", href: "/dashboard/locadores", roles: ["admin"] },
       { label: "Locatários", href: "/dashboard/locatarios", roles: ["admin"] },
       { label: "Prefeituras", href: "/dashboard/prefeituras", roles: ["admin"] },
-      { label: "Destino final", href: "/dashboard/destinadores" },
+      { label: "Destino final", href: "/dashboard/destinadores", roles: ["admin", "prefeitura"] },
+      { label: "Clientes", href: "/dashboard/clientes", roles: ["destino"] },
+      { label: "Transportadores", href: "/dashboard/transportadores", roles: ["destino"] },
+      { label: "Geradores", href: "/dashboard/geradores", roles: ["destino"] },
     ],
-    roles: ["admin", "prefeitura"],
+    roles: ["admin", "prefeitura", "destino"],
   },
   {
     label: "Ativos",
     icon: Package,
     children: [
+      { label: "Painel Ativos", href: "/dashboard/ativos", roles: ["admin", "locador", "prefeitura"] },
       { label: "Caçambas", href: "/dashboard/cacambas" },
       { label: "Equipamentos", href: "/dashboard/equipamentos", roles: ["admin", "locador"] },
+      { label: "Ocorrências", href: "/dashboard/ativos/ocorrencias", roles: ["locador"] },
+      { label: "Manutenções", href: "/dashboard/ativos/manutencoes", roles: ["locador"] },
     ],
     roles: ["admin", "locador", "prefeitura"],
   },
-  { label: "Veículos", icon: Truck, href: "/dashboard/veiculos", roles: ["locador"] },
-  { label: "Documentos", icon: FileText, href: "/dashboard/documentos", roles: ["admin", "locador", "locatario", "destino", "prefeitura"] },
-  { label: "Obras", icon: Building2, href: "/dashboard/obras", roles: ["locatario"] },
+  {
+    label: "Frota",
+    icon: Truck,
+    children: [
+      { label: "Painel Frota", href: "/dashboard/frota", roles: ["admin", "locador"] },
+      { label: "Veículos", href: "/dashboard/frota/veiculos", roles: ["admin", "locador"] },
+      { label: "Ocorrências", href: "/dashboard/frota/ocorrencias", roles: ["admin", "locador"] },
+      { label: "Manutenções", href: "/dashboard/frota/manutencoes", roles: ["admin", "locador"] },
+    ],
+    roles: ["locador"],
+  },
+  {
+    label: "Documentos",
+    icon: FileText,
+    children: [
+      { label: "Painel Documentos", href: "/dashboard/documentos", roles: ["admin", "locador", "locatario", "destino", "prefeitura"] },
+      { label: "MTR / CDF / Notas", href: "/dashboard/documentos/listagem", roles: ["admin", "locador", "locatario", "destino", "prefeitura"] },
+      { label: "Minhas Licenças", href: "/dashboard/documentos/licencas", roles: ["admin", "locador", "destino"] },
+    ],
+    roles: ["admin", "locador", "locatario", "destino", "prefeitura"],
+  },
+  {
+    label: "Obras",
+    icon: Building2,
+    children: [
+      { label: "Painel Obras", href: "/dashboard/obras", roles: ["locatario"] },
+      { label: "Listagem de Obras", href: "/dashboard/obras/listagem", roles: ["locatario"] },
+    ],
+    roles: ["locatario"],
+  },
   {
     label: "Financeiro",
     icon: DollarSign,
     children: [
-      { label: "Gestão Financeira", href: "/dashboard/financeiro", roles: ["admin"] },
+      { label: "Painel Financeiro", href: "/dashboard/financeiro", roles: ["admin", "locador", "destino"] },
+      { label: "Gestão Financeira", href: "/dashboard/financeiro/cobrancas", roles: ["admin"] },
+      { label: "Cobranças", href: "/dashboard/financeiro/cobrancas", roles: ["destino"] },
       { label: "Minha Conta", href: "/dashboard/financeiro/minha-conta", roles: ["locador"] },
       { label: "Faturamento", href: "/dashboard/financeiro/faturamento", roles: ["locador"] },
       { label: "Transações", href: "/dashboard/financeiro/transacoes", roles: ["locador"] },
@@ -133,40 +171,22 @@ const menuItems: MenuItem[] = [
       { label: "Faturas", href: "/dashboard/financeiro/faturas", roles: ["locador", "locatario"] },
       { label: "Despesas", href: "/dashboard/financeiro/despesas", roles: ["locatario"] },
     ],
-    roles: ["locatario", "locador"],
+    roles: ["admin", "locatario", "locador", "destino"],
   },
   {
     label: "Logística",
     icon: MapIcon,
     children: [
+      { label: "Painel Logístico", href: "/dashboard/logistica", roles: ["locador", "motorista"] },
       { label: "Minhas Rotas", href: "/dashboard/logistica/rotas", roles: ["motorista"] },
+      { label: "Rotas Agendadas", href: "/dashboard/logistica/agendadas", roles: ["locador"] },
+      { label: "Agendar Rota", href: "/dashboard/logistica/agendar", roles: ["locador"] },
+      { label: "Histórico de Rotas", href: "/dashboard/logistica/historico", roles: ["locador"] },
+      { label: "Rastreamento", href: "/dashboard/rastreamento", roles: ["locador"] },
     ],
-    roles: ["motorista"],
+    roles: ["locador", "motorista"],
   },
-  { label: "Rastreamento", icon: MapPin, href: "/dashboard/rastreamento", roles: ["locador", "prefeitura"] },
-  {
-    label: "Relatórios",
-    icon: FileBarChart,
-    children: [
-      { label: "Locações", href: "/dashboard/relatorios/locacoes", roles: ["locador"] },
-      { label: "Locação por Bairro", href: "/dashboard/relatorios/bairro", roles: ["locador", "prefeitura"] },
-      { label: "Locação por Obra", href: "/dashboard/relatorios/obra", roles: ["locador", "locatario", "prefeitura"] },
-      { label: "Ranking de Clientes", href: "/dashboard/relatorios/ranking", roles: ["locador"] },
-      { label: "Performance Motoristas", href: "/dashboard/relatorios/motoristas", roles: ["locador"] },
-      { label: "Índice de Satisfação", href: "/dashboard/relatorios/satisfacao", roles: ["locador"] },
-      { label: "Destino de Resíduos", href: "/dashboard/relatorios/destino-residuos", roles: ["locador", "locatario"] },
-      { label: "Vencimento de prazo", href: "/dashboard/relatorios/vencimento-prazo", roles: ["prefeitura"] },
-      { label: "Destinação de resíduos", href: "/dashboard/relatorios/destinacao-residuos", roles: ["prefeitura"] },
-      { label: "Classe de resíduos", href: "/dashboard/relatorios/classe-residuos", roles: ["prefeitura"] },
-      { label: "Situação locadores", href: "/dashboard/relatorios/situacao-locadores", roles: ["prefeitura"] },
-      { label: "Situação destino final", href: "/dashboard/relatorios/situacao-destino", roles: ["prefeitura"] },
-      { label: "Quilometragem percorrida", href: "/dashboard/relatorios/quilometragem", roles: ["motorista"] },
-      { label: "Roteiros diários realizados", href: "/dashboard/relatorios/roteiros", roles: ["motorista"] },
-      { label: "Registro de caçambas", href: "/dashboard/relatorios/registro-cacambas", roles: ["motorista"] },
-      { label: "Atrasos e ocorrências registradas", href: "/dashboard/relatorios/atrasos-ocorrencias", roles: ["motorista"] },
-    ],
-    roles: ["locador", "prefeitura", "locatario", "motorista"],
-  },
+  { label: "Rastreamento", icon: MapPin, href: "/dashboard/rastreamento", roles: ["prefeitura"] },
   {
     label: "Localidades",
     icon: MapPin,
@@ -203,22 +223,59 @@ const menuItems: MenuItem[] = [
     label: "Usuários",
     icon: Users,
     children: [
-      { label: "Listagem", href: "/dashboard/usuarios", roles: ["admin", "locatario", "prefeitura", "destino"] },
+      { label: "Painel Usuários", href: "/dashboard/usuarios", roles: ["admin", "locador", "locatario", "prefeitura", "destino"] },
+      { label: "Listagem", href: "/dashboard/usuarios/listagem", roles: ["admin", "locador", "locatario", "prefeitura", "destino"] },
       { label: "Perfis e Permissões", href: "/dashboard/usuarios/roles", roles: ["admin"] },
     ],
-    roles: ["admin", "locatario", "prefeitura", "destino"],
+    roles: ["admin", "locador", "locatario", "prefeitura", "destino"],
+  },
+  {
+    label: "Relatórios",
+    icon: FileBarChart,
+    children: [
+      { label: "Locações", href: "/dashboard/relatorios/locacoes", roles: ["locador"] },
+      { label: "Locação por Bairro", href: "/dashboard/relatorios/bairro", roles: ["locador", "prefeitura"] },
+      { label: "Locação por Obra", href: "/dashboard/relatorios/obra", roles: ["locador", "locatario", "prefeitura"] },
+      { label: "Ranking de Clientes", href: "/dashboard/relatorios/ranking", roles: ["locador"] },
+      { label: "Performance Motoristas", href: "/dashboard/relatorios/motoristas", roles: ["locador"] },
+      { label: "Índice de Satisfação", href: "/dashboard/relatorios/satisfacao", roles: ["locador"] },
+      { label: "Destino de Resíduos", href: "/dashboard/relatorios/destino-residuos", roles: ["locador", "locatario"] },
+      { label: "Vencimento de prazo", href: "/dashboard/relatorios/vencimento-prazo", roles: ["prefeitura"] },
+      { label: "Destinação de resíduos", href: "/dashboard/relatorios/destinacao-residuos", roles: ["prefeitura"] },
+      { label: "Classe de resíduos", href: "/dashboard/relatorios/classe-residuos", roles: ["prefeitura"] },
+      { label: "Situação locadores", href: "/dashboard/relatorios/situacao-locadores", roles: ["prefeitura"] },
+      { label: "Situação destino final", href: "/dashboard/relatorios/situacao-destino", roles: ["prefeitura"] },
+      { label: "Quilometragem percorrida", href: "/dashboard/relatorios/quilometragem", roles: ["motorista"] },
+      { label: "Roteiros diários realizados", href: "/dashboard/relatorios/roteiros", roles: ["motorista"] },
+      { label: "Registro de caçambas", href: "/dashboard/relatorios/registro-cacambas", roles: ["motorista"] },
+      { label: "Atrasos e ocorrências registradas", href: "/dashboard/relatorios/atrasos-ocorrencias", roles: ["motorista"] },
+      { label: "Resíduos Recebidos", href: "/dashboard/relatorios/destino-residuos", roles: ["destino"] },
+      { label: "Caçambas por período", href: "/dashboard/relatorios/registro-cacambas", roles: ["destino"] },
+      { label: "Faturamento", href: "/dashboard/financeiro/faturamento", roles: ["destino"] },
+      { label: "Clientes", href: "/dashboard/relatorios/ranking", roles: ["destino"] },
+    ],
+    roles: ["locador", "prefeitura", "locatario", "motorista", "destino"],
   },
 ];
-// Flatten menu items for search
-const allSearchItems = menuItems.flatMap((item) =>
-  item.children
-    ? item.children.map((child) => ({ label: child.label, href: child.href, group: item.label }))
-    : [{ label: item.label, href: item.href!, group: "Menu" }]
-);
 
-function SearchMenu() {
+const destinoEntityMenuHrefs = new Set([
+  "/dashboard/clientes",
+  "/dashboard/transportadores",
+  "/dashboard/geradores",
+]);
+
+function SearchMenu({ menuItems }: { menuItems: MenuItem[] }) {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
+  const searchItems = useMemo(
+    () =>
+      menuItems.flatMap((item) =>
+        item.children
+          ? item.children.map((child) => ({ label: child.label, href: child.href, group: item.label }))
+          : [{ label: item.label, href: item.href!, group: "Menu" }]
+      ),
+    [menuItems]
+  );
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -248,18 +305,16 @@ function SearchMenu() {
           <CommandList>
             <CommandEmpty className="py-4 text-center text-xs text-muted-foreground">Nenhum resultado.</CommandEmpty>
             <CommandGroup heading="Módulos">
-              {allSearchItems.map((item) => (
+              {searchItems.map((item) => (
                 <CommandItem
                   key={item.href}
                   value={item.label}
-                  onSelect={() => {
-                    navigate(item.href);
-                    setOpen(false);
-                  }}
-                  className="text-xs cursor-pointer"
+                  asChild
                 >
-                  {item.label}
-                  <span className="ml-auto text-[10px] text-muted-foreground">{item.group}</span>
+                  <Link to={item.href} onClick={() => setOpen(false)}>
+                    {item.label}
+                    <span className="ml-auto text-[10px] text-muted-foreground">{item.group}</span>
+                  </Link>
                 </CommandItem>
               ))}
             </CommandGroup>
@@ -297,19 +352,21 @@ function SidebarNav({ currentPath, collapsed, onNavigate, menuItems }: { current
               <HoverCardContent side="right" align="start" className="w-56 p-1" sideOffset={8}>
                 <p className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">{item.label}</p>
                 {item.children!.map((child) => (
-                  <Link key={child.href} to={child.href} onClick={onNavigate}>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className={`w-full justify-start h-8 text-sm ${
-                        currentPath === child.href
-                          ? "text-primary font-medium bg-primary/5"
-                          : "text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
+                  <Button
+                    key={child.href}
+                    variant="ghost"
+                    size="sm"
+                    className={`w-full justify-start h-8 text-sm ${
+                      currentPath === child.href
+                        ? "text-primary font-medium bg-primary/5"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                    asChild
+                  >
+                    <Link to={child.href} onClick={onNavigate}>
                       {child.label}
-                    </Button>
-                  </Link>
+                    </Link>
+                  </Button>
                 ))}
               </HoverCardContent>
             </HoverCard>
@@ -319,32 +376,35 @@ function SidebarNav({ currentPath, collapsed, onNavigate, menuItems }: { current
         ) : collapsed ? (
           <Tooltip key={item.label}>
             <TooltipTrigger asChild>
-              <Link to={item.href!} onClick={onNavigate}>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={`w-full h-10 ${
-                    currentPath === item.href
-                      ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
+              <Button
+                variant="ghost"
+                size="icon"
+                className={`w-full h-10 ${
+                  currentPath === item.href
+                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                asChild
+              >
+                <Link to={item.href!} onClick={onNavigate}>
                   <item.icon className="h-4 w-4" />
-                </Button>
-              </Link>
+                </Link>
+              </Button>
             </TooltipTrigger>
             <TooltipContent side="right">{item.label}</TooltipContent>
           </Tooltip>
         ) : (
-          <Link key={item.label} to={item.href!} onClick={onNavigate}>
-            <Button
-              variant="ghost"
-              className={`w-full justify-start gap-3 h-10 text-sm font-medium ${
-                currentPath === item.href
-                  ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
-              }`}
-            >
+          <Button
+            key={item.label}
+            variant="ghost"
+            className={`w-full justify-start gap-3 h-10 text-sm font-medium ${
+              currentPath === item.href
+                ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted"
+            }`}
+            asChild
+          >
+            <Link to={item.href!} onClick={onNavigate}>
               <item.icon className="h-4 w-4 shrink-0" />
               <span className="flex-1 text-left">{item.label}</span>
               {item.badge && (
@@ -352,8 +412,8 @@ function SidebarNav({ currentPath, collapsed, onNavigate, menuItems }: { current
                   {item.badge}
                 </Badge>
               )}
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         )
       )}
     </nav>
@@ -382,20 +442,22 @@ function SidebarCollapsible({ item, currentPath, onNavigate }: { item: MenuItem;
       </CollapsibleTrigger>
       <CollapsibleContent className="space-y-0.5 pt-0.5">
         {item.children!.map((child) => (
-          <Link key={child.href} to={child.href} onClick={onNavigate}>
-            <Button
-              variant="ghost"
-              size="sm"
-              className={`w-full justify-start pl-11 h-9 text-sm min-w-0 ${
-                currentPath === child.href
-                  ? "text-primary font-medium bg-primary/5"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
+          <Button
+            key={child.href}
+            variant="ghost"
+            size="sm"
+            className={`w-full justify-start pl-11 h-9 text-sm min-w-0 ${
+              currentPath === child.href
+                ? "text-primary font-medium bg-primary/5"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+            asChild
+          >
+            <Link to={child.href} onClick={onNavigate}>
               <span className={`mr-2 h-1.5 w-1.5 shrink-0 rounded-full ${currentPath === child.href ? "bg-primary" : "bg-muted-foreground/30"}`} />
               <span className="truncate">{child.label}</span>
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         ))}
       </CollapsibleContent>
     </Collapsible>
@@ -421,6 +483,9 @@ const DashboardLayout = ({ children }: DashboardLayoutProps = {}) => {
         if (newItem.children) {
           newItem.children = newItem.children
             .filter((child) => {
+              if (activeProfileType === "destino" && item.label === "Entidades") {
+                return destinoEntityMenuHrefs.has(child.href);
+              }
               if (!child.roles) return true;
               return child.roles.includes(activeProfileType || "");
             })
@@ -484,10 +549,12 @@ const DashboardLayout = ({ children }: DashboardLayoutProps = {}) => {
           <Button
             variant="ghost"
             className="w-full justify-start gap-3 h-10 text-sm text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-            onClick={() => navigate("/")}
+            asChild
           >
-            <LogOut className="h-4 w-4" />
-            Sair
+            <Link to="/">
+              <LogOut className="h-4 w-4" />
+              Sair
+            </Link>
           </Button>
         </div>
       )}
@@ -530,12 +597,12 @@ const DashboardLayout = ({ children }: DashboardLayoutProps = {}) => {
               {activeProfileType === "locatario" && <CartButton />}
               <NotificacoesPopover />
 
-              <button onClick={() => navigate("/dashboard/perfil")} className="ml-1">
+              <Link to="/dashboard/perfil" className="ml-1">
                 <Avatar className="h-8 w-8">
                   <AvatarImage src={myboxLogo} />
                   <AvatarFallback className="text-xs bg-primary/10 text-primary">MB</AvatarFallback>
                 </Avatar>
-              </button>
+              </Link>
             </>
           ) : (
             <>
@@ -550,7 +617,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps = {}) => {
               <Separator orientation="vertical" className="h-6" />
               <h1 className="text-sm font-semibold text-foreground truncate">{currentPageTitle}</h1>
               <div className="flex-1" />
-              <SearchMenu />
+              <SearchMenu menuItems={filteredMenuItems} />
               <ThemeToggle className="h-9 w-9 text-muted-foreground" />
               {activeProfileType === "locatario" && <CartButton />}
               <NotificacoesPopover />
@@ -578,20 +645,24 @@ const DashboardLayout = ({ children }: DashboardLayoutProps = {}) => {
                 <DropdownMenuContent align="end" className="w-48">
                   <DropdownMenuLabel className="text-xs">Minha conta</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem className="text-xs" onClick={() => navigate("/dashboard/perfil")}>
-                    Perfil
+                  <DropdownMenuItem className="text-xs" asChild>
+                    <Link to="/dashboard/perfil">Perfil</Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem className="text-xs" onClick={() => navigate("/dashboard/configuracoes")}>
-                    Configurações
+                  <DropdownMenuItem className="text-xs" asChild>
+                    <Link to="/dashboard/configuracoes">Configurações</Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem className="text-xs" onClick={() => navigate("/selecionar-perfil")}>
-                    <RefreshCw className="h-3.5 w-3.5 mr-2" />
-                    Trocar perfil
+                  <DropdownMenuItem className="text-xs" asChild>
+                    <Link to="/selecionar-perfil">
+                      <RefreshCw className="h-3.5 w-3.5 mr-2" />
+                      Trocar perfil
+                    </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem className="text-xs text-destructive" onClick={() => navigate("/")}>
-                    <LogOut className="h-3.5 w-3.5 mr-2" />
-                    Sair
+                  <DropdownMenuItem className="text-xs text-destructive" asChild>
+                    <Link to="/">
+                      <LogOut className="h-3.5 w-3.5 mr-2" />
+                      Sair
+                    </Link>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
