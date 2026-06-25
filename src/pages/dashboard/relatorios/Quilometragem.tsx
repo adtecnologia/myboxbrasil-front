@@ -3,13 +3,11 @@ import { DataTable } from "@/components/DataTable";
 import { ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import { Truck } from "lucide-react";
 
-const quilometragemData = [
-  { id: "1", veiculo: "ABC-1234", motorista: "João Silva", data: "22/05/2026", km: 120 },
-  { id: "2", veiculo: "ABC-1234", motorista: "João Silva", data: "21/05/2026", km: 95 },
-  { id: "3", veiculo: "ABC-1234", motorista: "João Silva", data: "20/05/2026", km: 110 },
-];
-
 const Quilometragem = () => {
+  // Quilometragem ainda não é persistida por rota — exibe zerado.
+  const data: { id: string; veiculo: string; data: string; km: number }[] = [];
+  const totalKm = 0;
+  const chartData: { dia: string; km: number }[] = [];
   return (
     <div className="space-y-6">
       <div className="rounded-xl bg-gradient-to-r from-primary to-[hsl(155,45%,40%)] p-6 text-primary-foreground">
@@ -24,7 +22,7 @@ const Quilometragem = () => {
             <Truck className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">325 KM</div>
+            <div className="text-2xl font-bold">{totalKm} KM</div>
           </CardContent>
         </Card>
       </div>
@@ -34,34 +32,36 @@ const Quilometragem = () => {
           <CardTitle className="text-base font-semibold">KM por Dia</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="h-[300px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={[
-                { dia: "20/05", km: 110 },
-                { dia: "21/05", km: 95 },
-                { dia: "22/05", km: 120 },
-              ]}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="dia" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="km" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          {chartData.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-12 text-center">
+              Sem dados de quilometragem registrados.
+            </p>
+          ) : (
+            <div className="h-[300px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="dia" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="km" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </CardContent>
       </Card>
 
       <DataTable
         title="Histórico de Quilometragem"
-        data={quilometragemData}
+        data={data}
         columns={[
           { header: "Veículo", accessor: "veiculo" },
           { header: "Data", accessor: "data" },
           { header: "KM Percorrido", accessor: (item) => `${item.km} KM` },
         ]}
         pagination={{
-          totalItems: quilometragemData.length,
+          totalItems: data.length,
           pageSize: 10,
           currentPage: 1,
           onPageChange: () => {},

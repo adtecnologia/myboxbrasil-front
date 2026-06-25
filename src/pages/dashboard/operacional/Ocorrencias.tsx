@@ -10,11 +10,7 @@ import { PageHeader } from "@/components/PageHeader";
 const OcorrenciasMotorista = () => {
   const [search, setSearch] = useState("");
 
-  const ocorrencias = [
-    { id: "#OC-5001", type: "Local obstruído", client: "Construtora Alfa", address: "Rua A, 123", status: "Aberta", severity: "Média", date: "22/05/2026" },
-    { id: "#OC-5002", type: "Pneu furado", client: "Veículo ABC-1234", address: "Rodovia BR-101", status: "Em análise", severity: "Alta", date: "22/05/2026" },
-    { id: "#OC-5003", type: "Cliente ausente", client: "Residencial Jardins", address: "Av. Principal, 500", status: "Resolvida", severity: "Baixa", date: "21/05/2026" },
-  ];
+  const ocorrencias: { id: string; type: string; client: string; address: string; status: string; severity: string; date: string }[] = [];
 
   const filtered = ocorrencias.filter(o => 
     o.type.toLowerCase().includes(search.toLowerCase()) || 
@@ -44,6 +40,13 @@ const OcorrenciasMotorista = () => {
       </div>
 
       <div className="grid gap-4">
+        {filtered.length === 0 && (
+          <Card>
+            <CardContent className="p-8 text-center text-sm text-muted-foreground">
+              Nenhuma ocorrência registrada.
+            </CardContent>
+          </Card>
+        )}
         {filtered.map((item) => (
           <Card key={item.id} className="overflow-hidden">
             <CardContent className="p-0">

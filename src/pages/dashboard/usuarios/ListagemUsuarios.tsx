@@ -1,4 +1,8 @@
 import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuthStore } from "@/stores/useAuthStore";
+import { toast } from "sonner";
 import { Plus, Search, Pencil, Trash2, Phone, Mail, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,14 +28,83 @@ interface UsuarioTenant {
   ultimoAcesso: string;
 }
 
-const mockUsuarios: UsuarioTenant[] = [
-  { id: "1", nome: "Admin do Sistema", email: "admin@empresa.com", perfil: "Administrador", status: "ativo", ultimoAcesso: "14/05/2026 10:30", documento: "123.456.789-00", tipoDocumento: "cpf" },
-  { id: "2", nome: "Carlos Operador", email: "carlos@empresa.com", perfil: "Operador", status: "ativo", ultimoAcesso: "13/05/2026 15:45", documento: "11.222.333/0001-99", tipoDocumento: "cnpj" },
-  { id: "3", nome: "Mariana Financeiro", email: "mariana@empresa.com", perfil: "Financeiro", status: "inativo", ultimoAcesso: "01/05/2026 09:00", documento: "987.654.321-11", tipoDocumento: "cpf" },
-];
+const ROLE_LABEL: Record<string, string> = {
+  admin: "Administrador",
+  locador: "Administrador",
+  locatario: "Locatário",
+  motorista: "Motorista",
+  prefeitura: "Prefeitura",
+  destino: "Destino Final",
+};
+
+function useTenantUsuarios(): UsuarioTenant[] {
+  const user = useAuthStore((s) => s.user);
+  const activeProfile = useAuthStore(
+    (s) => s.activeProfile() ?? s.user?.profiles[0] ?? null
+  );
+  const rawTenant = activeProfile?.tenantId;
+  const locadorId =
+    rawTenant && rawTenant !== "self" ? rawTenant : user?.id;
+
+  const { data = [] } = useQuery({
+    queryKey: ["tenant-usuarios", locadorId],
+    enabled: !!locadorId,
+    queryFn: async (): Promise<UsuarioTenant[]> => {
+      const { data: roles, error } = await supabase
+        .from("user_roles")
+        .select("id, user_id, role, ativo, locador_id, created_at")
+        .or(`locador_id.eq.${locadorId},user_id.eq.${locadorId}`);
+      if (error) throw error;
+
+      const ids = Array.from(new Set((roles ?? []).map((r: any) => r.user_id)));
+      const nomes = new Map<string, any>();
+      if (ids.length) {
+        const { data: profs } = await supabase
+          .from("profiles")
+          .select("id, nome, email, documento, tipo_documento")
+          .in("id", ids);
+        (profs ?? []).forEach((p: any) => nomes.set(p.id, p));
+      }
+
+      // Deduplica por user_id (preferindo o role mais "alto")
+      const order = ["admin", "locador", "motorista", "locatario", "prefeitura", "destino"];
+      const byUser = new Map<string, any>();
+      (roles ?? []).forEach((r: any) => {
+        const cur = byUser.get(r.user_id);
+        if (!cur || order.indexOf(r.role) < order.indexOf(cur.role)) byUser.set(r.user_id, r);
+      });
+
+      return Array.from(byUser.values()).map((r: any): UsuarioTenant => {
+        const p = nomes.get(r.user_id) ?? {};
+        return {
+          id: r.user_id,
+          nome: p.nome ?? "—",
+          email: p.email ?? "",
+          perfil: ROLE_LABEL[r.role] ?? r.role,
+          documento: p.documento ?? "",
+          tipoDocumento: (p.tipo_documento as "cpf" | "cnpj") ?? "cpf",
+          status: r.ativo ? "ativo" : "inativo",
+          ultimoAcesso: r.created_at
+            ? new Date(r.created_at).toLocaleString("pt-BR")
+            : "—",
+        };
+      });
+    },
+  });
+  return data;
+}
 
 const ListagemUsuarios = () => {
-  const [usuarios, setUsuarios] = useState<UsuarioTenant[]>(mockUsuarios);
+  const lista = useTenantUsuarios();
+  const usuarios = lista;
+  const queryClient = useQueryClient();
+  const user = useAuthStore((s) => s.user);
+  const activeProfile = useAuthStore(
+    (s) => s.activeProfile() ?? s.user?.profiles[0] ?? null
+  );
+  const rawTenant = activeProfile?.tenantId;
+  const locadorId = rawTenant && rawTenant !== "self" ? rawTenant : user?.id;
+  const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UsuarioTenant | null>(null);
@@ -42,7 +115,7 @@ const ListagemUsuarios = () => {
   const [showFullForm, setShowFullForm] = useState(false);
   const isMobile = useIsMobile();
 
-  const filtered = usuarios.filter((u) =>
+  const filtered = lista.filter((u) =>
     u.nome.toLowerCase().includes(search.toLowerCase()) ||
     u.email.toLowerCase().includes(search.toLowerCase())
   );
@@ -76,7 +149,7 @@ const ListagemUsuarios = () => {
     setDialogOpen(true);
   };
 
-  const handleSave = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
     const nome = form.get("nome") as string;
@@ -84,34 +157,38 @@ const ListagemUsuarios = () => {
     const perfil = form.get("perfil") as string;
     const doc = form.get("documento") as string;
     const tipoDoc = form.get("tipoDocumento") as "cpf" | "cnpj";
-    
-    if (editingUser) {
-      setUsuarios(usuarios.map(u => u.id === editingUser.id ? { 
-        ...u, 
-        nome: nome || u.nome, 
-        email: email || u.email, 
-        perfil, 
-        documento: doc || u.documento, 
-        tipoDocumento: tipoDoc || u.tipoDocumento 
-      } : u));
-    } else if (userFound) {
-      setUsuarios(usuarios.map(u => u.id === userFound.id ? { ...u, perfil } : u));
-    } else {
-      const novo: UsuarioTenant = {
-        id: Math.random().toString(36).substr(2, 9),
-        nome,
-        email,
-        perfil,
-        documento: doc,
-        tipoDocumento: tipoDoc,
-        status: "ativo",
-        ultimoAcesso: "Nunca"
-      };
-      setUsuarios([novo, ...usuarios]);
+
+    if (editingUser || userFound) {
+      toast.info("Edição em breve");
+      setDialogOpen(false);
+      resetForm();
+      return;
     }
 
-    setDialogOpen(false);
-    resetForm();
+    try {
+      setSaving(true);
+      const { data, error } = await supabase.functions.invoke("criar-usuario", {
+        body: {
+          nome,
+          email,
+          documento: doc,
+          tipo_documento: tipoDoc,
+          role: perfil,
+          locador_id: locadorId,
+        },
+      });
+      if (error || (data as any)?.error) {
+        throw new Error((data as any)?.error ?? error?.message ?? "Erro");
+      }
+      toast.success("Usuário cadastrado. Link de definição de senha enviado por e-mail.");
+      queryClient.invalidateQueries({ queryKey: ["tenant-usuarios"] });
+      setDialogOpen(false);
+      resetForm();
+    } catch (err: any) {
+      toast.error(err.message ?? "Erro ao cadastrar usuário");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const resetForm = () => {
@@ -227,23 +304,24 @@ const ListagemUsuarios = () => {
                   
                   <div className="space-y-2">
                     <Label htmlFor="perfil">Perfil de Acesso</Label>
-                    <Select name="perfil" defaultValue={editingUser?.perfil || userFound?.perfil || "Operador"}>
+                    <Select name="perfil" defaultValue="motorista">
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione o perfil" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Administrador">Administrador</SelectItem>
-                        <SelectItem value="Operador">Operador</SelectItem>
-                        <SelectItem value="Financeiro">Financeiro</SelectItem>
-                        <SelectItem value="Consulta">Somente Consulta</SelectItem>
+                        <SelectItem value="admin">Administrador</SelectItem>
+                        <SelectItem value="motorista">Motorista</SelectItem>
+                        <SelectItem value="locatario">Locatário</SelectItem>
+                        <SelectItem value="prefeitura">Prefeitura</SelectItem>
+                        <SelectItem value="destino">Destino Final</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
                   <DialogFooter className="flex gap-2">
                     {!editingUser && <Button type="button" variant="ghost" onClick={resetForm}>Voltar</Button>}
-                    <Button type="submit" className="flex-1">
-                      {editingUser ? "Salvar Alterações" : userFound ? "Confirmar Perfil" : "Cadastrar Usuário"}
+                    <Button type="submit" className="flex-1" disabled={saving}>
+                      {saving ? "Salvando..." : editingUser ? "Salvar Alterações" : userFound ? "Confirmar Perfil" : "Cadastrar Usuário"}
                     </Button>
                   </DialogFooter>
                 </form>
@@ -254,7 +332,7 @@ const ListagemUsuarios = () => {
       </div>
 
       <DataTable<UsuarioTenant>
-        title={`${usuarios.length} usuários cadastrados`}
+        title={`${lista.length} usuários cadastrados`}
         data={paginatedData}
         searchValue={search}
         onSearchChange={setSearch}

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { DataTable } from "@/components/DataTable";
 import { Input } from "@/components/ui/input";
@@ -6,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Search, Calendar, FileText, Download } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { usePagination } from "@/components/DataPagination";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuthStore } from "@/stores/useAuthStore";
 
 interface DestinoResiduoData {
   id: string;
@@ -21,38 +24,91 @@ interface DestinoResiduoData {
   cdfStatus: string;
 }
 
-const mockData: DestinoResiduoData[] = [
-  {
-    id: "CGCE1T82WZNG9KTL",
-    modelo: "Modelo Estacionária C4",
-    dataColeta: "13/11/2025",
-    transportador: "Pietro Lorenzo Leonardo Ramos",
-    locador: "Francisca Helena Elza Gonçalves",
-    locatario: "Julia Rebeca Daiane Bernarde",
-    destinador: "Henrique Bruno Leandro Bernardes",
-    origem: "Rua Mirassol 216 - Vila Redentora",
-    destino: "Rua Apóstolo Marcheto 837 - Loteamento Recanto do Lago",
-    mtrStatus: "Emitido",
-    cdfStatus: "Emitido",
-  },
-  {
-    id: "BFGE1T82WZNG9KTL",
-    modelo: "Modelo Estacionária C4",
-    dataColeta: "14/11/2025",
-    transportador: "Carlos Eduardo Silva",
-    locador: "Francisca Helena Elza Gonçalves",
-    locatario: "Julia Rebeca Daiane Bernarde",
-    destinador: "Henrique Bruno Leandro Bernardes",
-    origem: "Av. Brasil 500 - Centro",
-    destino: "Rua Apóstolo Marcheto 837 - Loteamento Recanto do Lago",
-    mtrStatus: "Emitido",
-    cdfStatus: "Pendente",
-  },
-];
-
 const DestinoResiduos = () => {
+  const userId = useAuthStore((s) => s.user?.id);
+  const userName = useAuthStore((s) => s.user?.name) ?? "—";
   const [search, setSearch] = useState("");
-  const { paginatedData, currentPage, pageSize, setCurrentPage, setPageSize, totalItems } = usePagination(mockData, 10);
+
+  const { data: rows = [] } = useQuery<DestinoResiduoData[]>({
+    queryKey: ["relatorio-destino-residuos", userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const { data: pedidos } = await supabase
+        .from("pedidos")
+        .select("id")
+        .eq("locatario_id", userId!);
+      const pedidoIds = (pedidos ?? []).map((p) => p.id);
+      if (!pedidoIds.length) return [];
+
+      const { data: pfs } = await supabase
+        .from("pedido_fornecedores")
+        .select("id, locador_id")
+        .in("pedido_id", pedidoIds);
+      const pfIds = (pfs ?? []).map((p) => p.id);
+      if (!pfIds.length) return [];
+
+      const { data: ordens } = await supabase
+        .from("ordens_locacao")
+        .select(
+          "id, created_at, equipment_type, pedido_fornecedor_id, obra:obra_id(rua, numero, bairro, cidade, estado)",
+        )
+        .in("pedido_fornecedor_id", pfIds);
+
+      const locadorIds = Array.from(
+        new Set((pfs ?? []).map((p) => p.locador_id).filter(Boolean) as string[]),
+      );
+      const { data: profs } = locadorIds.length
+        ? await supabase
+            .from("profiles")
+            .select("id, nome")
+            .in("id", locadorIds)
+        : { data: [] as { id: string; nome: string }[] };
+      const nomeById = new Map((profs ?? []).map((p) => [p.id, p.nome]));
+      const locadorByPf = new Map(
+        (pfs ?? []).map((p) => [p.id, p.locador_id]),
+      );
+
+      return (ordens ?? []).map((o) => {
+        const obra = (o as { obra: { rua?: string; numero?: string; bairro?: string; cidade?: string; estado?: string } | null }).obra;
+        const origem = obra
+          ? [
+              [obra.rua, obra.numero].filter(Boolean).join(", "),
+              obra.bairro,
+              [obra.cidade, obra.estado].filter(Boolean).join("/"),
+            ]
+              .filter(Boolean)
+              .join(" - ")
+          : "—";
+        const locadorId = locadorByPf.get(o.pedido_fornecedor_id) ?? undefined;
+        return {
+          id: o.id.slice(0, 16).toUpperCase(),
+          modelo: o.equipment_type === "cacamba" ? "Caçamba" : "Equipamento",
+          dataColeta: new Date(o.created_at).toLocaleDateString("pt-BR"),
+          transportador: "—",
+          locador: locadorId ? nomeById.get(locadorId) ?? "—" : "—",
+          locatario: userName,
+          destinador: "—",
+          origem: origem || "—",
+          destino: "—",
+          mtrStatus: "Pendente",
+          cdfStatus: "Pendente",
+        };
+      });
+    },
+  });
+
+  const filtered = useMemo(
+    () =>
+      rows.filter((r) =>
+        [r.id, r.modelo, r.locador, r.origem]
+          .join(" ")
+          .toLowerCase()
+          .includes(search.toLowerCase()),
+      ),
+    [rows, search],
+  );
+
+  const { paginatedData, currentPage, pageSize, setCurrentPage, setPageSize, totalItems } = usePagination(filtered, 10);
 
   return (
     <div className="space-y-6">

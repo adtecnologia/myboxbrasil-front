@@ -1,5 +1,8 @@
 
 import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuthStore } from "@/stores/useAuthStore";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -83,17 +86,179 @@ const createSequenceIcon = (sequence: number) => {
   });
 };
 
-const mockPendentes = [
-  { id: "PED-001", cliente: "Construtora Alfa", endereco: "Rua A, 123 - Centro", tipo: "Entrega", modelo: "Caçamba 5m³", data: "22/05/2026", posicao: [-20.8113, -49.3758] as [number, number] },
-  { id: "PED-002", cliente: "João da Silva", endereco: "Av. B, 456 - Jd. América", tipo: "Entrega", modelo: "Caçamba 5m³", data: "22/05/2026", posicao: [-20.8150, -49.3850] as [number, number] },
-  { id: "PED-003", cliente: "Reforma Central", endereco: "Praça da Sé, 1 - Centro", tipo: "Retirada", modelo: "Caçamba 7m³", data: "22/05/2026", posicao: [-20.8200, -49.3950] as [number, number] },
-  { id: "PED-004", cliente: "Escola Municipal", endereco: "Rua Escolar, 50 - Vila Sul", tipo: "Entrega", modelo: "Caçamba 5m³", data: "22/05/2026", posicao: [-20.8250, -49.3850] as [number, number] },
-  { id: "PED-005", cliente: "Hospital Regional", endereco: "Av. Saúde, 1000 - Sul", tipo: "Retirada", modelo: "Caçamba 5m³", data: "22/05/2026", posicao: [-20.8300, -49.3900] as [number, number] },
-];
+type Pendente = {
+  id: string;
+  cliente: string;
+  endereco: string;
+  tipo: "Entrega" | "Retirada";
+  modelo: string;
+  data: string;
+  posicao: [number, number];
+};
+
+type Motorista = { id: string; nome: string };
+type VeiculoOpt = { id: string; label: string };
+
+function useLocadorId() {
+  const user = useAuthStore((s) => s.user);
+  const activeProfile = useAuthStore(
+    (s) => s.activeProfile() ?? s.user?.profiles[0] ?? null
+  );
+  const rawTenant = activeProfile?.tenantId;
+  return rawTenant && rawTenant !== "self" ? rawTenant : user?.id;
+}
+
+function useMotoristas(): Motorista[] {
+  const locadorId = useLocadorId();
+  const { data = [] } = useQuery({
+    queryKey: ["motoristas", locadorId],
+    enabled: !!locadorId,
+    queryFn: async (): Promise<Motorista[]> => {
+      const { data: roles, error } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .eq("role", "motorista")
+        .eq("ativo", true)
+        .eq("locador_id", locadorId!);
+      if (error) throw error;
+      const ids = (roles ?? []).map((r: any) => r.user_id);
+      if (!ids.length) return [];
+      const { data: profs } = await supabase
+        .from("profiles")
+        .select("id, nome")
+        .in("id", ids);
+      return (profs ?? []).map((p: any) => ({ id: p.id, nome: p.nome }));
+    },
+  });
+  return data;
+}
+
+function useVeiculosAtivos(): VeiculoOpt[] {
+  const locadorId = useLocadorId();
+  const { data = [] } = useQuery({
+    queryKey: ["veiculos-ativos", locadorId],
+    enabled: !!locadorId,
+    queryFn: async (): Promise<VeiculoOpt[]> => {
+      const { data, error } = await supabase
+        .from("veiculos")
+        .select("id, placa, marca, modelo")
+        .eq("locador_id", locadorId!)
+        .eq("ativo", true)
+        .order("placa");
+      if (error) throw error;
+      return (data ?? []).map((v: any) => ({
+        id: v.id,
+        label: `${v.placa}${v.marca || v.modelo ? ` (${[v.marca, v.modelo].filter(Boolean).join(" ")})` : ""}`,
+      }));
+    },
+  });
+  return data;
+}
+
+function usePendentesEntrega(): Pendente[] {
+  const user = useAuthStore((s) => s.user);
+  const activeProfile = useAuthStore(
+    (s) => s.activeProfile() ?? s.user?.profiles[0] ?? null
+  );
+  const rawTenant = activeProfile?.tenantId;
+  const locadorId =
+    rawTenant && rawTenant !== "self" ? rawTenant : user?.id;
+
+  const { data = [] } = useQuery({
+    queryKey: ["agendar-rota-pendentes", locadorId],
+    enabled: !!locadorId,
+    queryFn: async (): Promise<Pendente[]> => {
+      const { data: rows, error } = await supabase
+        .from("ordem_locacao_unidades")
+        .select(
+          `id, status, created_at,
+           cacamba_unidades ( codigo, cacambas ( modelo ) ),
+           ordens_locacao!inner (
+             id, equipment_type,
+             obras ( rua, numero, bairro, cidade, estado ),
+             pedido_fornecedores!inner (
+               id, status, locador_id,
+               pedidos!inner ( id, locatario_id )
+             )
+           )`
+        )
+        .eq("status", "entrega_pendente")
+        .eq("ordens_locacao.pedido_fornecedores.locador_id", locadorId!);
+      if (error) throw error;
+
+      const aceitos = (rows ?? []).filter(
+        (r: any) => r.ordens_locacao?.pedido_fornecedores?.status === "aceito"
+      );
+
+      // Remove unidades que já estão em alguma rota
+      const unidadeIds = aceitos.map((r: any) => r.id);
+      const jaEmRota = new Set<string>();
+      if (unidadeIds.length) {
+        const { data: existentes } = await supabase
+          .from("rota_itens")
+          .select("ordem_locacao_unidade_id")
+          .in("ordem_locacao_unidade_id", unidadeIds);
+        (existentes ?? []).forEach((x: any) =>
+          jaEmRota.add(x.ordem_locacao_unidade_id)
+        );
+      }
+      const disponiveis = aceitos.filter((r: any) => !jaEmRota.has(r.id));
+
+      const locIds = Array.from(
+        new Set(
+          disponiveis
+            .map((r: any) => r.ordens_locacao?.pedido_fornecedores?.pedidos?.locatario_id)
+            .filter(Boolean)
+        )
+      );
+      const nomes = new Map<string, string>();
+      if (locIds.length) {
+        const { data: profs } = await supabase
+          .from("profiles")
+          .select("id, nome")
+          .in("id", locIds as string[]);
+        (profs ?? []).forEach((p: any) => nomes.set(p.id, p.nome));
+      }
+
+      return disponiveis.map((r: any, idx: number): Pendente => {
+        const ol = r.ordens_locacao ?? {};
+        const pf = ol.pedido_fornecedores ?? {};
+        const ped = pf.pedidos ?? {};
+        const obra = ol.obras ?? {};
+        const cu = r.cacamba_unidades ?? {};
+        const cac = cu.cacambas ?? {};
+        const endereco = obra
+          ? [
+              [obra.rua, obra.numero].filter(Boolean).join(", "),
+              obra.bairro,
+              [obra.cidade, obra.estado].filter(Boolean).join("/"),
+            ]
+              .filter(Boolean)
+              .join(" - ")
+          : "—";
+        // pseudo-posicionamento determinístico ao redor de SJRP
+        const h = r.id.split("").reduce((a: number, c: string) => (a * 31 + c.charCodeAt(0)) | 0, 0);
+        const center: [number, number] = [-20.8113, -49.3758];
+        const dLat = ((Math.abs(h) % 1000) / 1000 - 0.5) * 0.06;
+        const dLng = (((Math.abs(h) >> 10) % 1000) / 1000 - 0.5) * 0.06;
+        return {
+          id: r.id,
+          cliente: nomes.get(ped.locatario_id) ?? "—",
+          endereco,
+          tipo: "Entrega",
+          modelo: cac.modelo ?? ol.equipment_type ?? "—",
+          data: r.created_at ? new Date(r.created_at).toLocaleDateString("pt-BR") : "",
+          posicao: [center[0] + dLat, center[1] + dLng],
+        };
+      });
+    },
+  });
+  return data;
+}
 
 interface SortableItemProps {
   id: string;
-  item: typeof mockPendentes[0];
+  item: Pendente;
   index: number;
   onRemove: (id: string) => void;
 }
@@ -151,8 +316,16 @@ const SortableItem = ({ id, item, index, onRemove }: SortableItemProps) => {
 };
 
 const AgendarRota = () => {
+  const pendentes = usePendentesEntrega();
+  const motoristas = useMotoristas();
+  const veiculos = useVeiculosAtivos();
+  const locadorId = useLocadorId();
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [search, setSearch] = useState("");
+  const [motoristaId, setMotoristaId] = useState<string>("");
+  const [veiculoId, setVeiculoId] = useState<string>("");
+  const [dataProgramada, setDataProgramada] = useState<string>("");
+  const [saving, setSaving] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -162,8 +335,8 @@ const AgendarRota = () => {
   );
 
   const selectedItems = useMemo(() => {
-    return selectedIds.map(id => mockPendentes.find(i => i.id === id)!).filter(Boolean);
-  }, [selectedIds]);
+    return selectedIds.map(id => pendentes.find(i => i.id === id)!).filter(Boolean);
+  }, [selectedIds, pendentes]);
 
   const toggleItem = (id: string) => {
     setSelectedIds(prev => 
@@ -183,17 +356,64 @@ const AgendarRota = () => {
     }
   };
 
-  const handleCreateRoute = (e: React.FormEvent) => {
+  const handleCreateRoute = async (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedIds.length === 0) {
       toast.error("Selecione pelo menos um serviço para a rota.");
       return;
     }
-    toast.success("Rota criada e agendada com sucesso!");
-    setSelectedIds([]);
+    if (!motoristaId || !veiculoId || !dataProgramada) {
+      toast.error("Preencha motorista, veículo e data.");
+      return;
+    }
+    if (!locadorId) return;
+
+    try {
+      setSaving(true);
+      const { data: rota, error: rotaErr } = await supabase
+        .from("rotas")
+        .insert({
+          locador_id: locadorId,
+          motorista_id: motoristaId,
+          veiculo_id: veiculoId,
+          data_programada: dataProgramada,
+          status: "agendada",
+        })
+        .select("id")
+        .single();
+      if (rotaErr || !rota) throw rotaErr ?? new Error("Erro ao criar rota");
+
+      const itens = selectedIds.map((id, idx) => {
+        const it = pendentes.find((p) => p.id === id);
+        return {
+          rota_id: rota.id,
+          ordem_locacao_unidade_id: id,
+          sequencia: idx + 1,
+          tipo: it?.tipo ?? "Entrega",
+        };
+      });
+      const { error: itensErr } = await supabase.from("rota_itens").insert(itens);
+      if (itensErr) throw itensErr;
+
+      const { error: updErr } = await supabase
+        .from("ordem_locacao_unidades")
+        .update({ status: "em_transito_locacao" })
+        .in("id", selectedIds);
+      if (updErr) throw updErr;
+
+      toast.success("Rota criada e agendada com sucesso!");
+      setSelectedIds([]);
+      setMotoristaId("");
+      setVeiculoId("");
+      setDataProgramada("");
+    } catch (err: any) {
+      toast.error(err.message ?? "Erro ao salvar rota");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const filteredItems = mockPendentes.filter(i => 
+  const filteredItems = pendentes.filter(i => 
     !selectedIds.includes(i.id) && (
       i.cliente.toLowerCase().includes(search.toLowerCase()) || 
       i.endereco.toLowerCase().includes(search.toLowerCase())
@@ -384,33 +604,35 @@ const AgendarRota = () => {
 
                 <div className="space-y-1.5">
                   <Label className="text-xs">Motorista</Label>
-                  <Select required>
+                  <Select required value={motoristaId} onValueChange={setMotoristaId}>
                     <SelectTrigger className="h-8 text-xs">
-                      <SelectValue placeholder="Selecione" />
+                      <SelectValue placeholder={motoristas.length ? "Selecione" : "Nenhum motorista"} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="1">João Silva</SelectItem>
-                      <SelectItem value="2">Ricardo Santos</SelectItem>
+                      {motoristas.map((m) => (
+                        <SelectItem key={m.id} value={m.id}>{m.nome}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div className="space-y-1.5">
                   <Label className="text-xs">Veículo</Label>
-                  <Select required>
+                  <Select required value={veiculoId} onValueChange={setVeiculoId}>
                     <SelectTrigger className="h-8 text-xs">
-                      <SelectValue placeholder="Selecione" />
+                      <SelectValue placeholder={veiculos.length ? "Selecione" : "Nenhum veículo"} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="1">ABC-1234 (MB)</SelectItem>
-                      <SelectItem value="2">XYZ-9876 (VW)</SelectItem>
+                      {veiculos.map((v) => (
+                        <SelectItem key={v.id} value={v.id}>{v.label}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div className="space-y-1.5">
                   <Label htmlFor="data" className="text-xs">Data Programada</Label>
-                  <Input id="data" type="date" className="h-8 text-xs" required />
+                  <Input id="data" type="date" className="h-8 text-xs" required value={dataProgramada} onChange={(e) => setDataProgramada(e.target.value)} />
                 </div>
 
                 {selectedItems.some(i => i.tipo === "Retirada") && (
@@ -439,9 +661,9 @@ const AgendarRota = () => {
                   type="submit" 
                   className="w-full gap-2 h-10 text-sm font-bold shadow-lg shadow-primary/20"
                   onClick={handleCreateRoute}
-                  disabled={selectedIds.length === 0}
+                  disabled={selectedIds.length === 0 || saving}
                 >
-                  Confirmar Agendamento
+                  {saving ? "Salvando..." : "Confirmar Agendamento"}
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </div>

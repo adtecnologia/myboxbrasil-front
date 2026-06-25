@@ -1,15 +1,41 @@
+import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "@/components/DataTable";
 import { MapPin, Calendar } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-
-const roteirosData = [
-  { id: "1", data: "22/05/2026", pontos: 8, status: "Concluído", tempo: "06:30h" },
-  { id: "2", data: "21/05/2026", pontos: 10, status: "Concluído", tempo: "07:45h" },
-  { id: "3", data: "20/05/2026", pontos: 7, status: "Concluído", tempo: "05:15h" },
-];
+import { useMotoristaRotas } from "@/hooks/useMotoristaRotas";
 
 const Roteiros = () => {
+  const { data: rotas = [] } = useMotoristaRotas({ includeFinalizadas: true });
+
+  const concluidas = useMemo(
+    () => rotas.filter((r) => r.status === "concluida"),
+    [rotas]
+  );
+
+  const inicioMes = new Date();
+  inicioMes.setDate(1);
+  const concluidasMes = concluidas.filter(
+    (r) => r.data_programada && new Date(r.data_programada) >= inicioMes
+  );
+
+  const mediaPontos =
+    concluidas.length === 0
+      ? 0
+      : Math.round(
+          (concluidas.reduce((acc, r) => acc + r.itens.length, 0) / concluidas.length) * 10
+        ) / 10;
+
+  const roteirosData = concluidas.map((r) => ({
+    id: r.id,
+    data: r.data_programada
+      ? new Date(r.data_programada).toLocaleDateString("pt-BR")
+      : "—",
+    pontos: r.itens.length,
+    status: "Concluído",
+    tempo: "—",
+  }));
+
   return (
     <div className="space-y-6">
       <div className="rounded-xl bg-gradient-to-r from-primary to-[hsl(155,45%,40%)] p-6 text-primary-foreground">
@@ -24,7 +50,7 @@ const Roteiros = () => {
             <Calendar className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">18</div>
+            <div className="text-2xl font-bold">{concluidasMes.length}</div>
           </CardContent>
         </Card>
         <Card>
@@ -33,7 +59,7 @@ const Roteiros = () => {
             <MapPin className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">8.5</div>
+            <div className="text-2xl font-bold">{mediaPontos}</div>
           </CardContent>
         </Card>
       </div>

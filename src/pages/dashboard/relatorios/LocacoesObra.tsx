@@ -1,16 +1,64 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Card, CardContent } from "@/components/ui/card";
 import { DataTable } from "@/components/DataTable";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, Calendar } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuthStore } from "@/stores/useAuthStore";
 
-const obraData = [
-  { obra: "Residencial Solar", emAndamento: 5, concluidas: 15, primeira: "10/01/2026", ultima: "20/05/2026" },
-  { obra: "Edifício Mar", emAndamento: 3, concluidas: 12, primeira: "15/01/2026", ultima: "18/05/2026" },
-  { obra: "Shopping Center", emAndamento: 2, concluidas: 8, primeira: "20/01/2026", ultima: "15/05/2026" },
-];
+const fmt = (d?: string | null) =>
+  d ? new Date(d).toLocaleDateString("pt-BR") : "—";
 
 const LocacoesObra = () => {
+  const userId = useAuthStore((s) => s.user?.id);
+  const [search, setSearch] = useState("");
+
+  const { data: obraData = [] } = useQuery({
+    queryKey: ["relatorio-locacoes-obra", userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const { data: obras } = await supabase
+        .from("obras")
+        .select("id, nome")
+        .eq("user_id", userId!);
+      if (!obras?.length) return [];
+      const ids = obras.map((o) => o.id);
+      const { data: ordens } = await supabase
+        .from("ordens_locacao")
+        .select("obra_id, status, created_at")
+        .in("obra_id", ids);
+      return obras.map((o) => {
+        const items = (ordens ?? []).filter((x) => x.obra_id === o.id);
+        const concluidas = items.filter((x) => x.status === "finalizado").length;
+        const emAndamento = items.filter((x) =>
+          ["pendente", "aceito", "em_entrega", "ativo"].includes(x.status),
+        ).length;
+        const datas = items
+          .map((x) => new Date(x.created_at).getTime())
+          .sort((a, b) => a - b);
+        return {
+          obra: o.nome,
+          emAndamento,
+          concluidas,
+          primeira: datas.length ? fmt(new Date(datas[0]).toISOString()) : "—",
+          ultima: datas.length
+            ? fmt(new Date(datas[datas.length - 1]).toISOString())
+            : "—",
+        };
+      });
+    },
+  });
+
+  const filtered = useMemo(
+    () =>
+      obraData.filter((o) =>
+        o.obra.toLowerCase().includes(search.toLowerCase()),
+      ),
+    [obraData, search],
+  );
+
   return (
     <div className="space-y-6">
       <div className="rounded-xl bg-gradient-to-r from-primary to-[hsl(155,45%,40%)] p-6 text-primary-foreground">
@@ -23,7 +71,12 @@ const LocacoesObra = () => {
           <div className="grid gap-4 md:grid-cols-4">
             <div className="relative">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Pesquisar obra..." className="pl-9" />
+              <Input
+                placeholder="Pesquisar obra..."
+                className="pl-9"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
             </div>
             <div className="relative">
               <Calendar className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -40,7 +93,7 @@ const LocacoesObra = () => {
 
       <DataTable
         title="Dados por Obra"
-        data={obraData}
+        data={filtered}
         columns={[
           { header: "Obra", accessor: "obra", className: "font-medium" },
           { header: "Em Andamento", accessor: "emAndamento" },
@@ -49,7 +102,7 @@ const LocacoesObra = () => {
           { header: "Última Locação", accessor: "ultima" },
         ]}
         pagination={{
-          totalItems: obraData.length,
+          totalItems: filtered.length,
           pageSize: 10,
           currentPage: 1,
           onPageChange: () => {},

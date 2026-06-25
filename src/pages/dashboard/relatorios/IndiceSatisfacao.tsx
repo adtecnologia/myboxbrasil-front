@@ -2,12 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Star, MessageSquare, ThumbsUp } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 
-const feedbackData = [
-  { item: "Qualidade do Equipamento", score: 4.8 },
-  { item: "Tempo de Entrega", score: 4.5 },
-  { item: "Cordialidade do Motorista", score: 4.9 },
-  { item: "Facilidade de Pagamento", score: 4.7 },
-];
+const feedbackData: { item: string; score: number }[] = [];
 
 const IndiceSatisfacao = () => {
   return (
@@ -24,8 +19,8 @@ const IndiceSatisfacao = () => {
             <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-primary">4.7 / 5.0</div>
-            <p className="text-xs text-muted-foreground mt-1">Baseado em 156 avaliações</p>
+            <div className="text-3xl font-bold text-primary">— / 5.0</div>
+            <p className="text-xs text-muted-foreground mt-1">Sem avaliações</p>
           </CardContent>
         </Card>
         <Card>
@@ -34,7 +29,7 @@ const IndiceSatisfacao = () => {
             <ThumbsUp className="h-4 w-4 text-emerald-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">92%</div>
+            <div className="text-2xl font-bold">0%</div>
           </CardContent>
         </Card>
         <Card>
@@ -43,7 +38,7 @@ const IndiceSatisfacao = () => {
             <MessageSquare className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">24</div>
+            <div className="text-2xl font-bold">0</div>
           </CardContent>
         </Card>
       </div>

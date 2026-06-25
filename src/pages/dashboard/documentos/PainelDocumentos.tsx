@@ -28,20 +28,22 @@ import {
 import { Button } from "@/components/ui/button";
 
 const dataTipos = [
-  { name: "MTR", value: 45, color: "#3b82f6" },
-  { name: "CDF", value: 32, color: "#8b5cf6" },
-  { name: "NF", value: 28, color: "#f59e0b" },
-  { name: "Licenças", value: 12, color: "#10b981" },
+  { name: "MTR", value: 0, color: "#3b82f6" },
+  { name: "CDF", value: 0, color: "#8b5cf6" },
+  { name: "NF", value: 0, color: "#f59e0b" },
+  { name: "Licenças", value: 0, color: "#10b981" },
 ];
 
 const dataEmissoes = [
-  { name: "Jan", valor: 85 },
-  { name: "Fev", valor: 92 },
-  { name: "Mar", valor: 78 },
-  { name: "Abr", valor: 110 },
-  { name: "Mai", valor: 95 },
-  { name: "Jun", valor: 125 },
+  { name: "Jan", valor: 0 },
+  { name: "Fev", valor: 0 },
+  { name: "Mar", valor: 0 },
+  { name: "Abr", valor: 0 },
+  { name: "Mai", valor: 0 },
+  { name: "Jun", valor: 0 },
 ];
+
+const documentosRecentes: { ref: string; tipo: string; data: string; status: string }[] = [];
 
 const PainelDocumentos = () => {
   return (
@@ -59,7 +61,7 @@ const PainelDocumentos = () => {
             </div>
             <div>
               <p className="text-sm font-medium text-muted-foreground">Total Emitidos</p>
-              <h3 className="text-3xl font-bold">117</h3>
+              <h3 className="text-3xl font-bold">0</h3>
             </div>
             <p className="text-[10px] text-muted-foreground">Últimos 30 dias</p>
           </CardContent>
@@ -72,9 +74,9 @@ const PainelDocumentos = () => {
             </div>
             <div>
               <p className="text-sm font-medium text-muted-foreground">CDFs Concluídos</p>
-              <h3 className="text-3xl font-bold text-emerald-600">84</h3>
+              <h3 className="text-3xl font-bold text-emerald-600">0</h3>
             </div>
-            <p className="text-[10px] text-emerald-600 font-medium">100% de conformidade</p>
+            <p className="text-[10px] text-emerald-600 font-medium">Sem dados</p>
           </CardContent>
         </Card>
 
@@ -85,9 +87,9 @@ const PainelDocumentos = () => {
             </div>
             <div>
               <p className="text-sm font-medium text-muted-foreground">MTRs Pendentes</p>
-              <h3 className="text-3xl font-bold text-orange-600">12</h3>
+              <h3 className="text-3xl font-bold text-orange-600">0</h3>
             </div>
-            <p className="text-[10px] text-orange-500 font-medium">Aguardando recebimento</p>
+            <p className="text-[10px] text-orange-500 font-medium">Sem pendências</p>
           </CardContent>
         </Card>
 
@@ -98,9 +100,9 @@ const PainelDocumentos = () => {
             </div>
             <div>
               <p className="text-sm font-medium text-muted-foreground">Vencimento Licenças</p>
-              <h3 className="text-3xl font-bold text-red-600">02</h3>
+              <h3 className="text-3xl font-bold text-red-600">0</h3>
             </div>
-            <p className="text-[10px] text-red-500 font-medium">Próximos 30 dias</p>
+            <p className="text-[10px] text-red-500 font-medium">Sem vencimentos</p>
           </CardContent>
         </Card>
       </div>
@@ -181,12 +183,10 @@ const PainelDocumentos = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {[
-                { ref: "MTR-2026-045", tipo: "MTR", data: "Hoje, 11:20", status: "success" },
-                { ref: "CDF-2026-032", tipo: "CDF", data: "Hoje, 09:45", status: "success" },
-                { ref: "LO-2026-012", tipo: "Licença", data: "Ontem, 15:30", status: "warning" },
-                { ref: "NF-8829", tipo: "NF", data: "Ontem, 14:10", status: "success" },
-              ].map((item, i) => (
+              {documentosRecentes.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-6">Nenhum documento emitido.</p>
+              )}
+              {documentosRecentes.map((item, i) => (
                 <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">

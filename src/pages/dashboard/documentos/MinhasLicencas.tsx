@@ -16,35 +16,7 @@ interface Licenca {
   status: "Vigente" | "Vencendo" | "Vencida" | "Em Renovação";
 }
 
-const mockLicencas: Licenca[] = [
-  {
-    id: "1",
-    nome: "Licença de Operação (LO)",
-    orgao: "CETESB",
-    numero: "LO-2024-00123",
-    dataEmissao: "2024-01-10",
-    dataVencimento: "2026-01-10",
-    status: "Vigente",
-  },
-  {
-    id: "2",
-    nome: "Licença Prévia (LP)",
-    orgao: "IBAMA",
-    numero: "LP-2024-887",
-    dataEmissao: "2024-03-05",
-    dataVencimento: "2024-06-05",
-    status: "Vencendo",
-  },
-  {
-    id: "3",
-    nome: "Alvará de Funcionamento",
-    orgao: "Prefeitura Municipal",
-    numero: "ALV-992/2024",
-    dataEmissao: "2023-01-01",
-    dataVencimento: "2023-12-31",
-    status: "Vencida",
-  },
-];
+const mockLicencas: Licenca[] = [];
 
 const MinhasLicencas = () => {
   const [search, setSearch] = useState("");

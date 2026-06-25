@@ -98,68 +98,7 @@ interface Ocorrencia {
   };
 }
 
-const mockOcorrencias: Ocorrencia[] = [
-  {
-    id: "OCR-001",
-    data: "22/05/2026 09:30",
-    tipo: "Caçamba",
-    subtipo: "Caçamba Transbordando",
-    fiscal: "Carlos Lima",
-    locador: "Silva Transportes",
-    locatario: "Construtora Alpha",
-    local: "Rua das Flores, 123",
-    status: "Pendente",
-    gravidade: "Alta",
-    descricao: "Caçamba apresentava excesso de resíduos de construção civil, ultrapassando a borda em mais de 30cm, oferecendo risco de queda durante transporte.",
-    fotos: ["foto1.jpg", "foto2.jpg"],
-    cacambaId: "CAC-882",
-    ordemLocacao: {
-      id: "ORD-9921",
-      dataInicio: "15/05/2026",
-      vencimento: "22/05/2026",
-      status: "Em Andamento"
-    }
-  },
-  {
-    id: "OCR-002",
-    data: "21/05/2026 14:15",
-    tipo: "Rota",
-    subtipo: "Descarte Irregular em Via",
-    fiscal: "Ana Paula",
-    locador: "Múltiplos",
-    local: "Av. Principal, 500",
-    status: "Em Análise",
-    gravidade: "Média",
-    descricao: "Detectado descarte irregular de resíduos classe A e B na calçada. Local próximo a ponto de coleta viciado.",
-    fotos: ["foto3.jpg"],
-    residuosEncontrados: "Restos de alvenaria, madeiras e plásticos.",
-    rotasRelacionadas: [
-      { id: "R-102", locador: "Silva Transportes", horarioEntrega: "08:00", horarioRetirada: "17:00" },
-      { id: "R-205", locador: "Oliveira Entulhos", horarioEntrega: "09:30", horarioRetirada: "16:00" }
-    ]
-  },
-  {
-    id: "OCR-003",
-    data: "20/05/2026 10:00",
-    tipo: "Caçamba",
-    subtipo: "Resíduo Inadequado",
-    fiscal: "Carlos Lima",
-    locador: "EcoTransp",
-    locatario: "Engenharia Beta",
-    local: "Rua Central, 45",
-    status: "Resolvida",
-    gravidade: "Baixa",
-    descricao: "Presença de resíduos orgânicos misturados a resíduos de construção civil.",
-    fotos: ["foto4.jpg", "foto5.jpg"],
-    cacambaId: "CAC-115",
-    ordemLocacao: {
-      id: "ORD-8812",
-      dataInicio: "10/05/2026",
-      vencimento: "17/05/2026",
-      status: "Vencida"
-    }
-  }
-];
+const mockOcorrencias: Ocorrencia[] = [];
 
 const Ocorrencias = () => {
   const [search, setSearch] = useState("");
@@ -291,9 +230,9 @@ const Ocorrencias = () => {
             <CardTitle className="text-sm font-medium text-muted-foreground uppercase">Pendentes</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">12</div>
-            <p className="text-xs text-destructive flex items-center mt-1">
-              <Clock className="h-3 w-3 mr-1" /> +3 desde ontem
+            <div className="text-2xl font-bold">0</div>
+            <p className="text-xs text-muted-foreground flex items-center mt-1">
+              <Clock className="h-3 w-3 mr-1" /> Sem registros
             </p>
           </CardContent>
         </Card>
@@ -302,7 +241,7 @@ const Ocorrencias = () => {
             <CardTitle className="text-sm font-medium text-muted-foreground uppercase">Em Análise</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">5</div>
+            <div className="text-2xl font-bold">0</div>
           </CardContent>
         </Card>
         <Card>
@@ -310,7 +249,7 @@ const Ocorrencias = () => {
             <CardTitle className="text-sm font-medium text-muted-foreground uppercase">Resolvidas (Mês)</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">45</div>
+            <div className="text-2xl font-bold">0</div>
           </CardContent>
         </Card>
       </div>

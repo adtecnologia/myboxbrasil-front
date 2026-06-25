@@ -23,7 +23,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   BarChart,
   Bar,
@@ -33,41 +32,167 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuthStore } from "@/stores/useAuthStore";
 
 const months = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-
-const pedidosMes = months.map((m, i) => ({
-  name: m.slice(0, 3),
-  value: i < 5 ? [15, 22, 12, 28, 24][i] : 0,
-}));
-
-const statCards = [
-  { label: "Total Caçambas", value: 36, icon: ShoppingCart, change: "+2", up: true },
-  { label: "Disponíveis", value: 29, icon: PackageSearch, change: "0", up: true },
-  { label: "Entregas Pendentes", value: 2, icon: PackageOpen, change: "+1", up: true },
-  { label: "Locadas", value: 0, icon: PackageCheck, change: "0", up: true },
-  { label: "Aguardando Retirada", value: 3, icon: MapPin, change: "-1", up: false },
-  { label: "Limpeza e Manutenção", value: 4, icon: Wrench, change: "+1", up: true },
-];
-
-const ultimosPedidos = [
-  { id: "ORD-2024-001", cliente: "Construtora Silva", status: "Em Rota", valor: 450.00, data: "22/05/2026 14:30" },
-  { id: "ORD-2024-002", cliente: "João dos Santos", status: "Pendente", valor: 380.00, data: "22/05/2026 11:15" },
-  { id: "ORD-2024-003", cliente: "Reforma ABC", status: "Finalizado", valor: 520.00, data: "21/05/2026 16:45" },
-];
-
-const faturamentoSemana = [
-  { dia: "Seg", valor: 1200 },
-  { dia: "Ter", valor: 1800 },
-  { dia: "Qua", valor: 1500 },
-  { dia: "Qui", valor: 2200 },
-  { dia: "Sex", valor: 2600 },
-  { dia: "Sáb", valor: 900 },
-  { dia: "Dom", valor: 400 },
-];
-
+const DIAS_SEMANA = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+const fmtBRL = (v: number) =>
+  v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 const LocadorDashboard = () => {
+  const userId = useAuthStore((s) => s.user?.id);
+
+  const { data } = useQuery({
+    queryKey: ["locador-dashboard", userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const { data: cacambas } = await supabase
+        .from("cacambas")
+        .select("id, modelo")
+        .eq("locador_id", userId!);
+      const cacambaIds = (cacambas ?? []).map((c) => c.id);
+      const { data: unidades } = cacambaIds.length
+        ? await supabase
+            .from("cacamba_unidades")
+            .select("id, cacamba_id, disponivel, manutencao")
+            .in("cacamba_id", cacambaIds)
+        : { data: [] as Array<{ id: string; cacamba_id: string; disponivel: boolean; manutencao: boolean }> };
+
+      const { data: pfs } = await supabase
+        .from("pedido_fornecedores")
+        .select("id, pedido_id, valor_total, status, created_at")
+        .eq("locador_id", userId!)
+        .order("created_at", { ascending: false });
+
+      const pfIds = (pfs ?? []).map((p) => p.id);
+      const { data: ordens } = pfIds.length
+        ? await supabase
+            .from("ordens_locacao")
+            .select("id, status, pedido_fornecedor_id")
+            .in("pedido_fornecedor_id", pfIds)
+        : { data: [] as Array<{ id: string; status: string; pedido_fornecedor_id: string }> };
+
+      const pedidoIds = Array.from(new Set((pfs ?? []).map((p) => p.pedido_id)));
+      const { data: pedidos } = pedidoIds.length
+        ? await supabase.from("pedidos").select("id, locatario_id, created_at").in("id", pedidoIds)
+        : { data: [] as Array<{ id: string; locatario_id: string; created_at: string }> };
+
+      const locatarioIds = Array.from(new Set((pedidos ?? []).map((p) => p.locatario_id)));
+      const { data: profs } = locatarioIds.length
+        ? await supabase.from("profiles").select("id, nome").in("id", locatarioIds)
+        : { data: [] as Array<{ id: string; nome: string }> };
+
+      return {
+        cacambas: cacambas ?? [],
+        unidades: unidades ?? [],
+        pfs: pfs ?? [],
+        ordens: ordens ?? [],
+        pedidos: pedidos ?? [],
+        profs: profs ?? [],
+      };
+    },
+  });
+
+  const stats = useMemo(() => {
+    const unidades = data?.unidades ?? [];
+    const ordens = data?.ordens ?? [];
+    const total = unidades.length;
+    const manutencao = unidades.filter((u) => u.manutencao).length;
+    const disponiveis = unidades.filter((u) => u.disponivel && !u.manutencao).length;
+    const byStatus = (s: string) => ordens.filter((o) => o.status === s).length;
+    return [
+      { label: "Total Caçambas", value: total, icon: ShoppingCart },
+      { label: "Disponíveis", value: disponiveis, icon: PackageSearch },
+      { label: "Entregas Pendentes", value: byStatus("aguardando_entrega"), icon: PackageOpen },
+      { label: "Locadas", value: byStatus("entregue"), icon: PackageCheck },
+      { label: "Aguardando Retirada", value: byStatus("aguardando_retirada"), icon: MapPin },
+      { label: "Limpeza e Manutenção", value: manutencao, icon: Wrench },
+    ];
+  }, [data]);
+
+  const receitaMes = useMemo(() => {
+    const pfs = data?.pfs ?? [];
+    const now = new Date();
+    return pfs
+      .filter((p) => {
+        const d = new Date(p.created_at);
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      })
+      .reduce((acc, p) => acc + Number(p.valor_total ?? 0), 0);
+  }, [data]);
+
+  const novosClientes = useMemo(() => {
+    const pedidos = data?.pedidos ?? [];
+    const now = new Date();
+    const ids = new Set(
+      pedidos
+        .filter((p) => {
+          const d = new Date(p.created_at);
+          return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+        })
+        .map((p) => p.locatario_id)
+    );
+    return ids.size;
+  }, [data]);
+
+  const faturamentoSemana = useMemo(() => {
+    const pfs = data?.pfs ?? [];
+    const buckets = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      d.setDate(d.getDate() - (6 - i));
+      return { date: d, dia: DIAS_SEMANA[d.getDay()], valor: 0 };
+    });
+    pfs.forEach((p) => {
+      const d = new Date(p.created_at);
+      const idx = buckets.findIndex(
+        (b) =>
+          b.date.getFullYear() === d.getFullYear() &&
+          b.date.getMonth() === d.getMonth() &&
+          b.date.getDate() === d.getDate()
+      );
+      if (idx >= 0) buckets[idx].valor += Number(p.valor_total ?? 0);
+    });
+    return buckets.map(({ dia, valor }) => ({ dia, valor }));
+  }, [data]);
+
+  const ultimosPedidos = useMemo(() => {
+    const pfs = data?.pfs ?? [];
+    const pedidoToUser = new Map((data?.pedidos ?? []).map((p) => [p.id, p.locatario_id]));
+    const userToName = new Map((data?.profs ?? []).map((p) => [p.id, p.nome]));
+    return pfs.slice(0, 3).map((p) => ({
+      id: `PF-${String(p.id).slice(0, 8).toUpperCase()}`,
+      cliente: userToName.get(pedidoToUser.get(p.pedido_id) ?? "") ?? "—",
+      status: p.status,
+      valor: Number(p.valor_total ?? 0),
+      data: new Date(p.created_at).toLocaleString("pt-BR"),
+    }));
+  }, [data]);
+
+  const disponibilidadeModelo = useMemo(() => {
+    const cacambas = data?.cacambas ?? [];
+    const unidades = data?.unidades ?? [];
+    const byCacamba = new Map<string, { total: number; disp: number; modelo: string }>();
+    cacambas.forEach((c) => byCacamba.set(c.id, { total: 0, disp: 0, modelo: c.modelo }));
+    unidades.forEach((u) => {
+      const entry = byCacamba.get(u.cacamba_id);
+      if (!entry) return;
+      entry.total += 1;
+      if (u.disponivel && !u.manutencao) entry.disp += 1;
+    });
+    const byModelo = new Map<string, { total: number; disp: number }>();
+    byCacamba.forEach(({ modelo, total, disp }) => {
+      const cur = byModelo.get(modelo) ?? { total: 0, disp: 0 };
+      cur.total += total;
+      cur.disp += disp;
+      byModelo.set(modelo, cur);
+    });
+    return Array.from(byModelo.entries()).map(([modelo, v]) => ({ modelo, ...v }));
+  }, [data]);
+
   return (
     <div className="space-y-6 pb-10">
       <PageHeader title="Painel" subtitle="Visão geral da sua operação">
@@ -95,33 +220,20 @@ const LocadorDashboard = () => {
         </div>
       </PageHeader>
 
-      {/* Banner de aviso */}
-      <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-500/10 dark:border-amber-500/30 px-4 py-3">
-        <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
-        <p className="text-xs text-amber-800 dark:text-amber-200">
-          Sua conta está em processo de aprovação na prefeitura. Alguns recursos podem estar limitados.
-        </p>
-      </div>
-
       {/* Seção Financeira Rápida */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="border-none shadow-sm bg-primary text-primary-foreground">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium opacity-80">Receita Total (Maio)</p>
-                <h3 className="text-3xl font-bold mt-1 text-white">R$ 12.450,00</h3>
+                <p className="text-sm font-medium opacity-80">Receita Total (mês)</p>
+                <h3 className="text-3xl font-bold mt-1 text-white">{fmtBRL(receitaMes)}</h3>
               </div>
               <div className="bg-white/20 p-3 rounded-full">
                 <DollarSign className="h-6 w-6 text-white" />
               </div>
             </div>
-            <div className="mt-4 flex items-center gap-2 text-sm">
-              <span className="flex items-center bg-white/20 px-2 py-0.5 rounded text-xs">
-                <TrendingUp className="h-3 w-3 mr-1" /> +12%
-              </span>
-              <span className="opacity-70">em relação ao mês passado</span>
-            </div>
+            <div className="mt-4 text-xs opacity-70">Soma de pedidos do mês atual</div>
           </CardContent>
         </Card>
 
@@ -130,19 +242,13 @@ const LocadorDashboard = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Faturas em Aberto</p>
-                <h3 className="text-2xl font-bold mt-1">R$ 3.280,00</h3>
+                <h3 className="text-2xl font-bold mt-1">{fmtBRL(0)}</h3>
               </div>
               <div className="bg-amber-500/10 p-3 rounded-full">
                 <Clock className="h-6 w-6 text-amber-600" />
               </div>
             </div>
-            <div className="mt-4">
-              <div className="flex justify-between text-xs mb-1">
-                <span className="text-muted-foreground">Meta de recebimento</span>
-                <span className="font-medium text-foreground">75%</span>
-              </div>
-              <Progress value={75} className="h-1.5" />
-            </div>
+            <div className="mt-4 text-xs text-muted-foreground">Sem registros</div>
           </CardContent>
         </Card>
 
@@ -150,24 +256,14 @@ const LocadorDashboard = () => {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Novos Clientes</p>
-                <h3 className="text-2xl font-bold mt-1">14</h3>
+                <p className="text-sm font-medium text-muted-foreground">Novos Clientes (mês)</p>
+                <h3 className="text-2xl font-bold mt-1">{novosClientes}</h3>
               </div>
               <div className="bg-emerald-500/10 p-3 rounded-full">
                 <Users className="h-6 w-6 text-emerald-600" />
               </div>
             </div>
-            <div className="mt-4 flex items-center gap-1">
-              <div className="flex -space-x-2 mr-2">
-                {[1, 2, 3, 4].map((i) => (
-                  <Avatar key={i} className="h-6 w-6 border-2 border-background">
-                    <AvatarImage src={`https://i.pravatar.cc/150?u=${i}`} />
-                    <AvatarFallback>U</AvatarFallback>
-                  </Avatar>
-                ))}
-              </div>
-              <span className="text-[10px] text-muted-foreground">+3 novos hoje</span>
-            </div>
+            <div className="mt-4 text-[11px] text-muted-foreground">Clientes únicos no mês atual</div>
           </CardContent>
         </Card>
       </div>
@@ -176,21 +272,13 @@ const LocadorDashboard = () => {
       <div>
         <h4 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wider">Status da Frota</h4>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-          {statCards.map((stat) => (
+          {stats.map((stat) => (
             <Card key={stat.label} className="overflow-hidden border-none shadow-sm bg-card hover:shadow-md transition-all group">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between mb-3">
                   <div className="rounded-lg bg-primary/10 p-2 group-hover:bg-primary group-hover:text-white transition-colors">
                     <stat.icon className="h-4 w-4 text-primary group-hover:text-white" />
                   </div>
-                  <Badge
-                    variant="outline"
-                    className={`text-[10px] px-1.5 py-0 h-5 font-medium border-0 ${
-                      stat.up ? "bg-emerald-500/10 text-emerald-600" : "bg-rose-500/10 text-rose-600"
-                    }`}
-                  >
-                    {stat.change}
-                  </Badge>
                 </div>
                 <p className="text-2xl font-bold tracking-tight text-foreground">{stat.value}</p>
                 <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mt-1 leading-tight">{stat.label}</p>
@@ -252,24 +340,20 @@ const LocadorDashboard = () => {
             <CardDescription className="text-sm">Últimas movimentações</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {ultimosPedidos.length === 0 && (
+              <p className="text-xs text-muted-foreground text-center py-6">Sem pedidos recentes</p>
+            )}
             {ultimosPedidos.map((pedido) => (
               <div key={pedido.id} className="flex flex-col gap-2 p-3 rounded-lg border border-border bg-muted/20">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-mono font-medium text-muted-foreground">{pedido.id}</span>
-                  <Badge 
-                    variant="outline" 
-                    className={`text-[10px] px-1.5 py-0 border-0 ${
-                      pedido.status === "Em Rota" ? "bg-blue-500/10 text-blue-600" :
-                      pedido.status === "Finalizado" ? "bg-emerald-500/10 text-emerald-600" :
-                      "bg-amber-500/10 text-amber-600"
-                    }`}
-                  >
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-0 bg-primary/10 text-primary">
                     {pedido.status}
                   </Badge>
                 </div>
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-semibold">{pedido.cliente}</p>
-                  <p className="text-xs font-bold text-primary">R$ {pedido.valor.toFixed(2)}</p>
+                  <p className="text-xs font-bold text-primary">{fmtBRL(pedido.valor)}</p>
                 </div>
                 <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
                   <Clock className="h-3 w-3" />
@@ -294,20 +378,7 @@ const LocadorDashboard = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="flex items-start gap-3 p-3 rounded-lg bg-rose-500/5 border border-rose-500/10">
-              <Wrench className="h-4 w-4 text-rose-500 mt-0.5" />
-              <div>
-                <p className="text-xs font-semibold text-rose-700">Manutenção Vencida</p>
-                <p className="text-[10px] text-rose-600/80">Cacamba #422 precisa de vistoria técnica imediata.</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-500/5 border border-amber-500/10">
-              <FileText className="h-4 w-4 text-amber-500 mt-0.5" />
-              <div>
-                <p className="text-xs font-semibold text-amber-700">Documentação Pendente</p>
-                <p className="text-[10px] text-amber-600/80">Alvará de funcionamento vence em 15 dias.</p>
-              </div>
-            </div>
+            <p className="text-xs text-muted-foreground text-center py-6">Sem alertas no momento</p>
           </CardContent>
         </Card>
 
@@ -320,27 +391,18 @@ const LocadorDashboard = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <div className="flex justify-between text-xs">
-                <span>Modelo Estacionária C4 (Amarelo)</span>
-                <span className="font-bold">12/15</span>
+            {disponibilidadeModelo.length === 0 && (
+              <p className="text-xs text-muted-foreground text-center py-6">Sem caçambas cadastradas</p>
+            )}
+            {disponibilidadeModelo.map((m) => (
+              <div key={m.modelo} className="space-y-2">
+                <div className="flex justify-between text-xs">
+                  <span>{m.modelo}</span>
+                  <span className="font-bold">{m.disp}/{m.total}</span>
+                </div>
+                <Progress value={m.total ? (m.disp / m.total) * 100 : 0} className="h-1.5" />
               </div>
-              <Progress value={80} className="h-1.5" />
-            </div>
-            <div className="space-y-2">
-              <div className="flex justify-between text-xs">
-                <span>Modelo Estacionária C7 (Preto)</span>
-                <span className="font-bold">8/12</span>
-              </div>
-              <Progress value={66} className="h-1.5" />
-            </div>
-            <div className="space-y-2">
-              <div className="flex justify-between text-xs">
-                <span>Modelo Estacionária C3 (Azul)</span>
-                <span className="font-bold">2/5</span>
-              </div>
-              <Progress value={40} className="h-1.5" />
-            </div>
+            ))}
           </CardContent>
         </Card>
       </div>

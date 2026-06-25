@@ -48,6 +48,8 @@ const Perfil = () => {
   const [form, setForm] = useState({
     tipo_pessoa: "juridica" as "fisica" | "juridica",
     nome: "",
+    documento: "",
+    tipo_documento: "" as "cpf" | "cnpj" | "",
     nome_fantasia: "",
     email: "",
     email_secundario: "",
@@ -92,6 +94,8 @@ const Perfil = () => {
         setForm({
           tipo_pessoa: (data.tipo_pessoa as "fisica" | "juridica") ?? "juridica",
           nome: data.nome ?? "",
+          documento: data.documento ?? "",
+          tipo_documento: (data.tipo_documento as "cpf" | "cnpj") ?? "",
           nome_fantasia: data.nome_fantasia ?? "",
           email: data.email ?? "",
           email_secundario: data.email_secundario ?? "",
@@ -245,6 +249,16 @@ const Perfil = () => {
               <h3 className="mt-4 text-base font-bold text-foreground">
                 {user?.name || "MyBox Brasil"}
               </h3>
+              {form.documento && (
+                <p className="mt-1 text-xs font-mono text-muted-foreground">
+                  {form.tipo_documento?.toUpperCase()}{form.tipo_documento ? ": " : ""}
+                  {form.tipo_documento === "cnpj"
+                    ? formatCNPJ(form.documento)
+                    : form.tipo_documento === "cpf"
+                    ? formatCPF(form.documento)
+                    : form.documento}
+                </p>
+              )}
               <Badge className="mt-2 bg-primary/10 text-primary border-0 font-medium">
                 {perfilLabel[profile?.profileType || "admin"] || "Administrador"}
               </Badge>

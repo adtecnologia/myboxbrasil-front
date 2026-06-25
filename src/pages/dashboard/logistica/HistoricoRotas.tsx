@@ -1,5 +1,8 @@
 
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuthStore } from "@/stores/useAuthStore";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { DataTable } from "@/components/DataTable";
@@ -63,78 +66,150 @@ const createSequenceIcon = (sequence: number, color: string = "#3b82f6") => {
   });
 };
 
-const mockHistorico = [
-  {
-    id: "ROT-098",
-    nome: "Rota Norte - Entregas Matinais",
-    motorista: "João Silva",
-    veiculo: "ABC-1234 (Mercedes-Benz)",
-    data: "15/05/2026",
-    status: "Concluída",
-    pontos: 4,
-    estimado: {
-      km: 18.5,
-      tempo: "2h 15m",
-      combustivel: "12.0L"
+type Ponto = {
+  id: string;
+  cliente: string;
+  endereco: string;
+  tipo: string;
+  posicao: [number, number];
+  realizado: boolean;
+  locatario?: string;
+  destinoFinal?: string;
+  modelo: string;
+  equipamento: string;
+};
+
+type RotaHist = {
+  id: string;
+  nome: string;
+  motorista: string;
+  veiculo: string;
+  data: string;
+  status: string;
+  pontos: number;
+  estimado: { km: number; tempo: string; combustivel: string };
+  real: { km: number; tempo: string; combustivel: string };
+  itinerario: Ponto[];
+  rotaRealizada: [number, number][];
+};
+
+function posDe(id: string): [number, number] {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
+  const lat = -23.55 + ((h % 1000) / 1000) * 0.1 - 0.05;
+  const lng = -46.64 + (((h >> 10) % 1000) / 1000) * 0.1 - 0.05;
+  return [lat, lng];
+}
+
+function useHistoricoRotas(): RotaHist[] {
+  const user = useAuthStore((s) => s.user);
+  const activeProfile = useAuthStore(
+    (s) => s.activeProfile() ?? s.user?.profiles[0] ?? null
+  );
+  const rawTenant = activeProfile?.tenantId;
+  const locadorId = rawTenant && rawTenant !== "self" ? rawTenant : user?.id;
+
+  const { data = [] } = useQuery({
+    queryKey: ["historico-rotas", locadorId],
+    enabled: !!locadorId,
+    queryFn: async (): Promise<RotaHist[]> => {
+      const { data: rotas, error } = await supabase
+        .from("rotas")
+        .select(
+          `id, motorista_id, data_programada, status,
+           veiculos ( placa, marca, modelo ),
+           rota_itens (
+             id, sequencia, tipo,
+             ordem_locacao_unidades (
+               id,
+               cacamba_unidades ( codigo, cacambas ( modelo ) ),
+               ordens_locacao (
+                 obras ( rua, numero, bairro, cidade, estado ),
+                 pedido_fornecedores ( pedidos ( locatario_id ) )
+               )
+             )
+           )`
+        )
+        .eq("locador_id", locadorId!)
+        .in("status", ["concluida", "cancelada"])
+        .order("data_programada", { ascending: false });
+      if (error) throw error;
+
+      const ids = Array.from(
+        new Set([
+          ...(rotas ?? []).map((r: any) => r.motorista_id).filter(Boolean),
+          ...(rotas ?? []).flatMap((r: any) =>
+            (r.rota_itens ?? [])
+              .map((it: any) => it.ordem_locacao_unidades?.ordens_locacao?.pedido_fornecedores?.pedidos?.locatario_id)
+              .filter(Boolean)
+          ),
+        ])
+      );
+      const nomes = new Map<string, string>();
+      if (ids.length) {
+        const { data: profs } = await supabase
+          .from("profiles")
+          .select("id, nome")
+          .in("id", ids);
+        (profs ?? []).forEach((p: any) => nomes.set(p.id, p.nome));
+      }
+
+      return (rotas ?? []).map((r: any, idx: number): RotaHist => {
+        const v = r.veiculos ?? {};
+        const itens = [...(r.rota_itens ?? [])].sort((a: any, b: any) => a.sequencia - b.sequencia);
+        const itinerario: Ponto[] = itens.map((it: any) => {
+          const ol = it.ordem_locacao_unidades?.ordens_locacao ?? {};
+          const obra = ol.obras ?? {};
+          const locId = ol.pedido_fornecedores?.pedidos?.locatario_id;
+          const cu = it.ordem_locacao_unidades?.cacamba_unidades ?? {};
+          const cliente = (locId && nomes.get(locId)) ?? "Cliente";
+          return {
+            id: it.id,
+            cliente,
+            endereco: [
+              [obra.rua, obra.numero].filter(Boolean).join(", "),
+              obra.bairro,
+              [obra.cidade, obra.estado].filter(Boolean).join("/"),
+            ].filter(Boolean).join(" - ") || "—",
+            tipo: it.tipo,
+            posicao: posDe(it.id),
+            realizado: true,
+            locatario: it.tipo === "Entrega" ? cliente : undefined,
+            destinoFinal: it.tipo !== "Entrega" ? "—" : undefined,
+            modelo: cu.cacambas?.modelo ?? "—",
+            equipamento: cu.codigo ?? "—",
+          };
+        });
+        return {
+          id: r.id,
+          nome: `Rota ${String(idx + 1).padStart(3, "0")}`,
+          motorista: nomes.get(r.motorista_id) ?? "—",
+          veiculo: v.placa ? `${v.placa}${v.marca || v.modelo ? ` (${[v.marca, v.modelo].filter(Boolean).join(" ")})` : ""}` : "—",
+          data: r.data_programada ? new Date(r.data_programada).toLocaleDateString("pt-BR") : "—",
+          status: r.status === "concluida" ? "Concluída" : "Cancelada",
+          pontos: itinerario.length,
+          estimado: { km: 0, tempo: "—", combustivel: "—" },
+          real: { km: 0, tempo: "—", combustivel: "—" },
+          itinerario,
+          rotaRealizada: itinerario.map((p) => p.posicao),
+        };
+      });
     },
-    real: {
-      km: 20.2,
-      tempo: "2h 40m",
-      combustivel: "13.5L"
-    },
-    itinerario: [
-      { id: 1, cliente: "Construtora Alfa", endereco: "Rua A, 123 - Centro", tipo: "Entrega", posicao: [-20.8113, -49.3758] as [number, number], realizado: true, locatario: "Construtora Alfa LTDA", modelo: "Caçamba 5m³", equipamento: "C-102" },
-      { id: 2, cliente: "João da Silva", endereco: "Av. B, 456 - Jd. América", tipo: "Entrega", posicao: [-20.8150, -49.3850] as [number, number], realizado: true, locatario: "João da Silva", modelo: "Caçamba 3m³", equipamento: "C-055" },
-      { id: 3, cliente: "Reforma Central", endereco: "Praça da Sé, 1 - Centro", tipo: "Retirada", posicao: [-20.8200, -49.3950] as [number, number], realizado: true, destinoFinal: "EcoPonto Norte", modelo: "Caçamba 5m³", equipamento: "C-088" },
-      { id: 4, cliente: "Obra Residencial", endereco: "Rua C, 789 - Vila Nova", tipo: "Entrega", posicao: [-20.8050, -49.3650] as [number, number], realizado: true, locatario: "Residencial Park", modelo: "Caçamba 5m³", equipamento: "C-110" },
-    ],
-    // Rota realmente feita pelo motorista (ligeiramente diferente)
-    rotaRealizada: [
-      [-20.8113, -49.3758],
-      [-20.8120, -49.3780],
-      [-20.8150, -49.3850],
-      [-20.8180, -49.3900],
-      [-20.8200, -49.3950],
-      [-20.8150, -49.3850],
-      [-20.8050, -49.3650],
-    ] as [number, number][]
-  },
-  {
-    id: "ROT-097",
-    nome: "Rota Sul - Coleta Setor B",
-    motorista: "Ricardo Santos",
-    veiculo: "XYZ-9876 (Volkswagen)",
-    data: "14/05/2026",
-    status: "Concluída",
-    pontos: 3,
-    estimado: {
-      km: 12.0,
-      tempo: "1h 30m",
-      combustivel: "8.5L"
-    },
-    real: {
-      km: 11.5,
-      tempo: "1h 20m",
-      combustivel: "7.8L"
-    },
-    itinerario: [
-      { id: 1, cliente: "Escola Municipal", endereco: "Rua Escolar, 50 - Vila Sul", tipo: "Entrega", posicao: [-20.8250, -49.3850] as [number, number], realizado: true, locatario: "Prefeitura Municipal", modelo: "Caçamba 5m³", equipamento: "C-201" },
-      { id: 2, cliente: "Hospital Regional", endereco: "Av. Saúde, 1000 - Sul", tipo: "Retirada", posicao: [-20.8300, -49.3900] as [number, number], realizado: true, destinoFinal: "Aterro Sanitário Municipal", modelo: "Caçamba 5m³", equipamento: "C-202" },
-      { id: 3, cliente: "Condomínio Solar", endereco: "Rua do Sol, 200 - Sul", tipo: "Retirada", posicao: [-20.8350, -49.3950] as [number, number], realizado: true, destinoFinal: "EcoPonto Sul", modelo: "Caçamba 3m³", equipamento: "C-205" },
-    ],
-    rotaRealizada: [
-      [-20.8250, -49.3850],
-      [-20.8300, -49.3900],
-      [-20.8350, -49.3950],
-    ] as [number, number][]
-  }
-];
+  });
+  return data;
+}
 
 const HistoricoRotas = () => {
+  const historico = useHistoricoRotas();
   const [search, setSearch] = useState("");
-  const [selectedRoute, setSelectedRoute] = useState<typeof mockHistorico[0] | null>(null);
+  const [selectedRoute, setSelectedRoute] = useState<RotaHist | null>(null);
 
-  const { totalItems, currentPage, pageSize, setCurrentPage, setPageSize } = usePagination(mockHistorico, 10);
+  const filtered = historico.filter(
+    (r) =>
+      r.nome.toLowerCase().includes(search.toLowerCase()) ||
+      r.motorista.toLowerCase().includes(search.toLowerCase())
+  );
+  const { paginatedData, totalItems, currentPage, pageSize, setCurrentPage, setPageSize } = usePagination(filtered, 10);
 
   return (
     <div className="space-y-6">
@@ -145,7 +220,7 @@ const HistoricoRotas = () => {
 
       <DataTable
         title="Rotas Concluídas"
-        data={mockHistorico}
+        data={paginatedData}
         searchValue={search}
         onSearchChange={setSearch}
         columns={[
@@ -371,7 +446,7 @@ const HistoricoRotas = () => {
 
             {/* Map Area */}
             <div className="flex-1 relative min-h-[400px]">
-              {selectedRoute && (
+              {selectedRoute && selectedRoute.itinerario.length > 0 && (
                 <MapContainer 
                   center={selectedRoute.itinerario[0].posicao} 
                   zoom={13} 

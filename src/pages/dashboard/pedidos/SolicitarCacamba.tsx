@@ -32,6 +32,7 @@ import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthStore } from "@/stores/useAuthStore";
+import { notifyCartChanged } from "@/lib/cart-events";
 
 
 const SolicitarCacamba = () => {
@@ -455,6 +456,7 @@ const SolicitarCacamba = () => {
                         toast.error("Erro ao adicionar item: " + itemErr.message);
                         return;
                       }
+                      notifyCartChanged();
                       toast.success("Adicionado ao carrinho!");
                       navigate("/dashboard/pedidos/carrinho");
                     }}

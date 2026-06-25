@@ -1,5 +1,8 @@
 
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuthStore } from "@/stores/useAuthStore";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { DataTable } from "@/components/DataTable";
@@ -64,41 +67,147 @@ const createSequenceIcon = (sequence: number) => {
   });
 };
 
-const mockRotas = [
-  {
-    id: "ROT-001",
-    nome: "Rota Norte - Setor A",
-    motorista: "João Silva",
-    veiculo: "ABC-1234 (Mercedes-Benz)",
-    data: "22/05/2026",
-    status: "Pendente",
-    pontos: 3,
-    itinerario: [
-      { id: 1, cliente: "Construtora Alfa", endereco: "Rua A, 123 - Centro", tipo: "Entrega", posicao: [-20.8113, -49.3758] as [number, number] },
-      { id: 2, cliente: "João da Silva", endereco: "Av. B, 456 - Jd. América", tipo: "Entrega", posicao: [-20.8150, -49.3850] as [number, number] },
-      { id: 3, cliente: "Reforma Central", endereco: "Praça da Sé, 1 - Centro", tipo: "Retirada", posicao: [-20.8200, -49.3950] as [number, number] },
-    ]
-  },
-  {
-    id: "ROT-002",
-    nome: "Rota Sul - Setor B",
-    motorista: "Ricardo Santos",
-    veiculo: "XYZ-9876 (Volkswagen)",
-    data: "23/05/2026",
-    status: "Pendente",
-    pontos: 5,
-    itinerario: [
-      { id: 1, cliente: "Escola Municipal", endereco: "Rua Escolar, 50 - Vila Sul", tipo: "Entrega", posicao: [-20.8250, -49.3850] as [number, number] },
-      { id: 2, cliente: "Hospital Regional", endereco: "Av. Saúde, 1000 - Sul", tipo: "Retirada", posicao: [-20.8300, -49.3900] as [number, number] },
-    ]
-  }
-];
+type Ponto = {
+  id: string;
+  cliente: string;
+  endereco: string;
+  tipo: string;
+  posicao: [number, number];
+};
+
+type Rota = {
+  id: string;
+  nome: string;
+  motorista: string;
+  veiculo: string;
+  data: string;
+  status: string;
+  pontos: number;
+  itinerario: Ponto[];
+};
+
+function posDe(id: string): [number, number] {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
+  const lat = -23.55 + ((h % 1000) / 1000) * 0.1 - 0.05;
+  const lng = -46.64 + (((h >> 10) % 1000) / 1000) * 0.1 - 0.05;
+  return [lat, lng];
+}
+
+function useRotasAgendadas(): Rota[] {
+  const user = useAuthStore((s) => s.user);
+  const activeProfile = useAuthStore(
+    (s) => s.activeProfile() ?? s.user?.profiles[0] ?? null
+  );
+  const rawTenant = activeProfile?.tenantId;
+  const locadorId = rawTenant && rawTenant !== "self" ? rawTenant : user?.id;
+
+  const { data = [] } = useQuery({
+    queryKey: ["rotas-agendadas", locadorId],
+    enabled: !!locadorId,
+    queryFn: async (): Promise<Rota[]> => {
+      const { data: rotas, error } = await supabase
+        .from("rotas")
+        .select(
+          `id, motorista_id, data_programada, status,
+           veiculos ( placa, marca, modelo ),
+           rota_itens (
+             id, sequencia, tipo,
+             ordem_locacao_unidades (
+               id,
+               ordens_locacao (
+                 obras ( rua, numero, bairro, cidade, estado ),
+                 pedido_fornecedores ( pedidos ( locatario_id ) )
+               )
+             )
+           )`
+        )
+        .eq("locador_id", locadorId!)
+        .in("status", ["agendada", "em_andamento"])
+        .order("data_programada", { ascending: true });
+      if (error) throw error;
+
+      const motIds = Array.from(
+        new Set((rotas ?? []).map((r: any) => r.motorista_id).filter(Boolean))
+      );
+      const locIds = Array.from(
+        new Set(
+          (rotas ?? []).flatMap((r: any) =>
+            (r.rota_itens ?? [])
+              .map(
+                (it: any) =>
+                  it.ordem_locacao_unidades?.ordens_locacao
+                    ?.pedido_fornecedores?.pedidos?.locatario_id
+              )
+              .filter(Boolean)
+          )
+        )
+      );
+      const ids = Array.from(new Set([...motIds, ...locIds]));
+      const nomes = new Map<string, string>();
+      if (ids.length) {
+        const { data: profs } = await supabase
+          .from("profiles")
+          .select("id, nome")
+          .in("id", ids);
+        (profs ?? []).forEach((p: any) => nomes.set(p.id, p.nome));
+      }
+
+      return (rotas ?? []).map((r: any, idx: number): Rota => {
+        const v = r.veiculos ?? {};
+        const veiculoLabel = v.placa
+          ? `${v.placa}${v.marca || v.modelo ? ` (${[v.marca, v.modelo].filter(Boolean).join(" ")})` : ""}`
+          : "—";
+        const itens = [...(r.rota_itens ?? [])].sort(
+          (a: any, b: any) => a.sequencia - b.sequencia
+        );
+        return {
+          id: r.id,
+          nome: `Rota ${String(idx + 1).padStart(3, "0")}`,
+          motorista: nomes.get(r.motorista_id) ?? "—",
+          veiculo: veiculoLabel,
+          data: r.data_programada
+            ? new Date(r.data_programada).toLocaleDateString("pt-BR")
+            : "—",
+          status: r.status,
+          pontos: itens.length,
+          itinerario: itens.map((it: any): Ponto => {
+            const ol = it.ordem_locacao_unidades?.ordens_locacao ?? {};
+            const obra = ol.obras ?? {};
+            const locId = ol.pedido_fornecedores?.pedidos?.locatario_id;
+            const endereco = [
+              [obra.rua, obra.numero].filter(Boolean).join(", "),
+              obra.bairro,
+              [obra.cidade, obra.estado].filter(Boolean).join("/"),
+            ]
+              .filter(Boolean)
+              .join(" - ");
+            return {
+              id: it.id,
+              cliente: (locId && nomes.get(locId)) ?? "Cliente",
+              endereco: endereco || "—",
+              tipo: it.tipo,
+              posicao: posDe(it.id),
+            };
+          }),
+        };
+      });
+    },
+  });
+  return data;
+}
 
 const RotasAgendadas = () => {
+  const rotas = useRotasAgendadas();
   const [search, setSearch] = useState("");
-  const [selectedRoute, setSelectedRoute] = useState<typeof mockRotas[0] | null>(null);
+  const [selectedRoute, setSelectedRoute] = useState<Rota | null>(null);
 
-  const { paginatedData, currentPage, pageSize, setCurrentPage, setPageSize, totalItems } = usePagination(mockRotas, 10);
+  const filtered = rotas.filter(
+    (r) =>
+      r.nome.toLowerCase().includes(search.toLowerCase()) ||
+      r.motorista.toLowerCase().includes(search.toLowerCase())
+  );
+  const { paginatedData, currentPage, pageSize, setCurrentPage, setPageSize, totalItems } = usePagination(filtered, 10);
 
   return (
     <div className="space-y-6">
@@ -109,7 +218,7 @@ const RotasAgendadas = () => {
 
       <DataTable
         title="Próximas Rotas"
-        data={mockRotas}
+        data={paginatedData}
         searchValue={search}
         onSearchChange={setSearch}
         columns={[
@@ -277,7 +386,7 @@ const RotasAgendadas = () => {
 
             {/* Map */}
             <div className="flex-1 relative min-h-[300px]">
-              {selectedRoute && (
+              {selectedRoute && selectedRoute.itinerario.length > 0 && (
                 <MapContainer 
                   center={selectedRoute.itinerario[0].posicao} 
                   zoom={13} 

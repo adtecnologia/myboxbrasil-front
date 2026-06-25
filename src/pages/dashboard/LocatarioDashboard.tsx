@@ -6,8 +6,6 @@ import {
   Truck,
   ClipboardList,
   Calendar,
-  TrendingUp,
-  TrendingDown,
   PlusCircle,
   AlertCircle,
   ArrowRight,
@@ -19,6 +17,9 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PageHeader } from "@/components/PageHeader";
 import { useAuthStore } from "@/stores/useAuthStore";
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import {
   BarChart,
   Bar,
@@ -30,29 +31,95 @@ import {
 } from "recharts";
 
 const months = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-
-const ordensMes = months.map((m, i) => ({
-  name: m.slice(0, 3),
-  value: i === 10 ? 1 : 0,
-}));
-
-const statCards = [
-  { label: "CDF emitidos", value: 1, icon: Container, change: "+1", up: true },
-  { label: "Resíduos tratados", value: "1m³", icon: Recycle, change: "+1m³", up: true },
-  { label: "Locadas", value: 0, icon: ShoppingCart, change: "0", up: true },
-  { label: "Entregas Pendentes", value: 1, icon: PackageOpen, change: "+1", up: true },
-  { label: "Em Trânsito", value: 0, icon: Truck, change: "0", up: true },
-  { label: "Em Análise", value: 0, icon: ClipboardList, change: "0", up: true },
-];
-
-const ultimosPedidos = [
-  { label: "Modelo Estacionária C7 - Cor: Branco", data: "11/12/2025 - 10:48" },
-  { label: "Modelo Estacionária C7 - Cor: Branco", data: "11/12/2025 - 10:33" },
-];
+const fmtBRL = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 const LocatarioDashboard = () => {
   const activeProfileType = useAuthStore((state) => state.activeProfileType());
+  const userId = useAuthStore((s) => s.user?.id);
   const isLocatario = activeProfileType === "locatario";
+
+  const { data } = useQuery({
+    queryKey: ["locatario-dashboard", userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const { data: pedidos } = await supabase
+        .from("pedidos")
+        .select("id, valor_total, created_at")
+        .eq("locatario_id", userId!)
+        .order("created_at", { ascending: false });
+      const pedidoIds = (pedidos ?? []).map((p) => p.id);
+      const { data: pfs } = pedidoIds.length
+        ? await supabase
+            .from("pedido_fornecedores")
+            .select("id, pedido_id")
+            .in("pedido_id", pedidoIds)
+        : { data: [] as Array<{ id: string; pedido_id: string }> };
+      const pfIds = (pfs ?? []).map((p) => p.id);
+      const { data: ordens } = pfIds.length
+        ? await supabase
+            .from("ordens_locacao")
+            .select("id, status, created_at, pedido_fornecedor_id, equipment_type, cacamba_id, equipamento_id")
+            .in("pedido_fornecedor_id", pfIds)
+            .order("created_at", { ascending: false })
+        : { data: [] as Array<{ id: string; status: string; created_at: string; pedido_fornecedor_id: string; equipment_type: string; cacamba_id: string | null; equipamento_id: string | null }> };
+
+      const cacIds = Array.from(new Set((ordens ?? []).map((o) => o.cacamba_id).filter(Boolean) as string[]));
+      const eqpIds = Array.from(new Set((ordens ?? []).map((o) => o.equipamento_id).filter(Boolean) as string[]));
+      const { data: cacs } = cacIds.length
+        ? await supabase.from("cacambas").select("id, modelo, cores").in("id", cacIds)
+        : { data: [] as Array<{ id: string; modelo: string; cores: string | null }> };
+      const { data: eqps } = eqpIds.length
+        ? await supabase.from("equipamentos").select("id, modelo").in("id", eqpIds)
+        : { data: [] as Array<{ id: string; modelo: string }> };
+
+      return { pedidos: pedidos ?? [], ordens: ordens ?? [], cacs: cacs ?? [], eqps: eqps ?? [] };
+    },
+  });
+
+  const ordens = data?.ordens ?? [];
+
+  const stats = useMemo(() => {
+    const byStatus = (s: string) => ordens.filter((o) => o.status === s).length;
+    return [
+      { label: "CDF emitidos", value: 0, icon: Container },
+      { label: "Resíduos tratados", value: "0m³", icon: Recycle },
+      { label: "Locadas", value: byStatus("entregue"), icon: ShoppingCart },
+      { label: "Entregas Pendentes", value: byStatus("aguardando_entrega"), icon: PackageOpen },
+      { label: "Em Trânsito", value: byStatus("em_transito"), icon: Truck },
+      { label: "Em Análise", value: byStatus("aguardando_aprovacao"), icon: ClipboardList },
+    ];
+  }, [ordens]);
+
+  const ordensMes = useMemo(() => {
+    const year = new Date().getFullYear();
+    const counts = new Array(12).fill(0) as number[];
+    ordens.forEach((o) => {
+      const d = new Date(o.created_at);
+      if (d.getFullYear() === year) counts[d.getMonth()] += 1;
+    });
+    return months.map((m, i) => ({ name: m.slice(0, 3), value: counts[i] }));
+  }, [ordens]);
+
+  const ultimosPedidos = useMemo(() => {
+    const cacMap = new Map<string, { id: string; modelo: string; cores: string | null }>(
+      (data?.cacs ?? []).map((c) => [c.id, c] as const)
+    );
+    const eqpMap = new Map<string, { id: string; modelo: string }>(
+      (data?.eqps ?? []).map((e) => [e.id, e] as const)
+    );
+    return ordens.slice(0, 4).map((o) => {
+      const label =
+        o.equipment_type === "cacamba" && o.cacamba_id
+          ? `Caçamba ${cacMap.get(o.cacamba_id)?.modelo ?? ""}${cacMap.get(o.cacamba_id)?.cores ? ` - ${cacMap.get(o.cacamba_id)?.cores}` : ""}`
+          : o.equipamento_id
+          ? `Equipamento ${eqpMap.get(o.equipamento_id)?.modelo ?? ""}`
+          : "Item";
+      return {
+        label,
+        data: new Date(o.created_at).toLocaleString("pt-BR"),
+      };
+    });
+  }, [ordens, data]);
 
   return (
     <div className="space-y-6 pb-10">
@@ -101,8 +168,8 @@ const LocatarioDashboard = () => {
               </div>
               <div>
                 <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Próxima Fatura a Vencer</p>
-                <p className="text-lg font-bold text-amber-900 leading-tight">R$ 2.450,00</p>
-                <p className="text-[11px] text-amber-700 font-medium">Vencimento: 15/06/2026</p>
+                <p className="text-lg font-bold text-amber-900 leading-tight">{fmtBRL(0)}</p>
+                <p className="text-[11px] text-amber-700 font-medium">Sem faturas em aberto</p>
               </div>
             </div>
             <Button variant="ghost" size="sm" asChild className="text-amber-700 hover:text-amber-800 hover:bg-amber-500/10">
@@ -121,8 +188,8 @@ const LocatarioDashboard = () => {
               </div>
               <div>
                 <p className="text-[10px] font-bold text-primary uppercase tracking-wider">Total em Aberto</p>
-                <p className="text-lg font-bold text-foreground leading-tight">R$ 4.250,00</p>
-                <p className="text-[11px] text-muted-foreground font-medium">Soma de todas as faturas em aberto</p>
+                <p className="text-lg font-bold text-foreground leading-tight">{fmtBRL(0)}</p>
+                <p className="text-[11px] text-muted-foreground font-medium">Sem faturas em aberto</p>
               </div>
             </div>
             <Button variant="ghost" size="sm" asChild className="text-primary hover:text-primary hover:bg-primary/10">
@@ -136,22 +203,13 @@ const LocatarioDashboard = () => {
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-        {statCards.map((stat) => (
+        {stats.map((stat) => (
           <Card key={stat.label} className="overflow-hidden border-none shadow-sm bg-card hover:shadow-md transition-shadow">
             <CardContent className="p-4">
               <div className="flex items-center justify-between mb-3">
                 <div className="rounded-lg bg-primary/10 p-2">
                   <stat.icon className="h-4 w-4 text-primary" />
                 </div>
-                <Badge
-                  variant="outline"
-                  className={`text-[10px] px-1.5 py-0 h-5 font-medium border-0 ${
-                    stat.up ? "bg-emerald-500/10 text-emerald-600" : "bg-rose-500/10 text-rose-600"
-                  }`}
-                >
-                  {stat.up ? <TrendingUp className="h-3 w-3 mr-0.5" /> : <TrendingDown className="h-3 w-3 mr-0.5" />}
-                  {stat.change}
-                </Badge>
               </div>
               <p className="text-2xl font-bold tracking-tight text-foreground">{stat.value}</p>
               <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mt-1 leading-tight">{stat.label}</p>
@@ -204,6 +262,9 @@ const LocatarioDashboard = () => {
             <CardDescription className="text-sm">Suas locações recentes</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
+            {ultimosPedidos.length === 0 && (
+              <p className="text-xs text-muted-foreground text-center py-6">Sem pedidos recentes</p>
+            )}
             {ultimosPedidos.map((p, i) => (
               <div
                 key={i}

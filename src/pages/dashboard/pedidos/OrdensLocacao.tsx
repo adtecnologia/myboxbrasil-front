@@ -16,6 +16,8 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import myboxLogo from "@/assets/mybox-logo.png";
 import { useAuthStore } from "@/stores/useAuthStore";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -765,6 +767,20 @@ const OrdensLocacao = () => {
   const isDestinoFinal = activeProfileType === "destino";
   const isPrefeitura = activeProfileType === "prefeitura";
 
+  const entregasDB = useOrdensFromDB(
+    ["entrega_pendente", "em_transito_locacao"],
+    "view"
+  );
+  const locadasDB = useOrdensFromDB(
+    ["locada", "aguardando_retirada", "em_transito_retirada"],
+    "view"
+  );
+  const analiseDB = useOrdensFromDB(
+    ["em_transito_destino_final", "aguardando_analise"],
+    "view-analise"
+  );
+  const cdfDB = useOrdensFromDB(["cdf_emitido"], "view-cdf");
+
   const filteredTabsConfig = useMemo(() => {
     if (isDestinoFinal) {
       return allTabsConfig.filter(t => t.key === "analise" || t.key === "cdf");
@@ -772,8 +788,14 @@ const OrdensLocacao = () => {
     if (isPrefeitura) {
       return allTabsConfig.filter(t => t.key === "locadas" || t.key === "cdf");
     }
-    return allTabsConfig;
-  }, [isDestinoFinal, isPrefeitura]);
+    return allTabsConfig.map((t) => {
+      if (t.key === "entregas") return { ...t, data: entregasDB };
+      if (t.key === "locadas") return { ...t, data: locadasDB };
+      if (t.key === "analise") return { ...t, data: analiseDB };
+      if (t.key === "cdf") return { ...t, data: cdfDB };
+      return t;
+    });
+  }, [isDestinoFinal, isPrefeitura, entregasDB, locadasDB, analiseDB, cdfDB]);
 
   const [tab, setTab] = useState<TabKey>(filteredTabsConfig[0]?.key || "entregas");
 
@@ -849,3 +871,127 @@ const OrdensLocacao = () => {
 };
 
 export default OrdensLocacao;
+
+// ============= DB-backed ordens =============
+const STATUS_META: Record<
+  string,
+  { label: string; variant: Ordem["statusVariant"] }
+> = {
+  entrega_pendente: { label: "Entrega pendente", variant: "warning" },
+  em_transito_locacao: { label: "Em trânsito para locação", variant: "purple" },
+  locada: { label: "Locada", variant: "info" },
+  aguardando_retirada: { label: "Aguardando retirada", variant: "danger" },
+  em_transito_retirada: { label: "Em trânsito para retirada", variant: "purple" },
+  em_transito_destino_final: { label: "Em trânsito para destino final", variant: "danger" },
+  aguardando_analise: { label: "Aguardando análise", variant: "warning" },
+  cdf_emitido: { label: "CDF emitido", variant: "danger" },
+  cancelada: { label: "Cancelada", variant: "danger" },
+};
+
+function useOrdensFromDB(statuses: string[], mode: "view" | "view-analise" | "view-cdf"): Ordem[] {
+  const user = useAuthStore((s) => s.user);
+  const activeProfile = useAuthStore(
+    (s) => s.activeProfile() ?? s.user?.profiles[0] ?? null
+  );
+  const profileType = activeProfile?.profileType;
+  const isLocador = profileType === "locador";
+  const rawTenant = activeProfile?.tenantId;
+  const locadorId =
+    rawTenant && rawTenant !== "self" ? rawTenant : user?.id;
+
+  const { data = [] } = useQuery({
+    queryKey: [
+      "ordens-db",
+      statuses.join(","),
+      profileType,
+      isLocador ? locadorId : user?.id,
+    ],
+    enabled: !!user?.id && !!profileType,
+    queryFn: async (): Promise<Ordem[]> => {
+      const query = supabase
+        .from("ordem_locacao_unidades")
+        .select(
+          `id, status,
+           cacamba_unidades ( codigo, cacambas ( modelo ) ),
+           ordens_locacao!inner (
+             id, equipment_type, created_at,
+             obras ( rua, numero, bairro, cidade, estado ),
+             pedido_fornecedores!inner (
+               id, numero, status, locador_id,
+               pedidos!inner ( id, numero, locatario_id )
+             )
+           )`
+        )
+        .in("status", statuses);
+
+      const { data: rows, error } = isLocador
+        ? await query.eq("ordens_locacao.pedido_fornecedores.locador_id", locadorId!)
+        : await query.eq("ordens_locacao.pedido_fornecedores.pedidos.locatario_id", user!.id);
+      if (error) throw error;
+
+      const aceitos = (rows ?? []).filter(
+        (r: any) => r.ordens_locacao?.pedido_fornecedores?.status === "aceito"
+      );
+
+      const locatarioIds = Array.from(
+        new Set(
+          aceitos
+            .map(
+              (r: any) =>
+                r.ordens_locacao?.pedido_fornecedores?.pedidos?.locatario_id
+            )
+            .filter(Boolean)
+        )
+      );
+      const nomes = new Map<string, string>();
+      if (locatarioIds.length) {
+        const { data: profs } = await supabase
+          .from("profiles")
+          .select("id, nome")
+          .in("id", locatarioIds as string[]);
+        (profs ?? []).forEach((p: any) => nomes.set(p.id, p.nome));
+      }
+
+      return aceitos.map((r: any): Ordem => {
+        const ol = r.ordens_locacao ?? {};
+        const pf = ol.pedido_fornecedores ?? {};
+        const ped = pf.pedidos ?? {};
+        const obra = ol.obras ?? {};
+        const cu = r.cacamba_unidades ?? {};
+        const cac = cu.cacambas ?? {};
+        const endereco = obra
+          ? [
+              [obra.rua, obra.numero].filter(Boolean).join(", "),
+              obra.bairro,
+              [obra.cidade, obra.estado].filter(Boolean).join("/"),
+            ]
+              .filter(Boolean)
+              .join(" - ")
+          : "—";
+        const createdAt = ol.created_at
+          ? new Date(ol.created_at).toLocaleString("pt-BR")
+          : "—";
+        const meta = STATUS_META[r.status] ?? {
+          label: r.status,
+          variant: "warning" as const,
+        };
+        return {
+          id: r.id,
+          dataPedido: mode === "view" ? createdAt : undefined,
+          dataLocacao: mode === "view-cdf" ? createdAt : undefined,
+          dataRetirada: mode === "view-analise" ? createdAt : undefined,
+          cliente: nomes.get(ped.locatario_id) ?? "—",
+          endereco,
+          pedidoNum: ped.numero ?? 0,
+          codigo: cu.codigo ?? "—",
+          modelo: cac.modelo ?? ol.equipment_type ?? "—",
+          statusLabel: meta.label,
+          statusVariant: meta.variant,
+          retirada: { status: "Aguardando agendamento" },
+        };
+      });
+    },
+  });
+
+  return data;
+}

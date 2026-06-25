@@ -1,15 +1,42 @@
+import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "@/components/DataTable";
-import { Package, ArrowUpCircle, ArrowDownCircle } from "lucide-react";
+import { ArrowUpCircle, ArrowDownCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-
-const registroData = [
-  { id: "1", data: "22/05/2026", tipo: "Entrega", cacamba: "C-452", local: "Rua das Flores, 123" },
-  { id: "2", data: "22/05/2026", tipo: "Retirada", cacamba: "C-112", local: "Av. Brasil, 500" },
-  { id: "3", data: "22/05/2026", tipo: "Entrega", cacamba: "C-889", local: "Rua Piauí, 45" },
-];
+import { useMotoristaRotas } from "@/hooks/useMotoristaRotas";
 
 const RegistroCacambas = () => {
+  const { data: rotas = [] } = useMotoristaRotas({ includeFinalizadas: true });
+  const hoje = new Date().toISOString().slice(0, 10);
+
+  const concluidas = useMemo(
+    () => rotas.filter((r) => r.status === "concluida"),
+    [rotas]
+  );
+
+  const itensHoje = concluidas
+    .filter((r) => r.data_programada === hoje)
+    .flatMap((r) => r.itens);
+
+  const entregasHoje = itensHoje.filter(
+    (i) => i.tipo?.toLowerCase() === "entrega"
+  ).length;
+  const retiradasHoje = itensHoje.filter(
+    (i) => i.tipo?.toLowerCase() === "retirada"
+  ).length;
+
+  const registroData = concluidas.flatMap((r) =>
+    r.itens.map((i) => ({
+      id: i.id,
+      data: r.data_programada
+        ? new Date(r.data_programada).toLocaleDateString("pt-BR")
+        : "—",
+      tipo: i.tipo?.toLowerCase() === "retirada" ? "Retirada" : "Entrega",
+      cacamba: `#${i.sequencia}`,
+      local: i.endereco ?? "—",
+    }))
+  );
+
   return (
     <div className="space-y-6">
       <div className="rounded-xl bg-gradient-to-r from-primary to-[hsl(155,45%,40%)] p-6 text-primary-foreground">
@@ -24,7 +51,7 @@ const RegistroCacambas = () => {
             <ArrowDownCircle className="h-4 w-4 text-emerald-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">12</div>
+            <div className="text-2xl font-bold">{entregasHoje}</div>
           </CardContent>
         </Card>
         <Card>
@@ -33,7 +60,7 @@ const RegistroCacambas = () => {
             <ArrowUpCircle className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">8</div>
+            <div className="text-2xl font-bold">{retiradasHoje}</div>
           </CardContent>
         </Card>
       </div>

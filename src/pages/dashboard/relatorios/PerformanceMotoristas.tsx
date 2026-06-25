@@ -2,11 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "@/components/DataTable";
 import { Truck, AlertTriangle, CheckCircle } from "lucide-react";
 
-const performanceData = [
-  { motorista: "João Silva", entregas: 145, retiradas: 138, atrasos: 2, ocorrencias: 0 },
-  { motorista: "Pedro Santos", entregas: 132, retiradas: 128, atrasos: 5, ocorrencias: 1 },
-  { motorista: "Ricardo Lima", entregas: 120, retiradas: 115, atrasos: 1, ocorrencias: 0 },
-];
+const performanceData: { motorista: string; entregas: number; retiradas: number; atrasos: number; ocorrencias: number }[] = [];
 
 const PerformanceMotoristas = () => {
   return (
@@ -23,7 +19,7 @@ const PerformanceMotoristas = () => {
             <Truck className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">778</div>
+            <div className="text-2xl font-bold">0</div>
           </CardContent>
         </Card>
         <Card>
@@ -32,7 +28,7 @@ const PerformanceMotoristas = () => {
             <CheckCircle className="h-4 w-4 text-emerald-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">96.8%</div>
+            <div className="text-2xl font-bold">—</div>
           </CardContent>
         </Card>
         <Card>
@@ -41,7 +37,7 @@ const PerformanceMotoristas = () => {
             <AlertTriangle className="h-4 w-4 text-amber-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">3</div>
+            <div className="text-2xl font-bold">0</div>
           </CardContent>
         </Card>
       </div>

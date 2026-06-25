@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthStore } from "@/stores/useAuthStore";
+import { notifyCartChanged } from "@/lib/cart-events";
 
 export interface CartItem {
   id: string;
@@ -122,12 +123,14 @@ const Carrinho = () => {
     const { error } = await supabase.from("carrinho_itens").delete().eq("id", id);
     if (error) { toast.error("Erro ao remover: " + error.message); return; }
     setItems(prev => prev.filter(i => i.id !== id));
+    notifyCartChanged();
   };
 
   const updateQuantity = async (id: string, quantity: number) => {
     const { error } = await supabase.from("carrinho_itens").update({ quantidade: quantity }).eq("id", id);
     if (error) { toast.error("Erro ao atualizar: " + error.message); return; }
     setItems(prev => prev.map(i => i.id === id ? { ...i, quantity } : i));
+    notifyCartChanged();
   };
 
   const total = () => items.reduce((acc, i) => acc + i.price * i.quantity, 0);
@@ -138,6 +141,7 @@ const Carrinho = () => {
     }
     setItems([]);
     setCarrinhoId(null);
+    notifyCartChanged();
   };
   const [vendorPaymentMethods, setVendorPaymentMethods] = useState<Record<string, string>>({});
   const [prazosSelecionados, setPrazosSelecionados] = useState<Record<string, string>>({});
@@ -210,6 +214,7 @@ const Carrinho = () => {
     toast.success("Pedido enviado com sucesso!");
     setItems([]);
     setCarrinhoId(null);
+    notifyCartChanged();
     navigate("/dashboard/pedidos");
   };
 

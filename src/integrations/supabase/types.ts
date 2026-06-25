@@ -262,6 +262,36 @@ export type Database = {
         }
         Relationships: []
       }
+      cidades_taxas: {
+        Row: {
+          codigo_ibge: string
+          created_at: string
+          estado: string
+          id: string
+          nome: string
+          taxa_operacional: number
+          updated_at: string
+        }
+        Insert: {
+          codigo_ibge: string
+          created_at?: string
+          estado: string
+          id?: string
+          nome: string
+          taxa_operacional?: number
+          updated_at?: string
+        }
+        Update: {
+          codigo_ibge?: string
+          created_at?: string
+          estado?: string
+          id?: string
+          nome?: string
+          taxa_operacional?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       classes_residuo: {
         Row: {
           created_at: string
@@ -729,72 +759,217 @@ export type Database = {
           },
         ]
       }
-      pedidos: {
+      ordem_locacao_unidades: {
+        Row: {
+          cacamba_unidade_id: string
+          created_at: string
+          id: string
+          ordem_locacao_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          cacamba_unidade_id: string
+          created_at?: string
+          id?: string
+          ordem_locacao_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          cacamba_unidade_id?: string
+          created_at?: string
+          id?: string
+          ordem_locacao_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ordem_locacao_unidades_cacamba_unidade_id_fkey"
+            columns: ["cacamba_unidade_id"]
+            isOneToOne: false
+            referencedRelation: "cacamba_unidades"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ordem_locacao_unidades_ordem_locacao_id_fkey"
+            columns: ["ordem_locacao_id"]
+            isOneToOne: false
+            referencedRelation: "ordens_locacao"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ordens_locacao: {
         Row: {
           cacamba_id: string | null
-          carrinho_id: string | null
-          carrinho_item_id: string | null
           created_at: string
           equipamento_id: string | null
           equipment_type: Database["public"]["Enums"]["item_tipo"]
           id: string
-          locador_id: string | null
-          locatario_id: string
           numero: number
           obra_id: string | null
           observacoes: string | null
+          pedido_fornecedor_id: string
           preco_unitario: number
           quantidade: number
-          status: Database["public"]["Enums"]["pedido_status"]
+          status: Database["public"]["Enums"]["ordem_locacao_status"]
           updated_at: string
           valor_total: number
         }
         Insert: {
           cacamba_id?: string | null
-          carrinho_id?: string | null
-          carrinho_item_id?: string | null
           created_at?: string
           equipamento_id?: string | null
           equipment_type: Database["public"]["Enums"]["item_tipo"]
           id?: string
-          locador_id?: string | null
-          locatario_id: string
           numero?: number
           obra_id?: string | null
           observacoes?: string | null
+          pedido_fornecedor_id: string
           preco_unitario?: number
           quantidade?: number
-          status?: Database["public"]["Enums"]["pedido_status"]
+          status?: Database["public"]["Enums"]["ordem_locacao_status"]
           updated_at?: string
           valor_total?: number
         }
         Update: {
           cacamba_id?: string | null
-          carrinho_id?: string | null
-          carrinho_item_id?: string | null
           created_at?: string
           equipamento_id?: string | null
           equipment_type?: Database["public"]["Enums"]["item_tipo"]
           id?: string
-          locador_id?: string | null
-          locatario_id?: string
           numero?: number
           obra_id?: string | null
           observacoes?: string | null
+          pedido_fornecedor_id?: string
           preco_unitario?: number
           quantidade?: number
-          status?: Database["public"]["Enums"]["pedido_status"]
+          status?: Database["public"]["Enums"]["ordem_locacao_status"]
           updated_at?: string
           valor_total?: number
         }
         Relationships: [
           {
-            foreignKeyName: "pedidos_cacamba_id_fkey"
+            foreignKeyName: "ordens_locacao_cacamba_id_fkey"
             columns: ["cacamba_id"]
             isOneToOne: false
             referencedRelation: "cacambas"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "ordens_locacao_equipamento_id_fkey"
+            columns: ["equipamento_id"]
+            isOneToOne: false
+            referencedRelation: "equipamentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ordens_locacao_obra_id_fkey"
+            columns: ["obra_id"]
+            isOneToOne: false
+            referencedRelation: "obras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ordens_locacao_pedido_fornecedor_id_fkey"
+            columns: ["pedido_fornecedor_id"]
+            isOneToOne: false
+            referencedRelation: "pedido_fornecedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pedido_fornecedores: {
+        Row: {
+          created_at: string
+          forma_pagamento_id: string | null
+          id: string
+          locador_id: string | null
+          motivo_recusa: string | null
+          numero: number
+          pedido_id: string
+          status: Database["public"]["Enums"]["pedido_fornecedor_status"]
+          updated_at: string
+          valor_total: number
+        }
+        Insert: {
+          created_at?: string
+          forma_pagamento_id?: string | null
+          id?: string
+          locador_id?: string | null
+          motivo_recusa?: string | null
+          numero?: number
+          pedido_id: string
+          status?: Database["public"]["Enums"]["pedido_fornecedor_status"]
+          updated_at?: string
+          valor_total?: number
+        }
+        Update: {
+          created_at?: string
+          forma_pagamento_id?: string | null
+          id?: string
+          locador_id?: string | null
+          motivo_recusa?: string | null
+          numero?: number
+          pedido_id?: string
+          status?: Database["public"]["Enums"]["pedido_fornecedor_status"]
+          updated_at?: string
+          valor_total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pedido_fornecedores_forma_pagamento_id_fkey"
+            columns: ["forma_pagamento_id"]
+            isOneToOne: false
+            referencedRelation: "formas_pagamento"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pedido_fornecedores_pedido_id_fkey"
+            columns: ["pedido_id"]
+            isOneToOne: false
+            referencedRelation: "pedidos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pedidos: {
+        Row: {
+          carrinho_id: string | null
+          created_at: string
+          id: string
+          locatario_id: string
+          numero: number
+          observacoes: string | null
+          status: Database["public"]["Enums"]["pedido_status"]
+          updated_at: string
+          valor_total: number
+        }
+        Insert: {
+          carrinho_id?: string | null
+          created_at?: string
+          id?: string
+          locatario_id: string
+          numero?: number
+          observacoes?: string | null
+          status?: Database["public"]["Enums"]["pedido_status"]
+          updated_at?: string
+          valor_total?: number
+        }
+        Update: {
+          carrinho_id?: string | null
+          created_at?: string
+          id?: string
+          locatario_id?: string
+          numero?: number
+          observacoes?: string | null
+          status?: Database["public"]["Enums"]["pedido_status"]
+          updated_at?: string
+          valor_total?: number
+        }
+        Relationships: [
           {
             foreignKeyName: "pedidos_carrinho_id_fkey"
             columns: ["carrinho_id"]
@@ -802,32 +977,12 @@ export type Database = {
             referencedRelation: "carrinhos"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "pedidos_carrinho_item_id_fkey"
-            columns: ["carrinho_item_id"]
-            isOneToOne: false
-            referencedRelation: "carrinho_itens"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "pedidos_equipamento_id_fkey"
-            columns: ["equipamento_id"]
-            isOneToOne: false
-            referencedRelation: "equipamentos"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "pedidos_obra_id_fkey"
-            columns: ["obra_id"]
-            isOneToOne: false
-            referencedRelation: "obras"
-            referencedColumns: ["id"]
-          },
         ]
       }
       politica_privacidade: {
         Row: {
-          conteudo: string
+          arquivo_url: string | null
+          conteudo: string | null
           created_at: string
           id: string
           situacao: string
@@ -837,7 +992,8 @@ export type Database = {
           versao: string
         }
         Insert: {
-          conteudo: string
+          arquivo_url?: string | null
+          conteudo?: string | null
           created_at?: string
           id?: string
           situacao?: string
@@ -847,7 +1003,8 @@ export type Database = {
           versao: string
         }
         Update: {
-          conteudo?: string
+          arquivo_url?: string | null
+          conteudo?: string | null
           created_at?: string
           id?: string
           situacao?: string
@@ -957,6 +1114,92 @@ export type Database = {
         }
         Relationships: []
       }
+      rota_itens: {
+        Row: {
+          created_at: string
+          id: string
+          ordem_locacao_unidade_id: string
+          rota_id: string
+          sequencia: number
+          tipo: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ordem_locacao_unidade_id: string
+          rota_id: string
+          sequencia: number
+          tipo: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ordem_locacao_unidade_id?: string
+          rota_id?: string
+          sequencia?: number
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rota_itens_ordem_locacao_unidade_id_fkey"
+            columns: ["ordem_locacao_unidade_id"]
+            isOneToOne: false
+            referencedRelation: "ordem_locacao_unidades"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rota_itens_rota_id_fkey"
+            columns: ["rota_id"]
+            isOneToOne: false
+            referencedRelation: "rotas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rotas: {
+        Row: {
+          created_at: string
+          data_programada: string
+          id: string
+          locador_id: string
+          motorista_id: string | null
+          observacoes: string | null
+          status: string
+          updated_at: string
+          veiculo_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          data_programada: string
+          id?: string
+          locador_id: string
+          motorista_id?: string | null
+          observacoes?: string | null
+          status?: string
+          updated_at?: string
+          veiculo_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          data_programada?: string
+          id?: string
+          locador_id?: string
+          motorista_id?: string | null
+          observacoes?: string | null
+          status?: string
+          updated_at?: string
+          veiculo_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rotas_veiculo_id_fkey"
+            columns: ["veiculo_id"]
+            isOneToOne: false
+            referencedRelation: "veiculos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tecnologias_tratamento: {
         Row: {
           created_at: string
@@ -986,7 +1229,8 @@ export type Database = {
       }
       termos_uso: {
         Row: {
-          conteudo: string
+          arquivo_url: string | null
+          conteudo: string | null
           created_at: string
           id: string
           situacao: string
@@ -996,7 +1240,8 @@ export type Database = {
           versao: string
         }
         Insert: {
-          conteudo: string
+          arquivo_url?: string | null
+          conteudo?: string | null
           created_at?: string
           id?: string
           situacao?: string
@@ -1006,7 +1251,8 @@ export type Database = {
           versao: string
         }
         Update: {
-          conteudo?: string
+          arquivo_url?: string | null
+          conteudo?: string | null
           created_at?: string
           id?: string
           situacao?: string
@@ -1175,34 +1421,36 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_access_pedido: { Args: { _pedido_id: string }; Returns: boolean }
+      can_access_pedido_fornecedor: {
+        Args: { _pedido_fornecedor_id: string }
+        Returns: boolean
+      }
+      can_create_pedido_fornecedor: {
+        Args: { _pedido_id: string }
+        Returns: boolean
+      }
       confirmar_carrinho: {
         Args: { _carrinho_id: string }
         Returns: {
-          cacamba_id: string | null
           carrinho_id: string | null
-          carrinho_item_id: string | null
           created_at: string
-          equipamento_id: string | null
-          equipment_type: Database["public"]["Enums"]["item_tipo"]
           id: string
-          locador_id: string | null
           locatario_id: string
           numero: number
-          obra_id: string | null
           observacoes: string | null
-          preco_unitario: number
-          quantidade: number
           status: Database["public"]["Enums"]["pedido_status"]
           updated_at: string
           valor_total: number
-        }[]
+        }
         SetofOptions: {
           from: "*"
           to: "pedidos"
-          isOneToOne: false
-          isSetofReturn: true
+          isOneToOne: true
+          isSetofReturn: false
         }
       }
+      get_motorista_rotas: { Args: { _motorista?: string }; Returns: Json }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1230,7 +1478,7 @@ export type Database = {
         | "destino"
       carrinho_status: "aberto" | "confirmado" | "cancelado"
       item_tipo: "cacamba" | "equipamento"
-      pedido_status:
+      ordem_locacao_status:
         | "pendente"
         | "aceito"
         | "em_entrega"
@@ -1238,6 +1486,20 @@ export type Database = {
         | "finalizado"
         | "cancelado"
         | "recusado"
+      pedido_fornecedor_status:
+        | "aguardando_aceite"
+        | "aceito"
+        | "recusado"
+        | "em_separacao"
+        | "agendado"
+        | "entregue"
+        | "cancelado"
+      pedido_status:
+        | "aguardando_pagamentos"
+        | "parcialmente_pago"
+        | "pago"
+        | "cancelado"
+        | "concluido"
       tipo_documento: "cpf" | "cnpj"
       tipo_pessoa: "fisica" | "juridica"
     }
@@ -1377,7 +1639,7 @@ export const Constants = {
       ],
       carrinho_status: ["aberto", "confirmado", "cancelado"],
       item_tipo: ["cacamba", "equipamento"],
-      pedido_status: [
+      ordem_locacao_status: [
         "pendente",
         "aceito",
         "em_entrega",
@@ -1385,6 +1647,22 @@ export const Constants = {
         "finalizado",
         "cancelado",
         "recusado",
+      ],
+      pedido_fornecedor_status: [
+        "aguardando_aceite",
+        "aceito",
+        "recusado",
+        "em_separacao",
+        "agendado",
+        "entregue",
+        "cancelado",
+      ],
+      pedido_status: [
+        "aguardando_pagamentos",
+        "parcialmente_pago",
+        "pago",
+        "cancelado",
+        "concluido",
       ],
       tipo_documento: ["cpf", "cnpj"],
       tipo_pessoa: ["fisica", "juridica"],

@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
-import { Eye, Download, FileText } from "lucide-react";
+import { Eye, FileText, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -15,7 +14,8 @@ interface DocumentoVersao {
   id: string;
   titulo: string;
   versao: string;
-  conteudo: string;
+  conteudo: string | null;
+  arquivo_url: string | null;
   situacao: "ativo" | "historico";
   upload_por: string | null;
   created_at: string;
@@ -25,7 +25,7 @@ const TermosUso = () => {
   const [termos, setTermos] = useState<DocumentoVersao[]>([]);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [viewing, setViewing] = useState<DocumentoVersao | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const load = async () => {
     const { data, error } = await supabase
@@ -40,23 +40,46 @@ const TermosUso = () => {
 
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const form = new FormData(e.currentTarget);
+    const formEl = e.currentTarget;
+    const form = new FormData(formEl);
+    const file = form.get("arquivo") as File | null;
+    if (!file || file.size === 0) { toast.error("Selecione um arquivo PDF"); return; }
+    if (file.type !== "application/pdf") { toast.error("O arquivo deve ser PDF"); return; }
+
+    setUploading(true);
+    const path = `termos/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+    const { error: upStorageErr } = await supabase.storage
+      .from("documentos-legais")
+      .upload(path, file, { contentType: "application/pdf", upsert: false });
+    if (upStorageErr) { setUploading(false); toast.error(upStorageErr.message); return; }
+
     const { error: upErr } = await supabase
       .from("termos_uso")
       .update({ situacao: "historico" })
       .eq("situacao", "ativo");
-    if (upErr) { toast.error(upErr.message); return; }
+    if (upErr) { setUploading(false); toast.error(upErr.message); return; }
     const { error } = await supabase.from("termos_uso").insert({
       titulo: form.get("titulo") as string,
       versao: form.get("versao") as string,
-      conteudo: form.get("conteudo") as string,
+      arquivo_url: path,
       situacao: "ativo",
       upload_por: "Admin Sistema",
     });
+    setUploading(false);
     if (error) { toast.error(error.message); return; }
     toast.success("Nova versão publicada!");
     setDialogOpen(false);
+    formEl.reset();
     load();
+  };
+
+  const handleView = async (t: DocumentoVersao) => {
+    if (!t.arquivo_url) { toast.error("Nenhum arquivo disponível"); return; }
+    const { data, error } = await supabase.storage
+      .from("documentos-legais")
+      .createSignedUrl(t.arquivo_url, 60 * 10);
+    if (error || !data) { toast.error(error?.message ?? "Erro ao gerar link"); return; }
+    window.open(data.signedUrl, "_blank");
   };
 
   const filtered = termos.filter((t) =>
@@ -95,11 +118,15 @@ const TermosUso = () => {
                 <Input id="versao" name="versao" required placeholder="Ex: 2.2.0" />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="conteudo">Conteúdo</Label>
-                <Textarea id="conteudo" name="conteudo" required rows={10} placeholder="Texto completo dos termos de uso..." />
+                <Label htmlFor="arquivo">Arquivo PDF</Label>
+                <Input id="arquivo" name="arquivo" type="file" accept="application/pdf" required />
+                <p className="text-xs text-muted-foreground">Envie o documento em formato PDF.</p>
               </div>
               <DialogFooter>
-                <Button type="submit" className="w-full">Publicar Nova Versão</Button>
+                <Button type="submit" className="w-full" disabled={uploading}>
+                  <Upload className="mr-2 h-4 w-4" />
+                  {uploading ? "Enviando..." : "Publicar Nova Versão"}
+                </Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -141,14 +168,14 @@ const TermosUso = () => {
               <div className="truncate">Por: {t.upload_por ?? "—"}</div>
             </div>
             <div className="flex gap-2 pt-2 border-t">
-              <Button variant="outline" size="sm" className="flex-1 h-8 text-[10px]" onClick={() => setViewing(t)}>
+              <Button variant="outline" size="sm" className="flex-1 h-8 text-[10px]" onClick={() => handleView(t)}>
                 <Eye className="mr-1 h-3 w-3" /> Visualizar
               </Button>
             </div>
           </div>
         )}
         actions={(t) => (
-          <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg hover:border-primary hover:text-primary shadow-sm" title="Visualizar" onClick={() => setViewing(t)}>
+          <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg hover:border-primary hover:text-primary shadow-sm" title="Visualizar PDF" onClick={() => handleView(t)}>
             <Eye className="h-4 w-4" />
           </Button>
         )}
@@ -160,15 +187,6 @@ const TermosUso = () => {
           onPageSizeChange: setPageSize,
         }}
       />
-
-      <Dialog open={!!viewing} onOpenChange={(o) => !o && setViewing(null)}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{viewing?.titulo}</DialogTitle>
-          </DialogHeader>
-          <div className="text-sm whitespace-pre-wrap text-foreground">{viewing?.conteudo}</div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };

@@ -48,12 +48,56 @@ import { NotificacoesPopover } from "@/components/NotificacoesPopover";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuthStore } from "@/stores/useAuthStore";
-import { useCartStore } from "@/stores/useCartStore";
+import { supabase } from "@/integrations/supabase/client";
+import { CART_CHANGED_EVENT, CART_CHANGED_STORAGE_KEY } from "@/lib/cart-events";
 
 function CartButton() {
-  const navigate = useNavigate();
-  const items = useCartStore((state) => state.items);
-  const totalCount = items.reduce((acc, item) => acc + item.quantity, 0);
+  const userId = useAuthStore((s) => s.session?.user.id);
+  const [totalCount, setTotalCount] = useState(0);
+
+  useEffect(() => {
+    if (!userId) { setTotalCount(0); return; }
+    let cartId: string | null = null;
+
+    const fetchCount = async () => {
+      const { data: cart } = await supabase
+        .from("carrinhos")
+        .select("id")
+        .eq("locatario_id", userId)
+        .eq("status", "aberto")
+        .maybeSingle();
+      if (!cart) { cartId = null; setTotalCount(0); return; }
+      cartId = cart.id;
+      const { data: rows } = await supabase
+        .from("carrinho_itens")
+        .select("quantidade")
+        .eq("carrinho_id", cart.id);
+      const total = (rows ?? []).reduce((acc, r: any) => acc + (r.quantidade ?? 0), 0);
+      setTotalCount(total);
+    };
+
+    fetchCount();
+
+    const handleCartChanged = () => { fetchCount(); };
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === CART_CHANGED_STORAGE_KEY) fetchCount();
+    };
+
+    window.addEventListener(CART_CHANGED_EVENT, handleCartChanged);
+    window.addEventListener("storage", handleStorage);
+
+    const channel = supabase
+      .channel(`cart-count-${userId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "carrinho_itens" }, () => fetchCount())
+      .on("postgres_changes", { event: "*", schema: "public", table: "carrinhos", filter: `locatario_id=eq.${userId}` }, () => fetchCount())
+      .subscribe();
+
+    return () => {
+      window.removeEventListener(CART_CHANGED_EVENT, handleCartChanged);
+      window.removeEventListener("storage", handleStorage);
+      supabase.removeChannel(channel);
+    };
+  }, [userId]);
 
   return (
     <Button
@@ -96,8 +140,6 @@ const menuItems: MenuItem[] = [
       { label: "Ocorrências", href: "/dashboard/pedidos/ocorrencias", roles: ["admin", "locador", "prefeitura", "locatario"] },
       { label: "Entrada de Resíduos", href: "/dashboard/operacional/entradas", roles: ["destino"] },
       { label: "Solicitar locação", href: "/dashboard/pedidos/solicitar", roles: ["locatario"] },
-      { label: "Entregas", href: "/dashboard/operacional/entregas", roles: ["locador"] },
-      { label: "Retiradas", href: "/dashboard/operacional/retiradas", roles: ["locador"] },
     ],
     roles: ["admin", "locador", "destino", "locatario", "prefeitura"],
   },

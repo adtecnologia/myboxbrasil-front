@@ -1,18 +1,86 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, ListChecks, ShoppingCart, XCircle, Ban, MapPin, List, Calendar, Filter, X } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { ListChecks, ShoppingCart, XCircle, Ban, MapPin, List, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { DataPagination, usePagination } from "@/components/DataPagination";
+import { usePagination } from "@/components/DataPagination";
 import { StatCard } from "@/components/StatCard";
-import { DataTable, Column } from "@/components/DataTable";
+import { DataTable } from "@/components/DataTable";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuthStore } from "@/stores/useAuthStore";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+// Fix default marker icons
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+});
 
+const MapResizer = () => {
+  const map = useMap();
+  useEffect(() => {
+    if (!map) return;
+    const t = setTimeout(() => map.invalidateSize(), 50);
+    const ro = new ResizeObserver(() => map.invalidateSize());
+    ro.observe(map.getContainer());
+    return () => { clearTimeout(t); ro.disconnect(); };
+  }, [map]);
+  return null;
+};
+
+type PFStatus =
+  | "aguardando_aceite"
+  | "aceito"
+  | "recusado"
+  | "em_separacao"
+  | "agendado"
+  | "entregue"
+  | "cancelado";
+
+interface PedidoRow {
+  id: string;
+  pedidoId: string;
+  pedidoNumero: number;
+  pfNumero: number;
+  dataAbertura: string;
+  dataAberturaISO: string;
+  status: PFStatus;
+  contraparteNome: string;
+  valorTotal: number;
+  qtdOrdens: number;
+  resumoOrdens: string;
+  endereco: string;
+}
+
+const statusLabel: Record<PFStatus, string> = {
+  aguardando_aceite: "Aguardando aceite",
+  aceito: "Aceito pelo locador",
+  recusado: "Recusado",
+  em_separacao: "Em separação",
+  agendado: "Agendado",
+  entregue: "Entregue",
+  cancelado: "Cancelado",
+};
+
+const statusClasses: Record<PFStatus, string> = {
+  aguardando_aceite: "bg-orange-500 text-white",
+  aceito: "bg-primary text-primary-foreground",
+  recusado: "bg-destructive text-destructive-foreground",
+  em_separacao: "bg-blue-500 text-white",
+  agendado: "bg-indigo-500 text-white",
+  entregue: "bg-emerald-600 text-white",
+  cancelado: "bg-destructive text-destructive-foreground",
+};
+
+// Legacy mock kept for screens that still render demo data
+// (PedidoDetalhes / PedidoMapa). The list itself now loads from the DB.
 export interface Pedido {
   id: number;
   dataAbertura: string;
@@ -25,68 +93,122 @@ export interface Pedido {
   cacamba: string;
   situacaoCacamba: string;
 }
-
-export const mockPedidos: Pedido[] = [
-  { id: 86, dataAbertura: "2025-12-11 10:50", status: "aceito", locatario: "Juan Ricardo Gustavo Silva", endereco: "Rua Vera, 111 - Jardim Soraia - São José do Rio Preto / SP", quantidade: 1, valorTotal: 200, modelo: "Estacionária C4", cacamba: "XBVCFJ2IOPGAKKS9", situacaoCacamba: "Entrega pendente" },
-  { id: 85, dataAbertura: "2025-12-11 10:49", status: "aceito", locatario: "Juliana Louise Laura da Silva", endereco: "Rua das Tulipas, 337 - Condomínio São João I (Zona Rural) - São José do Rio Preto / SP", quantidade: 1, valorTotal: 200, modelo: "Estacionária C4", cacamba: "XBVCFJ2IOPGAKKS9", situacaoCacamba: "Entrega pendente" },
-  { id: 84, dataAbertura: "2025-12-11 10:49", status: "aceito", locatario: "Isabelle Sophia Isabelle da Cunha", endereco: "Rua Sebastião Severiano, 500 - Conjunto Habitacional Cristo Rei - São José do Rio Preto / SP", quantidade: 1, valorTotal: 200, modelo: "Estacionária C4", cacamba: "MU3UJ2YY3RTG1JKG", situacaoCacamba: "Entrega pendente" },
-  { id: 83, dataAbertura: "2025-12-11 10:49", status: "aceito", locatario: "Kamilly Maitê Rodrigues", endereco: "Rua Mário Alves da Silva, 245 - Residencial Colorado - São José do Rio Preto / SP", quantidade: 1, valorTotal: 369, modelo: "Estacionária C4", cacamba: "TWF0KBMV80AMFK4S", situacaoCacamba: "Entrega pendente" },
-  { id: 82, dataAbertura: "2025-12-11 10:49", status: "aceito", locatario: "Sophie Francisca Giovana Martins", endereco: "Rua São Judas Tadeu, 508 - Centro (Engenheiro Schmitt) - São José do Rio Preto / SP", quantidade: 1, valorTotal: 324, modelo: "Roll-on/Roll-of até 80m³", cacamba: "GC8QSI3L4DVEV34Z", situacaoCacamba: "Entrega pendente" },
-  { id: 81, dataAbertura: "2025-12-11 10:48", status: "aceito", locatario: "Analu Priscila Ramos", endereco: "Rua Nildo Morselli, 864 - Residencial Gaivota II - São José do Rio Preto / SP", quantidade: 1, valorTotal: 369, modelo: "Estacionária C7", cacamba: "ZBZVK0RGEC7CR47D", situacaoCacamba: "CDF Emitido" },
-  { id: 80, dataAbertura: "2025-12-11 10:48", status: "aceito", locatario: "Isabelle Sophia Isabelle da Cunha", endereco: "Rua Sebastião Severiano, 500 - Conjunto Habitacional Cristo Rei - São José do Rio Preto / SP", quantidade: 1, valorTotal: 200, modelo: "Estacionária C4", cacamba: "MU3UJ2YY3RTG1JKG", situacaoCacamba: "Entrega pendente" },
-  { id: 78, dataAbertura: "2025-12-11 10:47", status: "aguardando", locatario: "Julia Rebeca Daiane Bernarde", endereco: "Rua Mirassol, 216 - Vila Redentora - São José do Rio Preto / SP", quantidade: 1, valorTotal: 267, modelo: "Roll-on/Roll-of até 10m³", cacamba: "—", situacaoCacamba: "—" },
-  { id: 79, dataAbertura: "2025-12-11 10:47", status: "aceito", locatario: "Julia Rebeca Daiane Bernarde", endereco: "Rua Mirassol, 216 - Vila Redentora - São José do Rio Preto / SP", quantidade: 1, valorTotal: 369, modelo: "Estacionária C4", cacamba: "AR77M6TVDL1F1NZ3", situacaoCacamba: "Em trânsito para retirada" },
-];
-
-const statusLabel: Record<Pedido["status"], string> = {
-  aguardando: "Aguardando Confirmação",
-  aceito: "Pedido aceito",
-  recusado: "Pedido recusado",
-  cancelado: "Pedido cancelado",
-};
-
-const statusClasses: Record<Pedido["status"], string> = {
-  aguardando: "bg-orange-500 text-white",
-  aceito: "bg-primary text-primary-foreground",
-  recusado: "bg-destructive text-destructive-foreground",
-  cancelado: "bg-muted text-muted-foreground",
-};
+export const mockPedidos: Pedido[] = [];
 
 const PedidosList = () => {
   const navigate = useNavigate();
+  const user = useAuthStore((s) => s.user);
+  const activeProfile = useAuthStore((s) => s.activeProfile() ?? s.user?.profiles[0] ?? null);
+  const profileType = activeProfile?.profileType;
+  const isLocador = profileType === "locador";
+  const rawTenant = activeProfile?.tenantId;
+  // tenantId === 'self' significa que o próprio usuário é o locador
+  const locadorId =
+    rawTenant && rawTenant !== "self" ? rawTenant : user?.id;
   const [search, setSearch] = useState("");
   const [dateFilter, setDateFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const isMobile = useIsMobile();
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [mapaPedido, setMapaPedido] = useState<PedidoRow | null>(null);
+
+  const { data: rows = [], isLoading } = useQuery({
+    queryKey: ["meus-pedidos", profileType, isLocador ? locadorId : user?.id],
+    enabled: !!user?.id && !!profileType,
+    queryFn: async (): Promise<PedidoRow[]> => {
+      const query = supabase
+        .from("pedido_fornecedores")
+        .select(
+          `id, numero, locador_id, status, valor_total,
+           pedidos!inner ( id, numero, created_at, locatario_id ),
+           ordens_locacao ( id, equipment_type, quantidade, cacamba_id, equipamento_id,
+             obras ( rua, numero, bairro, cidade, estado, complemento ) )`
+        );
+      const { data: pfs, error } = isLocador
+        ? await query.eq("locador_id", locadorId!)
+        : await query.eq("pedidos.locatario_id", user!.id);
+      if (error) throw error;
+
+      // resolve nome da contraparte (locador p/ locatário; locatário p/ locador)
+      const ids = Array.from(
+        new Set(
+          (pfs ?? [])
+            .map((pf: any) => (isLocador ? pf.pedidos?.locatario_id : pf.locador_id))
+            .filter(Boolean)
+        )
+      );
+      const nomes = new Map<string, string>();
+      if (ids.length) {
+        const { data: profs } = await supabase
+          .from("profiles")
+          .select("id, nome")
+          .in("id", ids as string[]);
+        (profs ?? []).forEach((p: any) => nomes.set(p.id, p.nome));
+      }
+
+      return (pfs ?? [])
+        .sort((a: any, b: any) =>
+          (b.pedidos?.created_at ?? "").localeCompare(a.pedidos?.created_at ?? "")
+        )
+        .map((pf: any) => {
+          const ords = pf.ordens_locacao ?? [];
+          const qtd = ords.reduce((s: number, o: any) => s + (o.quantidade ?? 0), 0);
+          const contraparteId = isLocador ? pf.pedidos?.locatario_id : pf.locador_id;
+          const createdAt = pf.pedidos?.created_at ?? "";
+          const obra = ords.map((o: any) => o.obras).find(Boolean);
+          const endereco = obra
+            ? [
+                [obra.rua, obra.numero].filter(Boolean).join(", "),
+                obra.bairro,
+                [obra.cidade, obra.estado].filter(Boolean).join("/"),
+              ]
+                .filter(Boolean)
+                .join(" - ")
+            : "—";
+          return {
+            id: pf.id,
+            pedidoId: pf.pedidos?.id,
+            pedidoNumero: pf.pedidos?.numero,
+            pfNumero: pf.numero,
+            dataAbertura: createdAt ? new Date(createdAt).toLocaleString("pt-BR") : "—",
+            dataAberturaISO: createdAt ? createdAt.slice(0, 10) : "",
+            status: pf.status as PFStatus,
+            contraparteNome: contraparteId ? nomes.get(contraparteId) ?? "—" : "—",
+            valorTotal: Number(pf.valor_total ?? 0),
+            qtdOrdens: qtd,
+            resumoOrdens: ords
+              .map((o: any) => `${o.quantidade}× ${o.equipment_type}`)
+              .join(" • "),
+            endereco,
+          };
+        });
+    },
+  });
 
   const counts = useMemo(() => ({
-    aguardando: mockPedidos.filter((p) => p.status === "aguardando").length,
-    aceito: mockPedidos.filter((p) => p.status === "aceito").length,
-    recusado: mockPedidos.filter((p) => p.status === "recusado").length,
-    cancelado: mockPedidos.filter((p) => p.status === "cancelado").length,
-  }), []);
+    aguardando_aceite: rows.filter((p) => p.status === "aguardando_aceite").length,
+    aceito: rows.filter((p) => p.status === "aceito").length,
+    recusado: rows.filter((p) => p.status === "recusado").length,
+    cancelado: rows.filter((p) => p.status === "cancelado").length,
+  }), [rows]);
 
-  const filtered = mockPedidos.filter((p) => {
-    const matchesSearch = 
-      p.locatario.toLowerCase().includes(search.toLowerCase()) ||
-      p.endereco.toLowerCase().includes(search.toLowerCase()) ||
-      String(p.id).includes(search);
-    
+  const filtered = rows.filter((p) => {
+    const q = search.toLowerCase();
+    const matchesSearch =
+      !q ||
+      p.contraparteNome.toLowerCase().includes(q) ||
+      String(p.pedidoNumero).includes(q) ||
+      String(p.pfNumero).includes(q);
     const matchesStatus = statusFilter === "all" || p.status === statusFilter;
-    
-    // Simple date string comparison (YYYY-MM-DD)
-    const matchesDate = !dateFilter || p.dataAbertura.includes(dateFilter);
-
+    const matchesDate = !dateFilter || p.dataAberturaISO === dateFilter;
     return matchesSearch && matchesStatus && matchesDate;
   });
 
   const { paginatedData, currentPage, pageSize, setCurrentPage, setPageSize, totalItems } = usePagination(filtered, 10);
 
   const stats = [
-    { label: "Aguardando confirmação", value: counts.aguardando, icon: ShoppingCart },
-    { label: "Pedidos aceitos", value: counts.aceito, icon: ListChecks },
-    { label: "Pedidos recusados", value: counts.recusado, icon: XCircle },
-    { label: "Pedidos cancelados", value: counts.cancelado, icon: Ban },
+    { label: "Aguardando aceite", value: counts.aguardando_aceite, icon: ShoppingCart },
+    { label: "Aceitos", value: counts.aceito, icon: ListChecks },
+    { label: "Recusados", value: counts.recusado, icon: XCircle },
+    { label: "Cancelados", value: counts.cancelado, icon: Ban },
   ];
 
   return (
@@ -102,12 +224,12 @@ const PedidosList = () => {
         ))}
       </div>
 
-      <DataTable<Pedido>
-        title={`${filtered.length} pedidos`}
+      <DataTable<PedidoRow>
+        title={isLoading ? "Carregando..." : `${filtered.length} pedidos`}
         data={paginatedData}
         searchValue={search}
         onSearchChange={setSearch}
-        searchPlaceholder="Buscar por cliente, id ou endereço..."
+        searchPlaceholder={`Buscar por ${isLocador ? "locatário" : "locador"} ou nº do pedido...`}
         activeFiltersCount={(dateFilter ? 1 : 0) + (statusFilter !== "all" ? 1 : 0)}
         onClearFilters={() => { setDateFilter(""); setStatusFilter("all"); }}
         filters={
@@ -134,9 +256,12 @@ const PedidosList = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todas situações</SelectItem>
-                    <SelectItem value="aguardando">Aguardando</SelectItem>
+                    <SelectItem value="aguardando_aceite">Aguardando aceite</SelectItem>
                     <SelectItem value="aceito">Aceito</SelectItem>
                     <SelectItem value="recusado">Recusado</SelectItem>
+                    <SelectItem value="em_separacao">Em separação</SelectItem>
+                    <SelectItem value="agendado">Agendado</SelectItem>
+                    <SelectItem value="entregue">Entregue</SelectItem>
                     <SelectItem value="cancelado">Cancelado</SelectItem>
                   </SelectContent>
                 </Select>
@@ -157,23 +282,30 @@ const PedidosList = () => {
             ),
           },
           {
-            header: "Locatário / Local locação",
+            header: isLocador ? "Locatário" : "Locador",
             className: "max-w-xs",
             accessor: (p) => (
               <>
-                <p className="text-xs font-bold text-primary uppercase tracking-tight mb-0.5">ID: #{p.id}</p>
-                <p className="text-sm font-bold text-foreground leading-none mb-1.5">{p.locatario}</p>
-                <div className="flex items-start gap-1">
-                  <MapPin className="h-3 w-3 mt-0.5 text-muted-foreground flex-shrink-0" />
-                  <p className="text-xs text-muted-foreground leading-tight">{p.endereco}</p>
-                </div>
+                <p className="text-xs font-bold text-primary uppercase tracking-tight mb-0.5">
+                  Pedido #{p.pedidoNumero} • Subpedido #{p.pfNumero}
+                </p>
+                <p className="text-sm font-bold text-foreground leading-none mb-1.5">{p.contraparteNome}</p>
               </>
             ),
           },
           {
             header: "Qtd",
-            accessor: "quantidade",
+            accessor: (p) => p.qtdOrdens,
             align: "center",
+          },
+          {
+            header: "Endereço",
+            className: "max-w-[260px]",
+            accessor: (p) => (
+              <p className="text-xs text-foreground leading-tight line-clamp-2" title={p.endereco}>
+                {p.endereco}
+              </p>
+            ),
           },
           {
             header: "Valor Total",
@@ -184,15 +316,12 @@ const PedidosList = () => {
             ),
           },
           {
-            header: "Situação",
+            header: "Itens",
             className: "max-w-[200px]",
             accessor: (p) => (
-              <>
-                <p className="text-xs font-bold text-primary mb-1">Modelo {p.modelo}</p>
-                <p className="text-[11px] text-muted-foreground leading-none font-medium italic">
-                  {p.cacamba !== "—" ? `${p.cacamba} • ${p.situacaoCacamba}` : "Sem caçamba atribuída"}
-                </p>
-              </>
+              <p className="text-[11px] text-muted-foreground leading-tight font-medium italic">
+                {p.resumoOrdens || "—"}
+              </p>
             ),
           },
         ]}
@@ -206,19 +335,20 @@ const PedidosList = () => {
             </div>
             <div className="space-y-1">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-bold text-foreground">Pedido nº {p.id}</p>
+                <p className="text-sm font-bold text-foreground">Pedido nº {p.pedidoNumero}/{p.pfNumero}</p>
                 <p className="text-sm font-black text-primary">R$ {p.valorTotal}</p>
               </div>
-              <p className="text-sm font-medium leading-tight">{p.locatario}</p>
-              <p className="text-xs text-muted-foreground line-clamp-2">{p.endereco}</p>
+              <p className="text-sm font-medium leading-tight">{p.contraparteNome}</p>
+              <p className="text-xs text-muted-foreground line-clamp-2">{p.resumoOrdens}</p>
+              <p className="text-xs text-foreground line-clamp-2"><span className="font-semibold">Endereço:</span> {p.endereco}</p>
             </div>
             <div className="flex items-center justify-between pt-2 border-t border-border/50">
-              <span className="text-[10px] text-muted-foreground font-medium uppercase">Modelo {p.modelo}</span>
+              <span className="text-[10px] text-muted-foreground font-medium uppercase">{p.qtdOrdens} item(ns)</span>
               <div className="flex gap-2">
-                <Button size="icon" variant="secondary" className="h-8 w-8 rounded-full" onClick={() => navigate(`/dashboard/pedidos/${p.id}`)}>
+                <Button size="icon" variant="secondary" className="h-8 w-8 rounded-full" onClick={() => navigate(`/dashboard/pedidos/${p.pedidoId}`)}>
                   <List className="h-4 w-4" />
                 </Button>
-                <Button size="icon" variant="secondary" className="h-8 w-8 rounded-full" onClick={() => navigate(`/dashboard/pedidos/${p.id}/mapa`)}>
+                <Button size="icon" variant="secondary" className="h-8 w-8 rounded-full" onClick={() => setMapaPedido(p)}>
                   <MapPin className="h-4 w-4" />
                 </Button>
               </div>
@@ -227,10 +357,10 @@ const PedidosList = () => {
         )}
         actions={(p) => (
           <>
-            <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg hover:border-primary hover:text-primary shadow-sm" onClick={() => navigate(`/dashboard/pedidos/${p.id}`)} title="Ver Detalhes">
+            <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg hover:border-primary hover:text-primary shadow-sm" onClick={() => navigate(`/dashboard/pedidos/${p.pedidoId}`)} title="Ver Detalhes">
               <List className="h-4 w-4" />
             </Button>
-            <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg hover:border-primary hover:text-primary shadow-sm" onClick={() => navigate(`/dashboard/pedidos/${p.id}/mapa`)} title="Ver no Mapa">
+            <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg hover:border-primary hover:text-primary shadow-sm" onClick={() => setMapaPedido(p)} title="Ver no Mapa">
               <MapPin className="h-4 w-4" />
             </Button>
           </>
@@ -243,6 +373,32 @@ const PedidosList = () => {
           onPageSizeChange: setPageSize,
         }}
       />
+
+      <Dialog open={!!mapaPedido} onOpenChange={(o) => !o && setMapaPedido(null)}>
+        <DialogContent className="max-w-4xl p-0 overflow-hidden">
+          <DialogHeader className="px-5 pt-5">
+            <DialogTitle>
+              Localização — Pedido nº {mapaPedido?.pedidoNumero}/{mapaPedido?.pfNumero}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="p-4">
+            <div className="w-full h-[500px] rounded-md overflow-hidden bg-muted">
+              {mapaPedido && (
+                <MapContainer center={[-20.8113, -49.3758]} zoom={14} style={{ height: "100%", width: "100%" }}>
+                  <MapResizer />
+                  <TileLayer
+                    attribution='&copy; OpenStreetMap contributors'
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  />
+                  <Marker position={[-20.8113, -49.3758]}>
+                    <Popup>{mapaPedido.contraparteNome}</Popup>
+                  </Marker>
+                </MapContainer>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -30,6 +30,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/stores/useAuthStore";
+import { useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 const dataProducao = [
   { name: "Seg", entregas: 45, coletas: 38 },
@@ -56,14 +59,84 @@ const PainelOperacional = () => {
 
   // ============ LOCATÁRIO VIEW ============
   if (isLocatario) {
-    const dataMinhasLocacoes = [
-      { name: "Jan", ativas: 4, concluidas: 8 },
-      { name: "Fev", ativas: 5, concluidas: 6 },
-      { name: "Mar", ativas: 6, concluidas: 10 },
-      { name: "Abr", ativas: 3, concluidas: 12 },
-      { name: "Mai", ativas: 7, concluidas: 9 },
-      { name: "Jun", ativas: 8, concluidas: 11 },
-    ];
+    return <LocatarioView />;
+  }
+
+  // ============ DEFAULT VIEW (admin / locador / destino) ============
+  return <DefaultView isLocador={isLocador} />;
+};
+
+const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+
+const LocatarioView = () => {
+  const userId = useAuthStore((s) => s.user?.id);
+
+  const { data } = useQuery({
+    queryKey: ["painel-operacional-locatario", userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const { data: pedidos } = await supabase
+        .from("pedidos")
+        .select("id")
+        .eq("locatario_id", userId!);
+      const pedidoIds = (pedidos ?? []).map((p) => p.id);
+      const { data: pfs } = pedidoIds.length
+        ? await supabase.from("pedido_fornecedores").select("id, pedido_id").in("pedido_id", pedidoIds)
+        : { data: [] as Array<{ id: string; pedido_id: string }> };
+      const pfIds = (pfs ?? []).map((p) => p.id);
+      const { data: ordens } = pfIds.length
+        ? await supabase
+            .from("ordens_locacao")
+            .select("id, status, created_at, obra_id, quantidade")
+            .in("pedido_fornecedor_id", pfIds)
+        : { data: [] as Array<{ id: string; status: string; created_at: string; obra_id: string | null; quantidade: number }> };
+      const obraIds = Array.from(new Set((ordens ?? []).map((o) => o.obra_id).filter(Boolean) as string[]));
+      const { data: obras } = obraIds.length
+        ? await supabase.from("obras").select("id, nome").in("id", obraIds)
+        : { data: [] as Array<{ id: string; nome: string }> };
+      return { ordens: ordens ?? [], obras: obras ?? [] };
+    },
+  });
+
+  const ordens = data?.ordens ?? [];
+  const obras = data?.obras ?? [];
+
+  const stats = useMemo(() => {
+    const ativas = ordens.filter((o) => ["entregue", "aguardando_retirada"].includes(o.status)).length;
+    const aguardando = ordens.filter((o) => o.status === "aguardando_entrega" || o.status === "aguardando_aprovacao").length;
+    const retiradas = ordens.filter((o) => o.status === "aguardando_retirada").length;
+    return { ativas, aguardando, retiradas, ocorrencias: 0 };
+  }, [ordens]);
+
+  const dataMinhasLocacoes = useMemo(() => {
+    const year = new Date().getFullYear();
+    const buckets = MESES.map((name) => ({ name, ativas: 0, concluidas: 0 }));
+    ordens.forEach((o) => {
+      const d = new Date(o.created_at);
+      if (d.getFullYear() !== year) return;
+      const m = d.getMonth();
+      if (o.status === "finalizada") buckets[m].concluidas += 1;
+      else buckets[m].ativas += 1;
+    });
+    return buckets;
+  }, [ordens]);
+
+  const cacambasPorObra = useMemo(() => {
+    const nomeMap = new Map(obras.map((o) => [o.id, o.nome]));
+    const counts = new Map<string, number>();
+    ordens.forEach((o) => {
+      if (!o.obra_id) return;
+      counts.set(o.obra_id, (counts.get(o.obra_id) ?? 0) + Number(o.quantidade ?? 1));
+    });
+    const total = Array.from(counts.values()).reduce((a, b) => a + b, 0) || 1;
+    const palette = ["bg-blue-500", "bg-emerald-500", "bg-orange-500", "bg-purple-500", "bg-rose-500"];
+    return Array.from(counts.entries()).map(([id, value], i) => ({
+      label: nomeMap.get(id) ?? "Obra",
+      value,
+      total,
+      color: palette[i % palette.length],
+    }));
+  }, [ordens, obras]);
 
     return (
       <div className="space-y-6">
@@ -80,7 +153,7 @@ const PainelOperacional = () => {
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Caçambas Ativas</p>
-                <h3 className="text-3xl font-bold">8</h3>
+                <h3 className="text-3xl font-bold">{stats.ativas}</h3>
               </div>
               <p className="text-[10px] text-muted-foreground">Em suas obras</p>
             </CardContent>
@@ -93,7 +166,7 @@ const PainelOperacional = () => {
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Pedidos em Aberto</p>
-                <h3 className="text-3xl font-bold text-emerald-600">3</h3>
+                <h3 className="text-3xl font-bold text-emerald-600">{stats.aguardando}</h3>
               </div>
               <p className="text-[10px] text-emerald-600 font-medium">Aguardando entrega</p>
             </CardContent>
@@ -106,7 +179,7 @@ const PainelOperacional = () => {
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Retiradas Pendentes</p>
-                <h3 className="text-3xl font-bold text-orange-600">2</h3>
+                <h3 className="text-3xl font-bold text-orange-600">{stats.retiradas}</h3>
               </div>
               <p className="text-[10px] text-orange-500 font-medium">Solicitar coleta</p>
             </CardContent>
@@ -119,9 +192,9 @@ const PainelOperacional = () => {
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Ocorrências</p>
-                <h3 className="text-3xl font-bold text-red-600">1</h3>
+                <h3 className="text-3xl font-bold text-red-600">{stats.ocorrencias}</h3>
               </div>
-              <p className="text-[10px] text-red-500 font-medium">Aguardando retorno</p>
+              <p className="text-[10px] text-muted-foreground font-medium">Sem registros</p>
             </CardContent>
           </Card>
         </div>
@@ -160,11 +233,10 @@ const PainelOperacional = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {[
-                  { label: "Residencial Solar", value: 4, color: "bg-blue-500", total: 8 },
-                  { label: "Edifício Mar", value: 2, color: "bg-emerald-500", total: 8 },
-                  { label: "Centro Empresarial", value: 2, color: "bg-orange-500", total: 8 },
-                ].map((item) => (
+                {cacambasPorObra.length === 0 && (
+                  <p className="text-xs text-muted-foreground text-center py-6">Sem caçambas em obras</p>
+                )}
+                {cacambasPorObra.map((item) => (
                   <div key={item.label} className="space-y-2">
                     <div className="flex justify-between text-xs font-medium">
                       <span>{item.label}</span>
@@ -190,33 +262,7 @@ const PainelOperacional = () => {
               <CardDescription>Entregas e retiradas agendadas</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {[
-                  { tipo: "Entrega", obra: "Residencial Solar", data: "Hoje, 14:00", status: "info" },
-                  { tipo: "Retirada", obra: "Edifício Mar", data: "Amanhã, 09:00", status: "warning" },
-                  { tipo: "Entrega", obra: "Centro Empresarial", data: "23/12, 10:30", status: "info" },
-                  { tipo: "Retirada", obra: "Residencial Solar", data: "24/12, 16:00", status: "warning" },
-                ].map((item, i) => (
-                  <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
-                    <div className="flex items-center gap-3">
-                      <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${
-                        item.tipo === "Entrega" ? "bg-blue-50 text-blue-600" : "bg-orange-50 text-orange-600"
-                      }`}>
-                        {item.tipo === "Entrega" ? <Truck className="h-5 w-5" /> : <Package className="h-5 w-5" />}
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold">{item.tipo}</p>
-                        <p className="text-xs text-muted-foreground flex items-center gap-1">
-                          <MapPin className="h-3 w-3" /> {item.obra}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <Badge variant="outline" className="text-[10px]">{item.data}</Badge>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <p className="text-xs text-muted-foreground text-center py-6">Sem movimentações agendadas</p>
             </CardContent>
           </Card>
 
@@ -254,9 +300,9 @@ const PainelOperacional = () => {
         </div>
       </div>
     );
-  }
+};
 
-  // ============ DEFAULT VIEW (admin / locador / destino) ============
+const DefaultView = ({ isLocador }: { isLocador: boolean }) => {
   return (
     <div className="space-y-6">
       <PageHeader 

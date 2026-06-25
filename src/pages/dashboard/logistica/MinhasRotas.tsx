@@ -1,5 +1,6 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useMotoristaRotas } from "@/hooks/useMotoristaRotas";
 import { 
   Search, 
   MapPin, 
@@ -147,29 +148,50 @@ const MinhasRotas = () => {
   
   const [truckPos, setTruckPos] = useState<[number, number]>([-20.8050, -49.3700]);
 
-  const [routes, setRoutes] = useState<Route[]>([
-    {
-      id: "R-001",
-      name: "Rota Norte - Setor A",
-      date: "22/05/2026",
-      status: "Pendente",
-      items: [
-        { id: "#ENT-1001", client: "Construtora Alfa", address: "Rua A, 123 - Centro", status: "Pendente", type: "Entrega", time: "09:00", sequence: 1, qrCode: "C-1001", posicao: [-20.8113, -49.3758], obra: "Residencial Horizonte", residuo: "Classe A" },
-        { id: "#ENT-1002", client: "João da Silva", address: "Av. B, 456 - Jd. América", status: "Pendente", type: "Entrega", time: "10:30", sequence: 2, qrCode: "C-1002", posicao: [-20.8150, -49.3850], obra: "Reforma Particular", residuo: "Misto" },
-        { id: "#ENT-1004", client: "Reforma Central", address: "Praça da Sé, 1 - Centro", status: "Pendente", type: "Retirada", time: "11:45", sequence: 3, qrCode: "C-1004", posicao: [-20.8200, -49.3950], obra: "Edifício Comercial", residuo: "Solo" },
-      ]
-    },
-    {
-      id: "R-002",
-      name: "Rota Sul - Setor B",
-      date: "22/05/2026",
-      status: "Pendente",
-      items: [
-        { id: "#ENT-1005", client: "Escola Municipal", address: "Rua Escolar, 50 - Vila Sul", status: "Pendente", type: "Entrega", time: "14:00", sequence: 1, qrCode: "C-1005", posicao: [-20.8250, -49.3850], obra: "Manutenção Quadra", residuo: "Vegetal" },
-        { id: "#ENT-1006", client: "Hospital Regional", address: "Av. Saúde, 1000 - Sul", status: "Pendente", type: "Retirada", time: "15:30", sequence: 2, qrCode: "C-1006", posicao: [-20.8300, -49.3900], obra: "Nova Ala", residuo: "Gesso" },
-      ]
-    }
-  ]);
+  const { data: rotasReais = [], isLoading } = useMotoristaRotas();
+
+  // posição pseudo-determinística para exibir no mapa enquanto não há lat/lng reais
+  const posDe = (id: string): [number, number] => {
+    let h = 0;
+    for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
+    const lat = -20.81 + ((h % 1000) / 1000) * 0.04 - 0.02;
+    const lng = -49.38 + (((h >> 10) % 1000) / 1000) * 0.04 - 0.02;
+    return [lat, lng];
+  };
+
+  const baseRoutes = useMemo<Route[]>(
+    () =>
+      rotasReais.map((r, idx): Route => ({
+        id: r.id,
+        name: `Rota ${String(idx + 1).padStart(3, "0")}${
+          r.veiculo?.placa ? ` • ${r.veiculo.placa}` : ""
+        }`,
+        date: r.data_programada
+          ? new Date(r.data_programada).toLocaleDateString("pt-BR")
+          : "—",
+        status: r.status === "em_andamento" ? "Em Rota" : "Pendente",
+        items: r.itens.map((it): DeliveryItem => ({
+          id: it.id,
+          client: it.cliente,
+          address: it.endereco ?? "—",
+          status: "Pendente",
+          type: (it.tipo?.toLowerCase() === "retirada" ? "Retirada" : "Entrega"),
+          time: "",
+          sequence: it.sequencia,
+          qrCode: `C-${it.id.slice(0, 6).toUpperCase()}`,
+          posicao: posDe(it.id),
+          obra: it.endereco ?? undefined,
+          residuo: undefined,
+        })),
+      })),
+    [rotasReais]
+  );
+
+  // Mantém estado local para refletir progresso (start, confirm) sem persistir ainda
+  const [routes, setRoutes] = useState<Route[]>([]);
+  useEffect(() => {
+    setRoutes(baseRoutes);
+  }, [baseRoutes]);
 
   const [startingRouteId, setStartingRouteId] = useState<string | null>(null);
   const [validatedQrs, setValidatedQrs] = useState<string[]>([]);
@@ -545,8 +567,14 @@ const MinhasRotas = () => {
             ) : (
               <div className="text-center py-20 text-muted-foreground border-2 border-dashed rounded-xl">
                 <PackageCheck className="h-12 w-12 mx-auto mb-3 opacity-20" />
-                <h3 className="text-lg font-semibold">Sem rotas disponíveis</h3>
-                <p className="text-sm">Todas as atividades foram concluídas ou nenhuma rota foi atribuída.</p>
+                <h3 className="text-lg font-semibold">
+                  {isLoading ? "Carregando rotas..." : "Sem rotas disponíveis"}
+                </h3>
+                <p className="text-sm">
+                  {isLoading
+                    ? "Buscando suas rotas no servidor."
+                    : "Nenhuma rota foi atribuída a você no momento."}
+                </p>
               </div>
             )}
           </div>

@@ -1,4 +1,8 @@
 import { Link } from "react-router-dom";
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuthStore } from "@/stores/useAuthStore";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,25 +28,123 @@ import {
   Cell,
 } from "recharts";
 
-const dataPerfis = [
-  { name: "Admin", value: 4, color: "#8b5cf6" },
-  { name: "Locador", value: 28, color: "#10b981" },
-  { name: "Locatário", value: 62, color: "#3b82f6" },
-  { name: "Motorista", value: 18, color: "#f59e0b" },
-  { name: "Destino", value: 9, color: "#ef4444" },
-  { name: "Prefeitura", value: 5, color: "#06b6d4" },
-];
+const ROLE_META: Record<string, { label: string; color: string }> = {
+  admin: { label: "Admin", color: "#8b5cf6" },
+  locador: { label: "Locador", color: "#10b981" },
+  locatario: { label: "Locatário", color: "#3b82f6" },
+  motorista: { label: "Motorista", color: "#f59e0b" },
+  destino: { label: "Destino", color: "#ef4444" },
+  prefeitura: { label: "Prefeitura", color: "#06b6d4" },
+};
 
-const dataCrescimento = [
-  { name: "Jan", novos: 8 },
-  { name: "Fev", novos: 12 },
-  { name: "Mar", novos: 18 },
-  { name: "Abr", novos: 15 },
-  { name: "Mai", novos: 22 },
-  { name: "Jun", novos: 28 },
-];
+const ROLE_ORDER = ["admin", "locador", "motorista", "locatario", "prefeitura", "destino"];
+
+interface TenantUserRow {
+  user_id: string;
+  role: string;
+  ativo: boolean;
+  created_at: string;
+  nome: string;
+}
+
+function useTenantUsers() {
+  const user = useAuthStore((s) => s.user);
+  const activeProfile = useAuthStore(
+    (s) => s.activeProfile() ?? s.user?.profiles[0] ?? null
+  );
+  const rawTenant = activeProfile?.tenantId;
+  const locadorId = rawTenant && rawTenant !== "self" ? rawTenant : user?.id;
+
+  return useQuery({
+    queryKey: ["painel-usuarios", locadorId],
+    enabled: !!locadorId,
+    queryFn: async (): Promise<TenantUserRow[]> => {
+      const { data: roles, error } = await supabase
+        .from("user_roles")
+        .select("user_id, role, ativo, created_at, locador_id")
+        .or(`locador_id.eq.${locadorId},user_id.eq.${locadorId}`);
+      if (error) throw error;
+
+      const ids = Array.from(new Set((roles ?? []).map((r: any) => r.user_id)));
+      const nomes = new Map<string, string>();
+      if (ids.length) {
+        const { data: profs } = await supabase
+          .from("profiles")
+          .select("id, nome")
+          .in("id", ids);
+        (profs ?? []).forEach((p: any) => nomes.set(p.id, p.nome));
+      }
+
+      const byUser = new Map<string, any>();
+      (roles ?? []).forEach((r: any) => {
+        const cur = byUser.get(r.user_id);
+        if (!cur || ROLE_ORDER.indexOf(r.role) < ROLE_ORDER.indexOf(cur.role)) {
+          byUser.set(r.user_id, r);
+        }
+      });
+
+      return Array.from(byUser.values()).map((r: any) => ({
+        user_id: r.user_id,
+        role: r.role,
+        ativo: r.ativo,
+        created_at: r.created_at,
+        nome: nomes.get(r.user_id) ?? "—",
+      }));
+    },
+  });
+}
 
 const PainelUsuarios = () => {
+  const { data: users = [] } = useTenantUsers();
+
+  const total = users.length;
+  const ativos = users.filter((u) => u.ativo).length;
+  const inativos = total - ativos;
+  const pctAtivos = total ? Math.round((ativos / total) * 100) : 0;
+
+  const now = new Date();
+  const novosMes = users.filter((u) => {
+    const d = new Date(u.created_at);
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  }).length;
+
+  const dataPerfis = useMemo(() => {
+    const counts = new Map<string, number>();
+    users.forEach((u) => counts.set(u.role, (counts.get(u.role) ?? 0) + 1));
+    return Array.from(counts.entries()).map(([role, value]) => ({
+      name: ROLE_META[role]?.label ?? role,
+      value,
+      color: ROLE_META[role]?.color ?? "#94a3b8",
+    }));
+  }, [users]);
+
+  const dataCrescimento = useMemo(() => {
+    const meses = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+    const arr: { name: string; novos: number }[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const novos = users.filter((u) => {
+        const c = new Date(u.created_at);
+        return c.getMonth() === d.getMonth() && c.getFullYear() === d.getFullYear();
+      }).length;
+      arr.push({ name: meses[d.getMonth()], novos });
+    }
+    return arr;
+  }, [users]);
+
+  const ultimosCadastros = useMemo(
+    () =>
+      [...users]
+        .sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at))
+        .slice(0, 4)
+        .map((u) => ({
+          nome: u.nome,
+          perfil: ROLE_META[u.role]?.label ?? u.role,
+          data: new Date(u.created_at).toLocaleString("pt-BR"),
+        })),
+    [users]
+  );
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -58,7 +160,7 @@ const PainelUsuarios = () => {
             </div>
             <div>
               <p className="text-sm font-medium text-muted-foreground">Total de Usuários</p>
-              <h3 className="text-3xl font-bold">126</h3>
+              <h3 className="text-3xl font-bold">{total}</h3>
             </div>
             <p className="text-[10px] text-muted-foreground">Cadastrados na plataforma</p>
           </CardContent>
@@ -71,9 +173,9 @@ const PainelUsuarios = () => {
             </div>
             <div>
               <p className="text-sm font-medium text-muted-foreground">Ativos</p>
-              <h3 className="text-3xl font-bold text-emerald-600">108</h3>
+              <h3 className="text-3xl font-bold text-emerald-600">{ativos}</h3>
             </div>
-            <p className="text-[10px] text-emerald-600 font-medium">86% do total</p>
+            <p className="text-[10px] text-emerald-600 font-medium">{pctAtivos}% do total</p>
           </CardContent>
         </Card>
 
@@ -84,9 +186,9 @@ const PainelUsuarios = () => {
             </div>
             <div>
               <p className="text-sm font-medium text-muted-foreground">Novos no Mês</p>
-              <h3 className="text-3xl font-bold text-orange-600">28</h3>
+              <h3 className="text-3xl font-bold text-orange-600">{novosMes}</h3>
             </div>
-            <p className="text-[10px] text-orange-500 font-medium">+27% vs mês anterior</p>
+            <p className="text-[10px] text-orange-500 font-medium">Cadastrados este mês</p>
           </CardContent>
         </Card>
 
@@ -97,7 +199,7 @@ const PainelUsuarios = () => {
             </div>
             <div>
               <p className="text-sm font-medium text-muted-foreground">Inativos</p>
-              <h3 className="text-3xl font-bold text-red-600">18</h3>
+              <h3 className="text-3xl font-bold text-red-600">{inativos}</h3>
             </div>
             <p className="text-[10px] text-muted-foreground">Sem acesso recente</p>
           </CardContent>
@@ -176,12 +278,12 @@ const PainelUsuarios = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {[
-                { nome: "Carlos Mendes", perfil: "Locatário", data: "Hoje, 14:20", status: "success" },
-                { nome: "Ana Paula Souza", perfil: "Motorista", data: "Hoje, 10:45", status: "success" },
-                { nome: "Roberto Lima", perfil: "Locador", data: "Ontem, 16:30", status: "info" },
-                { nome: "Juliana Castro", perfil: "Locatário", data: "Ontem, 09:15", status: "info" },
-              ].map((item, i) => (
+              {ultimosCadastros.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-6">
+                  Nenhum cadastro recente
+                </p>
+              )}
+              {ultimosCadastros.map((item, i) => (
                 <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">

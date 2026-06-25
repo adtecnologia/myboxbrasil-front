@@ -20,14 +20,7 @@ interface Documento {
   status: string;
 }
 
-const mockDocs: Documento[] = [
-  { id: "1", tipo: "MTR", numero: "MTR-2026-001", dataEmissao: "2026-03-28", entradaId: "ENT-001", cliente: "Construtora Alpha", status: "Emitido" },
-  { id: "2", tipo: "CDF", numero: "CDF-2026-001", dataEmissao: "2026-03-28", entradaId: "ENT-001", cliente: "Construtora Alpha", status: "Emitido" },
-  { id: "3", tipo: "MTR", numero: "MTR-2026-002", dataEmissao: "2026-03-28", entradaId: "ENT-002", cliente: "Demolidora Beta", status: "Pendente" },
-  { id: "4", tipo: "MTR", numero: "MTR-2026-003", dataEmissao: "2026-03-27", entradaId: "ENT-003", cliente: "Empreiteira Gama", status: "Emitido" },
-  { id: "5", tipo: "CDF", numero: "CDF-2026-002", dataEmissao: "2026-03-27", entradaId: "ENT-003", cliente: "Empreiteira Gama", status: "Emitido" },
-  { id: "6", tipo: "NF", numero: "NF-2026-001", dataEmissao: "2026-03-27", entradaId: "ENT-003", cliente: "Empreiteira Gama", status: "Emitido" },
-];
+const mockDocs: Documento[] = [];
 
 const tipoBadge: Record<string, string> = {
   MTR: "bg-blue-100 text-blue-700",

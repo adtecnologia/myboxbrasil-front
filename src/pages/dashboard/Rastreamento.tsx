@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { useAuthStore } from "@/stores/useAuthStore";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // Fix default marker icons
@@ -190,6 +192,49 @@ const Rastreamento = () => {
   
   const activeProfileType = useAuthStore((state) => state.activeProfileType());
   const isPrefeitura = activeProfileType === "prefeitura";
+
+  const user = useAuthStore((s) => s.user);
+  const activeProfile = useAuthStore(
+    (s) => s.activeProfile() ?? s.user?.profiles[0] ?? null
+  );
+  const rawTenant = activeProfile?.tenantId;
+  const locadorId = rawTenant && rawTenant !== "self" ? rawTenant : user?.id;
+
+  const { data: drivers = [] } = useQuery({
+    queryKey: ["rastreamento-motoristas", locadorId],
+    enabled: !!locadorId && !isPrefeitura,
+    queryFn: async (): Promise<Driver[]> => {
+      const { data: roles, error } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .eq("role", "motorista")
+        .eq("ativo", true)
+        .eq("locador_id", locadorId!);
+      if (error) throw error;
+      const ids = (roles ?? []).map((r: any) => r.user_id);
+      if (!ids.length) return [];
+      const { data: profs } = await supabase
+        .from("profiles")
+        .select("id, nome")
+        .in("id", ids);
+      return (profs ?? []).map((p: any, idx: number): Driver => {
+        // dispersão determinística em torno do centro
+        let h = 0;
+        for (let i = 0; i < p.id.length; i++) h = (h * 31 + p.id.charCodeAt(i)) | 0;
+        const lat = -20.8113 + (((h % 1000) / 1000) * 0.04 - 0.02);
+        const lng = -49.3758 + ((((h >> 10) % 1000) / 1000) * 0.04 - 0.02);
+        return {
+          id: p.id,
+          nome: p.nome ?? "Motorista",
+          status: "online",
+          entregaAtual: null,
+          posicao: [lat, lng],
+          veiculo: "—",
+        };
+      });
+    },
+  });
+  const mockDrivers = drivers;
 
   useEffect(() => {
     const onChange = () => setIsFullscreen(!!document.fullscreenElement);
