@@ -1,6 +1,9 @@
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useMotoristaRotas } from "@/hooks/useMotoristaRotas";
+import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 import { 
   Search, 
   MapPin, 
@@ -144,11 +147,15 @@ const MinhasRotas = () => {
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [confirmStep, setConfirmStep] = useState<"qr" | "photo">("qr");
   const [selectedDeliveryItem, setSelectedDeliveryItem] = useState<DeliveryItem | null>(null);
-  const [deliveryPhotos, setDeliveryPhotos] = useState<string[]>([]);
+  const [deliveryPhotos, setDeliveryPhotos] = useState<{ path: string; preview: string }[]>([]);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [isFinishing, setIsFinishing] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement | null>(null);
   
   const [truckPos, setTruckPos] = useState<[number, number]>([-20.8050, -49.3700]);
 
   const { data: rotasReais = [], isLoading } = useMotoristaRotas();
+  const queryClient = useQueryClient();
 
   // posição pseudo-determinística para exibir no mapa enquanto não há lat/lng reais
   const posDe = (id: string): [number, number] => {
@@ -161,28 +168,51 @@ const MinhasRotas = () => {
 
   const baseRoutes = useMemo<Route[]>(
     () =>
-      rotasReais.map((r, idx): Route => ({
+      rotasReais
+        .filter((r) => r.status !== "cancelada" && r.status !== "concluida")
+        .map((r, idx): Route => ({
         id: r.id,
         name: `Rota ${String(idx + 1).padStart(3, "0")}${
           r.veiculo?.placa ? ` • ${r.veiculo.placa}` : ""
         }`,
         date: r.data_programada
-          ? new Date(r.data_programada).toLocaleDateString("pt-BR")
+          ? (() => { const [y,m,d] = String(r.data_programada).slice(0,10).split("-"); return `${d}/${m}/${y}`; })()
           : "—",
         status: r.status === "em_andamento" ? "Em Rota" : "Pendente",
-        items: r.itens.map((it): DeliveryItem => ({
+        items: r.itens.map((it): DeliveryItem => {
+          const tipo = it.tipo?.toLowerCase() === "retirada" ? "Retirada" : "Entrega";
+          const concluidosEntrega = new Set([
+            "locada",
+            "aguardando_retirada",
+            "em_transito_retirada",
+            "em_transito_analise",
+            "em_transito_destino_final",
+            "aguardando_analise",
+            "cdf_emitido",
+          ]);
+          const concluidosRetirada = new Set([
+            "em_transito_analise",
+            "em_transito_destino_final",
+            "aguardando_analise",
+            "cdf_emitido",
+          ]);
+          const doneSet = tipo === "Retirada" ? concluidosRetirada : concluidosEntrega;
+          const status: DeliveryItem["status"] =
+            it.olu_status && doneSet.has(it.olu_status) ? "Concluída" : "Pendente";
+          return {
           id: it.id,
           client: it.cliente,
           address: it.endereco ?? "—",
-          status: "Pendente",
-          type: (it.tipo?.toLowerCase() === "retirada" ? "Retirada" : "Entrega"),
+          status,
+          type: tipo,
           time: "",
           sequence: it.sequencia,
-          qrCode: `C-${it.id.slice(0, 6).toUpperCase()}`,
+          qrCode: it.codigo_cacamba ?? `C-${it.id.slice(0, 6).toUpperCase()}`,
           posicao: posDe(it.id),
           obra: it.endereco ?? undefined,
           residuo: undefined,
-        })),
+          };
+        }),
       })),
     [rotasReais]
   );
@@ -193,9 +223,42 @@ const MinhasRotas = () => {
     setRoutes(baseRoutes);
   }, [baseRoutes]);
 
+  // Deriva a rota em andamento a partir dos dados reais
+  const rotaEmAndamento = useMemo(
+    () => routes.find((r) => r.status === "Em Rota") ?? null,
+    [routes]
+  );
+  useEffect(() => {
+    if (rotaEmAndamento && !activeRouteId) {
+      setActiveRouteId(rotaEmAndamento.id);
+    }
+  }, [rotaEmAndamento, activeRouteId]);
+
   const [startingRouteId, setStartingRouteId] = useState<string | null>(null);
   const [validatedQrs, setValidatedQrs] = useState<string[]>([]);
   const [isStartModalOpen, setIsStartModalOpen] = useState(false);
+
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Auto-abre modal de iniciar quando vindo do dashboard
+  useEffect(() => {
+    const state = location.state as { startRouteId?: string } | null;
+    if (state?.startRouteId && routes.length > 0 && !activeRouteId && !isStartModalOpen) {
+      const exists = routes.find((r) => r.id === state.startRouteId);
+      if (exists && !rotaEmAndamento) {
+        setStartingRouteId(state.startRouteId);
+        setValidatedQrs([]);
+        setIsStartModalOpen(true);
+        setExpandedRoutes((prev) =>
+          prev.includes(state.startRouteId!) ? prev : [...prev, state.startRouteId!]
+        );
+      } else if (exists && rotaEmAndamento && rotaEmAndamento.id !== state.startRouteId) {
+        toast.error("Você já possui uma rota em andamento. Finalize-a antes de iniciar outra.");
+      }
+      navigate(location.pathname, { replace: true, state: null });
+    }
+  }, [location.state, routes, activeRouteId, isStartModalOpen, location.pathname, navigate, rotaEmAndamento]);
 
   // Simulando movimento do motorista
   useEffect(() => {
@@ -214,8 +277,8 @@ const MinhasRotas = () => {
   };
 
   const handleOpenStartModal = (routeId: string) => {
-    if (activeRouteId) {
-      toast.error("Você já possui uma rota ativa.");
+    if (activeRouteId || rotaEmAndamento) {
+      toast.error("Você já possui uma rota em andamento. Finalize-a antes de iniciar outra.");
       return;
     }
     setStartingRouteId(routeId);
@@ -223,9 +286,15 @@ const MinhasRotas = () => {
     setIsStartModalOpen(true);
   };
 
-  const handleStartRoute = () => {
+  const handleStartRoute = async () => {
     if (!startingRouteId) return;
-    
+
+    const { error } = await supabase.rpc("iniciar_rota", { _rota_id: startingRouteId });
+    if (error) {
+      toast.error(error.message ?? "Erro ao iniciar rota");
+      return;
+    }
+
     setActiveRouteId(startingRouteId);
     setRoutes(prev => prev.map(r => 
       r.id === startingRouteId ? { ...r, status: "Em Rota", items: r.items.map(i => ({...i, status: "Em Rota"})) } : r
@@ -234,6 +303,7 @@ const MinhasRotas = () => {
     setStartingRouteId(null);
     setValidatedQrs([]);
     setShowMap(true);
+    queryClient.invalidateQueries({ queryKey: ["motorista-rotas"] });
     toast.success("Rota iniciada com sucesso!");
   };
 
@@ -267,33 +337,68 @@ const MinhasRotas = () => {
     }
   };
 
-  const handleAddPhoto = () => {
-    const newPhoto = "https://images.unsplash.com/photo-1590644365607-1c5a519a7a37?q=80&w=300&auto=format&fit=crop";
-    setDeliveryPhotos(prev => [...prev, newPhoto]);
-    toast.success("Foto adicionada.");
+  const handleAddPhoto = async (file: File) => {
+    if (!selectedDeliveryItem) return;
+    setIsUploadingPhoto(true);
+    try {
+      const ext = file.name.split(".").pop() || "jpg";
+      const path = `${selectedDeliveryItem.id}/${crypto.randomUUID()}.${ext}`;
+      const { error } = await supabase.storage
+        .from("entregas-fotos")
+        .upload(path, file, { contentType: file.type });
+      if (error) throw error;
+      setDeliveryPhotos((prev) => [
+        ...prev,
+        { path, preview: URL.createObjectURL(file) },
+      ]);
+      toast.success("Foto adicionada.");
+    } catch (e: any) {
+      toast.error(e.message ?? "Erro ao enviar foto");
+    } finally {
+      setIsUploadingPhoto(false);
+    }
   };
 
-  const handleFinishDelivery = () => {
+  const handleFinishDelivery = async () => {
     if (!selectedDeliveryItem || !activeRouteId) return;
-    
-    setRoutes(prev => prev.map(r => {
-      if (r.id === activeRouteId) {
-        return {
-          ...r,
-          items: r.items.map(i => i.id === selectedDeliveryItem.id ? { ...i, status: "Concluída" } : i)
-        };
-      }
-      return r;
-    }));
+    if (deliveryPhotos.length === 0) {
+      toast.warning("Adicione ao menos uma foto.");
+      return;
+    }
+    setIsFinishing(true);
+    const { error } = await supabase.rpc("finalizar_rota_item", {
+      _rota_item_id: selectedDeliveryItem.id,
+      _fotos: deliveryPhotos.map((p) => p.path),
+    });
+    setIsFinishing(false);
+    if (error) {
+      toast.error(error.message ?? "Erro ao finalizar");
+      return;
+    }
+
+    setRoutes((prev) =>
+      prev.map((r) => {
+        if (r.id === activeRouteId) {
+          return {
+            ...r,
+            items: r.items.map((i) =>
+              i.id === selectedDeliveryItem.id ? { ...i, status: "Concluída" } : i
+            ),
+          };
+        }
+        return r;
+      })
+    );
 
     setIsConfirmModalOpen(false);
     setSelectedDeliveryItem(null);
     setConfirmStep("qr");
     setDeliveryPhotos([]);
+    queryClient.invalidateQueries({ queryKey: ["motorista-rotas"] });
     toast.success("Finalizado com sucesso!");
   };
 
-  const handleFinishRoute = () => {
+  const handleFinishRoute = async () => {
     if (!activeRouteId) return;
     const currentRoute = routes.find(r => r.id === activeRouteId);
     const allDone = currentRoute?.items.every(i => i.status === "Concluída");
@@ -303,11 +408,18 @@ const MinhasRotas = () => {
       return;
     }
 
+    const { error } = await supabase.rpc("finalizar_rota", { _rota_id: activeRouteId });
+    if (error) {
+      toast.error("Erro ao finalizar rota: " + error.message);
+      return;
+    }
+
     setRoutes(prev => prev.map(r => 
       r.id === activeRouteId ? { ...r, status: "Concluída" } : r
     ));
     setActiveRouteId(null);
     setShowMap(false);
+    queryClient.invalidateQueries({ queryKey: ["motorista-rotas"] });
     toast.info("Rota finalizada.");
   };
 
@@ -587,7 +699,7 @@ const MinhasRotas = () => {
           <DialogHeader>
             <DialogTitle>Carregamento de Rota</DialogTitle>
             <DialogDescription>
-              Valide o QR Code de todas as caçambas de <strong>Entrega</strong> que estão sendo carregadas.
+              Valide o QR Code das caçambas de <strong>Entrega</strong> sendo carregadas. As <strong>Retiradas</strong> serão validadas no local.
             </DialogDescription>
           </DialogHeader>
           
@@ -608,8 +720,35 @@ const MinhasRotas = () => {
                     </div>
                   </div>
                 ))}
+                {(routes.find(r => r.id === startingRouteId)?.items.filter(i => i.type === "Entrega").length ?? 0) === 0 && (
+                  <p className="text-xs text-muted-foreground italic">Nenhuma entrega nesta rota.</p>
+                )}
               </div>
             </div>
+
+            {(routes.find(r => r.id === startingRouteId)?.items.filter(i => i.type === "Retirada").length ?? 0) > 0 && (
+              <div className="space-y-3">
+                <label className="text-sm font-medium">
+                  Itens para Retirada ({routes.find(r => r.id === startingRouteId)?.items.filter(i => i.type === "Retirada").length || 0})
+                </label>
+                <div className="grid grid-cols-1 gap-2 max-h-[200px] overflow-y-auto pr-1">
+                  {routes.find(r => r.id === startingRouteId)?.items.filter(i => i.type === "Retirada").map(item => (
+                    <div key={item.id} className="flex items-center justify-between p-3 rounded-lg border bg-orange-50/30 dark:bg-orange-500/5">
+                      <div className="flex items-center gap-3">
+                        <div className="h-6 w-6 rounded-full flex items-center justify-center bg-orange-500/20 text-orange-600">
+                          <PackageCheck className="h-3 w-3" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold">{item.qrCode}</p>
+                          <p className="text-[10px] text-muted-foreground">{item.client}</p>
+                        </div>
+                      </div>
+                      <Badge variant="outline" className="text-[9px] h-4 text-orange-600 border-orange-300">Validar no local</Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="relative aspect-video bg-black rounded-xl flex flex-col items-center justify-center overflow-hidden">
                <Camera className="h-8 w-8 text-white mb-1 opacity-50" />
@@ -645,7 +784,7 @@ const MinhasRotas = () => {
       <Dialog open={isConfirmModalOpen} onOpenChange={setIsConfirmModalOpen}>
         <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden">
           <DialogHeader className="p-6 pb-0">
-            <DialogTitle>Confirmar {selectedDeliveryItem?.type}: {selectedDeliveryItem?.id}</DialogTitle>
+            <DialogTitle>Confirmar {selectedDeliveryItem?.type}: {selectedDeliveryItem?.qrCode}</DialogTitle>
             <DialogDescription>Validação obrigatória no local do cliente.</DialogDescription>
           </DialogHeader>
           
@@ -697,16 +836,32 @@ const MinhasRotas = () => {
                 </div>
 
                 <div className="grid grid-cols-3 gap-2">
-                  <button 
-                    onClick={handleAddPhoto}
-                    className="aspect-square bg-muted rounded-lg border-2 border-dashed border-muted-foreground/30 flex flex-col items-center justify-center hover:bg-muted/80 transition-colors"
+                  <input
+                    ref={photoInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleAddPhoto(file);
+                      e.target.value = "";
+                    }}
+                  />
+                  <button
+                    type="button"
+                    disabled={isUploadingPhoto}
+                    onClick={() => photoInputRef.current?.click()}
+                    className="aspect-square bg-muted rounded-lg border-2 border-dashed border-muted-foreground/30 flex flex-col items-center justify-center hover:bg-muted/80 transition-colors disabled:opacity-50"
                   >
                     <Plus className="h-6 w-6 text-muted-foreground" />
-                    <span className="text-[10px] font-bold text-muted-foreground mt-1">FOTO</span>
+                    <span className="text-[10px] font-bold text-muted-foreground mt-1">
+                      {isUploadingPhoto ? "ENVIANDO..." : "FOTO"}
+                    </span>
                   </button>
                   {deliveryPhotos.map((photo, i) => (
                     <div key={i} className="aspect-square rounded-lg overflow-hidden relative group border">
-                      <img src={photo} alt={`Atividade ${i}`} className="w-full h-full object-cover" />
+                      <img src={photo.preview} alt={`Atividade ${i}`} className="w-full h-full object-cover" />
                       <button 
                         onClick={() => setDeliveryPhotos(prev => prev.filter((_, idx) => idx !== i))}
                         className="absolute top-1 right-1 h-5 w-5 bg-black/50 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
@@ -720,7 +875,7 @@ const MinhasRotas = () => {
                 <Button 
                   className="w-full h-12 text-lg gap-2" 
                   onClick={handleFinishDelivery}
-                  disabled={deliveryPhotos.length === 0}
+                  disabled={deliveryPhotos.length === 0 || isFinishing}
                 >
                   <CheckCircle2 className="h-5 w-5" /> Finalizar {selectedDeliveryItem?.type}
                 </Button>

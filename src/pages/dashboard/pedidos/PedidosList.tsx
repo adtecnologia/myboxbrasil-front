@@ -380,6 +380,9 @@ const PedidosList = () => {
             <DialogTitle>
               Localização — Pedido nº {mapaPedido?.pedidoNumero}/{mapaPedido?.pfNumero}
             </DialogTitle>
+            {mapaPedido?.endereco && (
+              <p className="text-sm text-muted-foreground mt-1">{mapaPedido.endereco}</p>
+            )}
           </DialogHeader>
           <div className="p-4">
             <div className="w-full h-[500px] rounded-md overflow-hidden bg-muted">

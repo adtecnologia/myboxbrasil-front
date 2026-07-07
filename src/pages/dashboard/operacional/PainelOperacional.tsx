@@ -62,11 +62,320 @@ const PainelOperacional = () => {
     return <LocatarioView />;
   }
 
+  if (isLocador) {
+    return <LocadorView />;
+  }
+
   // ============ DEFAULT VIEW (admin / locador / destino) ============
   return <DefaultView isLocador={isLocador} />;
 };
 
 const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+
+// Status onde a caçamba já está fisicamente no cliente
+const EM_LOCACAO_ST = ["locada"];
+const AGUARDANDO_RETIRADA_ST = ["aguardando_retirada"];
+// Em trânsito (não estão em campo, mas em movimentação)
+const EM_TRANSITO_ST = ["em_transito_locacao", "em_transito_retirada"];
+const PENDENTE_ENTREGA_ST = ["entrega_pendente"];
+const CONCLUIDO_ST = ["em_transito_destino_final", "aguardando_analise", "cdf_emitido"];
+
+const LocadorView = () => {
+  const userId = useAuthStore((s) => s.user?.id);
+
+  const { data } = useQuery({
+    queryKey: ["painel-operacional-locador", userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const [{ data: pfs }, { data: veiculos }, { data: rotasAtivas }, { data: ocorrAtivos }, { data: ocorrFrota }] =
+        await Promise.all([
+          supabase.from("pedido_fornecedores").select("id").eq("locador_id", userId!),
+          supabase.from("veiculos").select("id, ativo, placa").eq("locador_id", userId!),
+          supabase
+            .from("rotas")
+            .select("veiculo_id")
+            .eq("locador_id", userId!)
+            .eq("status", "em_andamento"),
+          supabase
+            .from("ocorrencias_ativos")
+            .select("id, status, gravidade, descricao, created_at")
+            .eq("locador_id", userId!),
+          supabase
+            .from("ocorrencias_frota")
+            .select("id, status, gravidade, descricao, created_at")
+            .eq("locador_id", userId!),
+        ]);
+      const pfIds = (pfs ?? []).map((p) => p.id);
+      const { data: ordens } = pfIds.length
+        ? await supabase
+            .from("ordens_locacao")
+            .select("id, created_at")
+            .in("pedido_fornecedor_id", pfIds)
+        : { data: [] as Array<{ id: string; created_at: string }> };
+      const olIds = (ordens ?? []).map((o) => o.id);
+      const { data: unidades } = olIds.length
+        ? await supabase
+            .from("ordem_locacao_unidades")
+            .select("id, status, created_at, updated_at")
+            .in("ordem_locacao_id", olIds)
+        : { data: [] as Array<{ id: string; status: string; created_at: string; updated_at: string }> };
+      return {
+        veiculos: veiculos ?? [],
+        veiculosEmRota: new Set(
+          (rotasAtivas ?? [])
+            .map((r: { veiculo_id: string | null }) => r.veiculo_id)
+            .filter((v): v is string => !!v),
+        ),
+        unidades: unidades ?? [],
+        ocorrencias: [...(ocorrAtivos ?? []), ...(ocorrFrota ?? [])],
+      };
+    },
+  });
+
+  const veiculos = data?.veiculos ?? [];
+  const veiculosEmRota = data?.veiculosEmRota ?? new Set<string>();
+  const unidades = data?.unidades ?? [];
+  const ocorrencias = data?.ocorrencias ?? [];
+
+  const stats = useMemo(() => {
+    const veiculosAtivos = veiculos.filter((v) => veiculosEmRota.has(v.id)).length;
+    const veiculosTotal = veiculos.length;
+    const emCampo = unidades.filter((u) =>
+      [...EM_LOCACAO_ST, ...AGUARDANDO_RETIRADA_ST].includes(u.status),
+    ).length;
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    const concluidoHoje = unidades.filter(
+      (u) => CONCLUIDO_ST.includes(u.status) && new Date(u.updated_at ?? u.created_at) >= hoje,
+    ).length;
+    const ocorrenciasAbertas = ocorrencias.filter((o) => o.status !== "resolvida" && o.status !== "encerrada").length;
+    const ocorrenciasCriticas = ocorrencias.filter(
+      (o) => o.gravidade === "critica" && o.status !== "resolvida" && o.status !== "encerrada",
+    ).length;
+    return { veiculosAtivos, veiculosTotal, emCampo, concluidoHoje, ocorrenciasAbertas, ocorrenciasCriticas };
+  }, [veiculos, veiculosEmRota, unidades, ocorrencias]);
+
+  const dataProducaoLocador = useMemo(() => {
+    const dias = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sab"];
+    const buckets = Array.from({ length: 7 }).map((_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - (6 - i));
+      d.setHours(0, 0, 0, 0);
+      return { name: dias[d.getDay()], ts: d.getTime(), entregas: 0, coletas: 0 };
+    });
+    const findBucket = (ts: number) => {
+      const day = new Date(ts);
+      day.setHours(0, 0, 0, 0);
+      return buckets.find((b) => b.ts === day.getTime());
+    };
+    unidades.forEach((u) => {
+      const b = findBucket(new Date(u.created_at).getTime());
+      if (b && EM_LOCACAO_ST.includes(u.status)) b.entregas += 1;
+      if (u.updated_at) {
+        const b2 = findBucket(new Date(u.updated_at).getTime());
+        if (b2 && CONCLUIDO_ST.includes(u.status)) b2.coletas += 1;
+      }
+    });
+    return buckets.map(({ name, entregas, coletas }) => ({ name, entregas, coletas }));
+  }, [unidades]);
+
+  const statusCacambas = useMemo(() => {
+    const emLoc = unidades.filter((u) => EM_LOCACAO_ST.includes(u.status)).length;
+    const aguRet = unidades.filter((u) => AGUARDANDO_RETIRADA_ST.includes(u.status)).length;
+    const total = Math.max(unidades.length, 1);
+    return [
+      { label: "Em Locação", value: emLoc, color: "bg-blue-500", total },
+      { label: "Aguardando Retirada", value: aguRet, color: "bg-orange-500", total },
+      { label: "Concluídas", value: unidades.filter((u) => CONCLUIDO_ST.includes(u.status)).length, color: "bg-emerald-500", total },
+    ];
+  }, [unidades]);
+
+  const alertas = useMemo(
+    () =>
+      ocorrencias
+        .filter((o) => o.status !== "resolvida" && o.status !== "encerrada")
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, 4)
+        .map((o) => ({
+          text: o.descricao ?? "Ocorrência sem descrição",
+          type: o.gravidade === "critica" ? "critical" : "warning",
+        })),
+    [ocorrencias],
+  );
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Painel Operacional"
+        subtitle="Monitoramento em tempo real da produtividade e campo"
+      />
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-6 text-center space-y-2">
+            <div className="mx-auto w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center text-blue-600">
+              <Truck className="h-6 w-6" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Veículos Ativos</p>
+              <h3 className="text-3xl font-bold">{stats.veiculosAtivos}/{stats.veiculosTotal}</h3>
+            </div>
+            <p className="text-[10px] text-muted-foreground">Em rota / total</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6 text-center space-y-2">
+            <div className="mx-auto w-12 h-12 bg-orange-50 rounded-full flex items-center justify-center text-orange-600">
+              <Package className="h-6 w-6" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Caçambas em Campo</p>
+              <h3 className="text-3xl font-bold">{stats.emCampo}</h3>
+            </div>
+            <p className="text-[10px] text-muted-foreground">Locadas + Aguardando Retirada</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6 text-center space-y-2">
+            <div className="mx-auto w-12 h-12 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-600">
+              <CheckCircle2 className="h-6 w-6" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Concluído Hoje</p>
+              <h3 className="text-3xl font-bold">{stats.concluidoHoje}</h3>
+            </div>
+            <p className="text-[10px] text-emerald-600 font-medium">Unidades finalizadas hoje</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6 text-center space-y-2">
+            <div className="mx-auto w-12 h-12 bg-red-50 rounded-full flex items-center justify-center text-red-600">
+              <AlertTriangle className="h-6 w-6" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Ocorrências</p>
+              <h3 className="text-3xl font-bold text-red-600">{String(stats.ocorrenciasAbertas).padStart(2, "0")}</h3>
+            </div>
+            <p className="text-[10px] text-red-500 font-medium">
+              {stats.ocorrenciasCriticas > 0 ? `${stats.ocorrenciasCriticas} crítica(s)` : "Nenhuma crítica"}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-base font-bold">Volume de Operações</CardTitle>
+                <CardDescription>Entregas e Coletas — últimos 7 dias</CardDescription>
+              </div>
+              <BarChartIcon className="h-5 w-5 text-muted-foreground" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[300px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={dataProducaoLocador}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
+                  <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
+                  <YAxis fontSize={12} tickLine={false} axisLine={false} />
+                  <Tooltip />
+                  <Bar dataKey="entregas" name="Entregas" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="coletas" name="Coletas" fill="#10b981" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base font-bold">Status de Caçambas</CardTitle>
+            <CardDescription>Distribuição atual das unidades</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {statusCacambas.map((item) => (
+                <div key={item.label} className="space-y-2">
+                  <div className="flex justify-between text-xs font-medium">
+                    <span>{item.label}</span>
+                    <span>{item.value} unidades</span>
+                  </div>
+                  <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                    <div
+                      className={`${item.color} h-2 transition-all duration-500`}
+                      style={{ width: `${(item.value / item.total) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+              {unidades.length === 0 && (
+                <p className="text-xs text-muted-foreground text-center py-6">Sem unidades registradas</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-base font-bold">Alertas Recentes</CardTitle>
+            <CardDescription>Ocorrências abertas em ativos e frota</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {alertas.length === 0 && (
+                <p className="text-xs text-muted-foreground text-center py-6">Sem alertas no momento</p>
+              )}
+              {alertas.map((a, i) => (
+                <div key={i} className="flex gap-2 items-start p-2 rounded-lg bg-muted/30">
+                  <div className={`mt-1.5 h-1.5 w-1.5 rounded-full shrink-0 ${a.type === "critical" ? "bg-red-500" : "bg-orange-500"}`} />
+                  <span className="text-xs text-muted-foreground leading-tight">{a.text}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="space-y-4">
+          <h3 className="text-lg font-bold">Ações Rápidas</h3>
+          <div className="grid grid-cols-1 gap-3">
+            <Button className="h-14 justify-start gap-4 px-4 text-base" asChild>
+              <Link to="/dashboard/pedidos">
+                <div className="bg-white/20 p-2 rounded-lg">
+                  <ClipboardList className="h-5 w-5" />
+                </div>
+                Gestão de Pedidos
+              </Link>
+            </Button>
+            <Button variant="outline" className="h-14 justify-start gap-4 px-4 text-base" asChild>
+              <Link to="/dashboard/pedidos/ordens">
+                <div className="bg-primary/10 p-2 rounded-lg text-primary">
+                  <Truck className="h-5 w-5" />
+                </div>
+                Ordens de Locação
+              </Link>
+            </Button>
+            <Button variant="outline" className="h-14 justify-start gap-4 px-4 text-base" asChild>
+              <Link to="/dashboard/pedidos/ocorrencias">
+                <div className="bg-primary/10 p-2 rounded-lg text-primary">
+                  <AlertOctagon className="h-5 w-5" />
+                </div>
+                Ocorrências
+              </Link>
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const LocatarioView = () => {
   const userId = useAuthStore((s) => s.user?.id);
@@ -90,23 +399,58 @@ const LocatarioView = () => {
             .select("id, status, created_at, obra_id, quantidade")
             .in("pedido_fornecedor_id", pfIds)
         : { data: [] as Array<{ id: string; status: string; created_at: string; obra_id: string | null; quantidade: number }> };
+      const olIds = (ordens ?? []).map((o) => o.id);
+      const { data: unidades } = olIds.length
+        ? await supabase
+            .from("ordem_locacao_unidades")
+            .select("id, status, ordem_locacao_id")
+            .in("ordem_locacao_id", olIds)
+        : { data: [] as Array<{ id: string; status: string; ordem_locacao_id: string }> };
       const obraIds = Array.from(new Set((ordens ?? []).map((o) => o.obra_id).filter(Boolean) as string[]));
       const { data: obras } = obraIds.length
         ? await supabase.from("obras").select("id, nome").in("id", obraIds)
         : { data: [] as Array<{ id: string; nome: string }> };
-      return { ordens: ordens ?? [], obras: obras ?? [] };
+      const { data: proximas } = await supabase.rpc("get_locatario_proximas_movimentacoes");
+      return {
+        ordens: ordens ?? [],
+        obras: obras ?? [],
+        unidades: unidades ?? [],
+        proximas: (proximas ?? []) as Array<{
+          id: string;
+          sequencia: number;
+          tipo: string;
+          data_programada: string | null;
+          rota_status: string;
+          olu_status: string;
+          codigo_cacamba: string | null;
+          obra_nome: string | null;
+          endereco: string | null;
+          cidade: string | null;
+          estado: string | null;
+        }>,
+      };
     },
   });
 
   const ordens = data?.ordens ?? [];
   const obras = data?.obras ?? [];
+  const unidades = data?.unidades ?? [];
+  const proximas = data?.proximas ?? [];
 
   const stats = useMemo(() => {
-    const ativas = ordens.filter((o) => ["entregue", "aguardando_retirada"].includes(o.status)).length;
-    const aguardando = ordens.filter((o) => o.status === "aguardando_entrega" || o.status === "aguardando_aprovacao").length;
-    const retiradas = ordens.filter((o) => o.status === "aguardando_retirada").length;
+    const sumQty = (statuses: string[]) =>
+      ordens
+        .filter((o) => statuses.includes(o.status))
+        .reduce((acc, o) => acc + Number(o.quantidade ?? 1), 0);
+    const countUnid = (statuses: string[]) =>
+      unidades.filter((u) => statuses.includes(u.status)).length;
+    const ativas = countUnid(["locada", "aguardando_retirada"]);
+    const aguardando = countUnid(["entrega_pendente", "em_transito_locacao"]);
+    const retiradas = unidades.filter((u) =>
+      ["aguardando_retirada", "retirada_pendente"].includes(u.status)
+    ).length;
     return { ativas, aguardando, retiradas, ocorrencias: 0 };
-  }, [ordens]);
+  }, [ordens, unidades]);
 
   const dataMinhasLocacoes = useMemo(() => {
     const year = new Date().getFullYear();
@@ -165,7 +509,7 @@ const LocatarioView = () => {
                 <ClipboardList className="h-6 w-6" />
               </div>
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Pedidos em Aberto</p>
+                <p className="text-sm font-medium text-muted-foreground">Entregas Pendentes</p>
                 <h3 className="text-3xl font-bold text-emerald-600">{stats.aguardando}</h3>
               </div>
               <p className="text-[10px] text-emerald-600 font-medium">Aguardando entrega</p>
@@ -262,7 +606,39 @@ const LocatarioView = () => {
               <CardDescription>Entregas e retiradas agendadas</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-xs text-muted-foreground text-center py-6">Sem movimentações agendadas</p>
+              {proximas.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-6">Sem movimentações agendadas</p>
+              ) : (
+                <div className="space-y-3">
+                  {proximas.slice(0, 8).map((m) => {
+                    const isEntrega = (m.tipo ?? "").toLowerCase() === "entrega";
+                    return (
+                      <div key={m.id} className="flex items-start justify-between gap-3 p-3 rounded-lg border">
+                        <div className="flex items-start gap-3 min-w-0">
+                          <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${isEntrega ? "bg-emerald-50 text-emerald-600" : "bg-orange-50 text-orange-600"}`}>
+                            {isEntrega ? <Package className="h-4 w-4" /> : <Clock className="h-4 w-4" />}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold truncate">
+                              {isEntrega ? "Entrega" : "Retirada"}
+                              {m.codigo_cacamba ? ` · ${m.codigo_cacamba}` : ""}
+                            </p>
+                            <p className="text-xs text-muted-foreground truncate">
+                              {m.obra_nome ?? "Obra"}
+                              {m.endereco ? ` — ${m.endereco}` : ""}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-xs text-muted-foreground text-right shrink-0">
+                          {m.data_programada
+                            ? new Date(m.data_programada).toLocaleDateString("pt-BR")
+                            : "Sem data"}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </CardContent>
           </Card>
 

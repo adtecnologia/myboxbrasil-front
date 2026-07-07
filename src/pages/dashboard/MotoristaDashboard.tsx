@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useMotoristaRotas, type MotoristaRotaItem } from "@/hooks/useMotoristaRotas";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -17,31 +18,76 @@ import { Progress } from "@/components/ui/progress";
 
 const MotoristaDashboard = () => {
   const user = useAuthStore((s) => s.user);
-  const { data: rotas = [], isLoading } = useMotoristaRotas();
+  const { data: rotas = [], isLoading } = useMotoristaRotas({ includeFinalizadas: true });
+  const navigate = useNavigate();
 
-  const hoje = new Date().toISOString().slice(0, 10);
+  const hoje = (() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  })();
+  const toDateStr = (d?: string | null) => (d ?? "").slice(0, 10);
+  const formatDataBR = (d?: string | null) => {
+    const s = toDateStr(d);
+    if (!s) return "—";
+    const [y, m, day] = s.split("-");
+    return `${day}/${m}/${y}`;
+  };
 
-  // Rotas ordenadas da mais próxima para a mais distante (hoje e futuras primeiro)
+  // Status que representam conclusão do item na rota:
+  // - Entrega: caçamba já foi entregue (locada em diante)
+  // - Retirada: caçamba já foi retirada (em trânsito para análise / destino / cdf emitido)
+  const STATUS_CONCLUIDO_ENTREGA = new Set([
+    "locada",
+    "aguardando_retirada",
+    "em_transito_retirada",
+    "em_transito_analise",
+    "em_transito_destino_final",
+    "aguardando_analise",
+    "cdf_emitido",
+  ]);
+  const STATUS_CONCLUIDO_RETIRADA = new Set([
+    "em_transito_analise",
+    "em_transito_destino_final",
+    "aguardando_analise",
+    "cdf_emitido",
+  ]);
+  const isItemConcluido = (i: MotoristaRotaItem) => {
+    if (!i.olu_status) return false;
+    const tipo = String(i.tipo ?? "").toLowerCase();
+    const set = tipo === "retirada" ? STATUS_CONCLUIDO_RETIRADA : STATUS_CONCLUIDO_ENTREGA;
+    return set.has(i.olu_status);
+  };
+
+  // Rotas não canceladas ordenadas por data
   const rotasOrdenadas = useMemo(
     () =>
-      [...rotas].sort((a, b) =>
-        (a.data_programada ?? "9999-12-31").localeCompare(
-          b.data_programada ?? "9999-12-31"
-        )
-      ),
+      [...rotas]
+        .filter((r) => r.status !== "cancelada")
+        .sort((a, b) =>
+          (a.data_programada ?? "9999-12-31").localeCompare(
+            b.data_programada ?? "9999-12-31"
+          )
+        ),
     [rotas]
   );
 
-  const proximaRota = rotasOrdenadas[0] ?? null;
-
-  const rotasHoje = useMemo(
-    () => rotasOrdenadas.filter((r) => r.data_programada === hoje),
+  const rotaEmAndamento = useMemo(
+    () => rotasOrdenadas.find((r) => r.status === "em_andamento") ?? null,
+    [rotasOrdenadas]
+  );
+  const proximaRotaHoje = useMemo(
+    () =>
+      rotasOrdenadas.find(
+        (r) => toDateStr(r.data_programada) === hoje && r.status !== "concluida"
+      ) ?? null,
     [rotasOrdenadas, hoje]
   );
+  const rotaDestaque = rotaEmAndamento ?? proximaRotaHoje;
+  const emAndamento = !!rotaEmAndamento;
 
-  const tarefasProximaRota = useMemo<MotoristaRotaItem[]>(
-    () => proximaRota?.itens ?? [],
-    [proximaRota]
+  const rotasHoje = useMemo(
+    () => rotasOrdenadas.filter((r) => toDateStr(r.data_programada) === hoje),
+    [rotasOrdenadas, hoje]
   );
 
   const tarefasHoje = useMemo<MotoristaRotaItem[]>(
@@ -49,10 +95,21 @@ const MotoristaDashboard = () => {
     [rotasHoje]
   );
 
+  const tarefasProximaRota = useMemo<MotoristaRotaItem[]>(
+    () => rotaDestaque?.itens.filter((i) => !isItemConcluido(i)) ?? [],
+    [rotaDestaque]
+  );
+
   const nextTask = tarefasProximaRota[0] ?? null;
-  const restantes = tarefasProximaRota.slice(1);
+  const restantes = useMemo<MotoristaRotaItem[]>(() => {
+    const pendentes = rotasOrdenadas
+      .filter((r) => r.status !== "concluida")
+      .flatMap((r) => r.itens.filter((i) => !isItemConcluido(i)));
+    return nextTask ? pendentes.filter((i) => i.id !== nextTask.id) : pendentes;
+  }, [rotasOrdenadas, nextTask]);
   const total = tarefasHoje.length;
-  const progresso = total === 0 ? 0 : Math.round((0 / total) * 100);
+  const concluidasHoje = tarefasHoje.filter(isItemConcluido).length;
+  const progresso = total === 0 ? 0 : Math.round((concluidasHoje / total) * 100);
 
   const formatTipo = (t: string) =>
     t ? t.charAt(0).toUpperCase() + t.slice(1) : "Tarefa";
@@ -72,11 +129,14 @@ const MotoristaDashboard = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Next Task Card */}
+        {rotaDestaque ? (
         <Card className="md:col-span-2 border-primary/20 bg-primary/5 shadow-lg overflow-hidden">
           <CardHeader className="pb-2">
             <div className="flex justify-between items-start">
               <div>
-                <Badge className="mb-2 bg-primary">Próxima Atividade</Badge>
+                <Badge className={`mb-2 ${emAndamento ? "bg-emerald-600" : "bg-primary"}`}>
+                  {emAndamento ? "Rota em Andamento" : "Próxima Atividade"}
+                </Badge>
                 <CardTitle className="text-2xl font-bold">
                   {nextTask ? `${formatTipo(nextTask.tipo)} #${nextTask.sequencia}` : "Sem tarefas"}
                 </CardTitle>
@@ -86,9 +146,7 @@ const MotoristaDashboard = () => {
               </div>
               <div className="text-right">
                 <p className="text-2xl font-bold text-primary">
-                  {proximaRota?.data_programada
-                    ? new Date(proximaRota.data_programada).toLocaleDateString("pt-BR")
-                    : "—"}
+                  {formatDataBR(rotaDestaque?.data_programada)}
                 </p>
                 <p className="text-xs text-muted-foreground">Data</p>
               </div>
@@ -101,24 +159,40 @@ const MotoristaDashboard = () => {
                 <div>
                   <p className="font-semibold">{nextTask?.endereco ?? "—"}</p>
                   <p className="text-sm text-muted-foreground">
-                    {proximaRota?.veiculo?.placa
-                      ? `Veículo: ${proximaRota.veiculo.placa}`
+                    {rotaDestaque?.veiculo?.placa
+                      ? `Veículo: ${rotaDestaque.veiculo.placa}`
                       : "Veículo não definido"}
                   </p>
                 </div>
               </div>
 
-              <div className="flex gap-2">
-                <Button className="flex-1 gap-2" disabled={!nextTask}>
-                  <Navigation className="h-4 w-4" /> Iniciar Rota
-                </Button>
-                <Button variant="outline" size="icon">
-                  <Phone className="h-4 w-4" />
-                </Button>
-              </div>
+              <Button
+                  className="flex-1 gap-2"
+                  disabled={!nextTask || !rotaDestaque}
+                  onClick={() => {
+                    if (rotaDestaque)
+                      navigate("/dashboard/logistica/rotas", {
+                        state: emAndamento ? undefined : { startRouteId: rotaDestaque.id },
+                      });
+                  }}
+                >
+                  <Navigation className="h-4 w-4" /> {emAndamento ? "Continuar Rota" : "Iniciar Rota"}
+              </Button>
             </div>
           </CardContent>
         </Card>
+        ) : (
+          <Card className="md:col-span-2 border-dashed">
+            <CardContent className="py-10 text-center space-y-2">
+              <p className="text-lg font-semibold">Nada mais para hoje 🎉</p>
+              <p className="text-sm text-muted-foreground">
+                {total > 0
+                  ? "Você concluiu todas as tarefas do dia."
+                  : "Você não tem rotas programadas para hoje."}
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Stats Column */}
         <div className="space-y-6">
@@ -128,7 +202,7 @@ const MotoristaDashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="flex justify-between items-end mb-2">
-                <p className="text-2xl font-bold text-foreground">0/{total}</p>
+                <p className="text-2xl font-bold text-foreground">{concluidasHoje}/{total}</p>
                 <p className="text-xs text-muted-foreground">{progresso}% completo</p>
               </div>
               <Progress value={progresso} className="h-2" />
@@ -156,7 +230,7 @@ const MotoristaDashboard = () => {
         <div className="grid gap-3">
           {restantes.length === 0 && (
             <p className="text-sm text-muted-foreground">
-              {isLoading ? "Carregando..." : "Sem outras tarefas para hoje."}
+              {isLoading ? "Carregando..." : "Sem outras tarefas pendentes."}
             </p>
           )}
           {restantes.map((task) => (
@@ -180,7 +254,11 @@ const MotoristaDashboard = () => {
               </CardContent>
             </Card>
           ))}
-          <Button variant="ghost" className="w-full text-muted-foreground hover:text-primary">
+          <Button
+            variant="ghost"
+            className="w-full text-muted-foreground hover:text-primary"
+            onClick={() => navigate("/dashboard/logistica/rotas")}
+          >
             Ver cronograma completo <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         </div>

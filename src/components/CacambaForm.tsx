@@ -149,6 +149,11 @@ export const CacambaForm: React.FC<CacambaFormProps> = ({ initialData, onSubmit,
   };
 
   const removeUnidade = (id: string) => {
+    const alvo = unidades.find(u => u.id === id);
+    if (alvo && !alvo.disponivel) {
+      toast.error("Não é possível excluir uma unidade indisponível.");
+      return;
+    }
     setUnidades(prev => prev.filter(u => u.id !== id));
     setSelecionados(prev => {
       const next = new Set(prev);
@@ -683,12 +688,14 @@ export const CacambaForm: React.FC<CacambaFormProps> = ({ initialData, onSubmit,
                         </td>
 
                         <td className="p-3">
-                          <Button 
+                          <Button
                             type="button"
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-8 w-8 text-destructive"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive disabled:opacity-40"
                             onClick={() => removeUnidade(u.id)}
+                            disabled={!u.disponivel}
+                            title={!u.disponivel ? "Unidade indisponível não pode ser excluída" : "Excluir unidade"}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>

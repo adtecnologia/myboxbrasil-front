@@ -67,11 +67,13 @@ const PainelLogistico = () => {
     },
   });
 
-  const rotasFonte = isMotorista
-    ? rotasMotorista.map((r) => ({ id: r.id, data_programada: r.data_programada, status: r.status, veiculo: r.veiculo, itens: r.itens }))
-    : isLocador
-      ? rotasLocador
-      : [];
+  const rotasFonte = (
+    isMotorista
+      ? rotasMotorista.map((r) => ({ id: r.id, data_programada: r.data_programada, status: r.status, veiculo: r.veiculo, itens: r.itens }))
+      : isLocador
+        ? rotasLocador
+        : []
+  ).filter((r) => r.status !== "cancelada");
 
   const hojeISO = new Date().toISOString().slice(0, 10);
   const stats = useMemo(() => {
@@ -81,19 +83,34 @@ const PainelLogistico = () => {
       (acc, r) => acc + r.itens.filter((i) => (i as { tipo?: string }).tipo?.toLowerCase() === "entrega").length,
       0
     );
+    const retiradasHoje = rotasHoje.reduce(
+      (acc, r) => acc + r.itens.filter((i) => (i as { tipo?: string }).tipo?.toLowerCase() === "retirada").length,
+      0
+    );
     return {
       ativas,
       total: rotasFonte.length,
       entregasHoje,
+      retiradasHoje,
       paradasHoje: rotasHoje.reduce((acc, r) => acc + r.itens.length, 0),
     };
   }, [rotasFonte, hojeISO]);
 
-  const rotasCriticas = rotasFonte.slice(0, 2);
+  const rotasCriticas = rotasFonte
+    .filter((r) => r.status !== "concluida")
+    .slice()
+    .sort((a, b) => {
+      const da = a.data_programada ?? "";
+      const db = b.data_programada ?? "";
+      if (!da) return 1;
+      if (!db) return -1;
+      return da.localeCompare(db);
+    })
+    .slice(0, 2);
 
   const dataAtividades = useMemo(() => {
     const dias = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
-    const out: { name: string; rotas: number; entregas: number }[] = [];
+    const out: { name: string; rotas: number; entregas: number; retiradas: number }[] = [];
     for (let i = 6; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
@@ -103,22 +120,33 @@ const PainelLogistico = () => {
         (acc, r) => acc + r.itens.filter((it) => (it as { tipo?: string }).tipo?.toLowerCase() === "entrega").length,
         0
       );
-      out.push({ name: dias[d.getDay()], rotas: rotasDia.length, entregas });
+      const retiradas = rotasDia.reduce(
+        (acc, r) => acc + r.itens.filter((it) => (it as { tipo?: string }).tipo?.toLowerCase() === "retirada").length,
+        0
+      );
+      out.push({ name: dias[d.getDay()], rotas: rotasDia.length, entregas, retiradas });
     }
     return out;
   }, [rotasFonte]);
 
   const dataStatus = useMemo(() => {
-    const total = rotasFonte.length || 1;
-    const concl = rotasFonte.filter((r) => r.status === "concluida").length;
-    const andamento = rotasFonte.filter((r) => r.status === "em_andamento").length;
-    const atraso = rotasFonte.filter((r) => r.status === "cancelada").length;
+    const rotasDia = rotasFonte.filter(
+      (r) => r.data_programada === hojeISO && r.status !== "cancelada",
+    );
+    const total = rotasDia.length || 1;
+    const concl = rotasDia.filter((r) => r.status === "concluida").length;
+    const andamento = rotasDia.filter((r) => r.status === "em_andamento").length;
+    const aguardando = rotasDia.filter((r) => r.status === "agendada").length;
+    const atraso = rotasDia.filter(
+      (r) => r.status === "agendada" && r.data_programada && r.data_programada < hojeISO,
+    ).length;
     return [
       { name: "Concluído", value: Math.round((concl / total) * 100), color: "#10b981" },
       { name: "Em Rota", value: Math.round((andamento / total) * 100), color: "#3b82f6" },
+      { name: "Aguardando", value: Math.round((aguardando / total) * 100), color: "#f59e0b" },
       { name: "Atrasado", value: Math.round((atraso / total) * 100), color: "#ef4444" },
     ];
-  }, [rotasFonte]);
+  }, [rotasFonte, hojeISO]);
 
   return (
     <div className="space-y-6">
@@ -176,17 +204,18 @@ const PainelLogistico = () => {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Consumo Médio</p>
+                <p className="text-sm font-medium text-muted-foreground">Retiradas Hoje</p>
                 <h3 className="text-3xl font-bold mt-1">
-                  — <span className="text-base font-normal text-muted-foreground">km/L</span>
+                  {String(stats.retiradasHoje).padStart(2, "0")}
                 </h3>
               </div>
               <div className="bg-orange-50 p-3 rounded-xl text-orange-600">
-                <Fuel className="h-6 w-6" />
+                <Truck className="h-6 w-6" />
               </div>
             </div>
             <div className="mt-4 flex items-center gap-2 text-xs">
-              <span className="text-muted-foreground">Sem dados registrados</span>
+              <Badge variant="outline" className="text-orange-600 bg-orange-50 border-orange-100">Hoje</Badge>
+              <span className="text-muted-foreground">Retiradas programadas</span>
             </div>
           </CardContent>
         </Card>
@@ -226,6 +255,7 @@ const PainelLogistico = () => {
                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
                   />
                   <Bar dataKey="entregas" name="Entregas" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="retiradas" name="Retiradas" fill="#f97316" radius={[4, 4, 0, 0]} />
                   <Bar dataKey="rotas" name="Rotas" fill="#e2e8f0" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -274,9 +304,13 @@ const PainelLogistico = () => {
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-bold">
-              {isMotorista ? "Minhas Próximas Rotas" : "Rotas Críticas"}
+              {isMotorista ? "Minhas Próximas Rotas" : "Próximas Rotas"}
             </h3>
-            <Button variant="link" asChild><Link to="/dashboard/logistica/agendadas">Ver todas</Link></Button>
+            <Button variant="link" asChild>
+              <Link to={isMotorista ? "/dashboard/logistica/rotas" : "/dashboard/logistica/agendadas"}>
+                Ver todas
+              </Link>
+            </Button>
           </div>
           
           <div className="space-y-3">
@@ -286,7 +320,17 @@ const PainelLogistico = () => {
               </p>
             ) : (
               rotasCriticas.map((r, i) => (
-                  <Card key={r.id} className="group hover:border-primary/50 transition-all cursor-pointer">
+                  <Card
+                    key={r.id}
+                    className="group hover:border-primary/50 transition-all cursor-pointer"
+                    onClick={() =>
+                      navigate(
+                        isMotorista
+                          ? "/dashboard/logistica/rotas"
+                          : "/dashboard/logistica/agendadas"
+                      )
+                    }
+                  >
                     <CardContent className="p-4">
                       <div className="flex items-center gap-4">
                         <div className="h-12 w-12 rounded-xl bg-muted flex flex-col items-center justify-center">
@@ -311,7 +355,7 @@ const PainelLogistico = () => {
                             <span className="flex items-center gap-1">
                               <Clock className="h-3 w-3" />{" "}
                               {r.data_programada
-                                ? new Date(r.data_programada).toLocaleDateString("pt-BR")
+                                ? (() => { const [y,m,d] = String(r.data_programada).slice(0,10).split("-"); return `${d}/${m}/${y}`; })()
                                 : "—"}
                             </span>
                           </div>
@@ -328,7 +372,21 @@ const PainelLogistico = () => {
         <div className="space-y-4">
           <h3 className="text-lg font-bold">Ações Rápidas</h3>
           <div className="grid grid-cols-1 gap-3">
-            <Button 
+            {isMotorista ? (
+              <Button
+                className="h-14 justify-start gap-4 px-4 text-base"
+                asChild
+              >
+                <Link to="/dashboard/logistica/rotas">
+                  <div className="bg-white/20 p-2 rounded-lg">
+                    <MapIcon className="h-5 w-5" />
+                  </div>
+                  Minhas Rotas
+                </Link>
+              </Button>
+            ) : (
+              <>
+                <Button 
               className="h-14 justify-start gap-4 px-4 text-base" 
               asChild
             >
@@ -376,6 +434,8 @@ const PainelLogistico = () => {
                 <Button variant="link" size="sm" className="mt-1 h-auto p-0">Visualizar</Button>
               </CardContent>
             </Card>
+              </>
+            )}
           </div>
         </div>
       </div>

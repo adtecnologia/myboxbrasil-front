@@ -123,6 +123,31 @@ const CacambasAdmin = () => {
       fotos: (c.cacamba_fotos ?? []).map((f: any) => f.url),
       unidades: c.cacamba_unidades ?? [],
     }));
+
+    // Marca unidades ocupadas por ordens de locação ativas (não finalizadas)
+    const unidadeIds = mapped.flatMap((c) => c.unidades.map((u) => u.id));
+    if (unidadeIds.length) {
+      const { data: olus } = await supabase
+        .from("ordem_locacao_unidades")
+        .select("cacamba_unidade_id, status")
+        .in("cacamba_unidade_id", unidadeIds)
+        .in("status", [
+          "entrega_pendente",
+          "em_transito_locacao",
+          "locada",
+          "aguardando_retirada",
+          "em_transito_retirada",
+          "em_transito_analise",
+        ]);
+      const ocupadas = new Set((olus ?? []).map((o: any) => o.cacamba_unidade_id));
+      mapped.forEach((c) => {
+        c.unidades = c.unidades.map((u) => ({
+          ...u,
+          disponivel: u.disponivel && !ocupadas.has(u.id),
+        }));
+      });
+    }
+
     setCacambas(mapped);
     setLoading(false);
   }, [modeloLabel]);

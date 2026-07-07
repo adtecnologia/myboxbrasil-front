@@ -319,6 +319,51 @@ export type Database = {
         }
         Relationships: []
       }
+      entrega_fotos: {
+        Row: {
+          created_at: string
+          foto_path: string
+          id: string
+          motorista_id: string
+          ordem_locacao_unidade_id: string | null
+          rota_item_id: string
+          tipo: string
+        }
+        Insert: {
+          created_at?: string
+          foto_path: string
+          id?: string
+          motorista_id: string
+          ordem_locacao_unidade_id?: string | null
+          rota_item_id: string
+          tipo: string
+        }
+        Update: {
+          created_at?: string
+          foto_path?: string
+          id?: string
+          motorista_id?: string
+          ordem_locacao_unidade_id?: string | null
+          rota_item_id?: string
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entrega_fotos_ordem_locacao_unidade_id_fkey"
+            columns: ["ordem_locacao_unidade_id"]
+            isOneToOne: false
+            referencedRelation: "ordem_locacao_unidades"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entrega_fotos_rota_item_id_fkey"
+            columns: ["rota_item_id"]
+            isOneToOne: false
+            referencedRelation: "rota_itens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       equipamento_fotos: {
         Row: {
           created_at: string
@@ -433,6 +478,66 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      faturas: {
+        Row: {
+          created_at: string
+          forma_pagamento: string | null
+          id: string
+          locador_id: string | null
+          locatario_id: string
+          paga_em: string | null
+          pedido_fornecedor_id: string
+          pedido_id: string
+          status: Database["public"]["Enums"]["fatura_status"]
+          updated_at: string
+          valor_total: number
+          vencimento: string | null
+        }
+        Insert: {
+          created_at?: string
+          forma_pagamento?: string | null
+          id?: string
+          locador_id?: string | null
+          locatario_id: string
+          paga_em?: string | null
+          pedido_fornecedor_id: string
+          pedido_id: string
+          status?: Database["public"]["Enums"]["fatura_status"]
+          updated_at?: string
+          valor_total?: number
+          vencimento?: string | null
+        }
+        Update: {
+          created_at?: string
+          forma_pagamento?: string | null
+          id?: string
+          locador_id?: string | null
+          locatario_id?: string
+          paga_em?: string | null
+          pedido_fornecedor_id?: string
+          pedido_id?: string
+          status?: Database["public"]["Enums"]["fatura_status"]
+          updated_at?: string
+          valor_total?: number
+          vencimento?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "faturas_pedido_fornecedor_id_fkey"
+            columns: ["pedido_fornecedor_id"]
+            isOneToOne: false
+            referencedRelation: "pedido_fornecedores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "faturas_pedido_id_fkey"
+            columns: ["pedido_id"]
+            isOneToOne: false
+            referencedRelation: "pedidos"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       formas_pagamento: {
         Row: {
@@ -763,24 +868,30 @@ export type Database = {
         Row: {
           cacamba_unidade_id: string
           created_at: string
+          destino_final_id: string | null
           id: string
           ordem_locacao_id: string
+          retirada_solicitada_em: string | null
           status: string
           updated_at: string
         }
         Insert: {
           cacamba_unidade_id: string
           created_at?: string
+          destino_final_id?: string | null
           id?: string
           ordem_locacao_id: string
+          retirada_solicitada_em?: string | null
           status?: string
           updated_at?: string
         }
         Update: {
           cacamba_unidade_id?: string
           created_at?: string
+          destino_final_id?: string | null
           id?: string
           ordem_locacao_id?: string
+          retirada_solicitada_em?: string | null
           status?: string
           updated_at?: string
         }
@@ -1160,8 +1271,12 @@ export type Database = {
         Row: {
           created_at: string
           data_programada: string
+          destino_final_id: string | null
+          finalizado_at: string | null
           id: string
+          iniciado_at: string | null
           locador_id: string
+          motivo_cancelamento: string | null
           motorista_id: string | null
           observacoes: string | null
           status: string
@@ -1171,8 +1286,12 @@ export type Database = {
         Insert: {
           created_at?: string
           data_programada: string
+          destino_final_id?: string | null
+          finalizado_at?: string | null
           id?: string
+          iniciado_at?: string | null
           locador_id: string
+          motivo_cancelamento?: string | null
           motorista_id?: string | null
           observacoes?: string | null
           status?: string
@@ -1182,8 +1301,12 @@ export type Database = {
         Update: {
           created_at?: string
           data_programada?: string
+          destino_final_id?: string | null
+          finalizado_at?: string | null
           id?: string
+          iniciado_at?: string | null
           locador_id?: string
+          motivo_cancelamento?: string | null
           motorista_id?: string | null
           observacoes?: string | null
           status?: string
@@ -1450,6 +1573,46 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      finalizar_rota: { Args: { _rota_id: string }; Returns: undefined }
+      finalizar_rota_item: {
+        Args: { _fotos: string[]; _rota_item_id: string }
+        Returns: undefined
+      }
+      gerar_faturas_pedido: {
+        Args: { _forma_pagamento: string; _pedido_id: string }
+        Returns: {
+          created_at: string
+          forma_pagamento: string | null
+          id: string
+          locador_id: string | null
+          locatario_id: string
+          paga_em: string | null
+          pedido_fornecedor_id: string
+          pedido_id: string
+          status: Database["public"]["Enums"]["fatura_status"]
+          updated_at: string
+          valor_total: number
+          vencimento: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "faturas"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      get_destinos_finais: {
+        Args: never
+        Returns: {
+          documento: string
+          id: string
+          nome: string
+        }[]
+      }
+      get_locatario_proximas_movimentacoes: {
+        Args: { _locatario?: string }
+        Returns: Json
+      }
       get_motorista_rotas: { Args: { _motorista?: string }; Returns: Json }
       has_role: {
         Args: {
@@ -1466,7 +1629,12 @@ export type Database = {
         }
         Returns: boolean
       }
+      iniciar_rota: { Args: { _rota_id: string }; Returns: undefined }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
+      solicitar_retirada_por_codigo: {
+        Args: { _codigo: string }
+        Returns: string
+      }
     }
     Enums: {
       app_role:
@@ -1477,6 +1645,7 @@ export type Database = {
         | "prefeitura"
         | "destino"
       carrinho_status: "aberto" | "confirmado" | "cancelado"
+      fatura_status: "pendente" | "paga" | "cancelada" | "vencida"
       item_tipo: "cacamba" | "equipamento"
       ordem_locacao_status:
         | "pendente"
@@ -1638,6 +1807,7 @@ export const Constants = {
         "destino",
       ],
       carrinho_status: ["aberto", "confirmado", "cancelado"],
+      fatura_status: ["pendente", "paga", "cancelada", "vencida"],
       item_tipo: ["cacamba", "equipamento"],
       ordem_locacao_status: [
         "pendente",

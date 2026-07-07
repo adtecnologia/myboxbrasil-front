@@ -2,6 +2,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { PageHeader } from "@/components/PageHeader";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar, TrendingDown, ArrowDownCircle, AlertCircle, CheckCircle2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { 
   BarChart, 
   Bar, 
@@ -18,36 +20,81 @@ import {
   Legend
 } from "recharts";
 
-const dataMensal = [
-  { name: "Jan", faturado: 3500, vista: 1000 },
-  { name: "Fev", faturado: 4200, vista: 1000 },
-  { name: "Mar", faturado: 3800, vista: 1000 },
-  { name: "Abr", faturado: 5100, vista: 1000 },
-  { name: "Mai", faturado: 4400, vista: 1500 },
-  { name: "Jun", faturado: 5200, vista: 2000 },
-];
-
 const months = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-
-const dataTipoPagamento = [
-  { name: "Boleto (Faturado)", value: 26200, color: "hsl(var(--primary))" },
-  { name: "À Vista (PIX/Cartão)", value: 7500, color: "#f59e0b" },
-];
-
-const categorias = [
-  { name: "Locações", valor: 12400, color: "hsl(var(--primary))" },
-  { name: "Taxas de Destino", valor: 8200, color: "#f59e0b" },
-  { name: "Licenciamento", valor: 2200, color: "#6366f1" },
-  { name: "Outros", valor: 900, color: "#94a3b8" },
-];
+const shortMonths = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+const isVista = (f?: string | null) => f === "pix" || f === "cartao_credito" || f === "cartao_debito";
+const brl = (v: number) => `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
 
 const Despesas = () => {
+  const now = new Date();
+  const [mes, setMes] = useState<number>(now.getMonth() + 1);
+  const [ano, setAno] = useState<number>(now.getFullYear());
+  const [faturas, setFaturas] = useState<Array<{ valor: number; forma: string | null; ref: Date }>>([]);
+
+  useEffect(() => {
+    const load = async () => {
+      const { data } = await supabase
+        .from("faturas")
+        .select("valor_total, forma_pagamento, vencimento, paga_em, created_at");
+      const rows = (data ?? []).map((f: any) => {
+        const refStr = f.paga_em || f.vencimento || f.created_at;
+        return {
+          valor: Number(f.valor_total) || 0,
+          forma: f.forma_pagamento as string | null,
+          ref: new Date(refStr),
+        };
+      });
+      setFaturas(rows);
+    };
+    load();
+  }, []);
+
+  const { totalMes, totalMesAnterior, mediaMensal, totalAno, deltaPct, dataMensal, dataTipoPagamento } = useMemo(() => {
+    const doAno = faturas.filter((f) => f.ref.getFullYear() === ano);
+    const totalAno = doAno.reduce((s, f) => s + f.valor, 0);
+
+    const porMes: Record<number, { faturado: number; vista: number }> = {};
+    for (let m = 0; m < 12; m++) porMes[m] = { faturado: 0, vista: 0 };
+    doAno.forEach((f) => {
+      const m = f.ref.getMonth();
+      if (isVista(f.forma)) porMes[m].vista += f.valor;
+      else porMes[m].faturado += f.valor;
+    });
+    const dataMensal = shortMonths.map((name, i) => ({
+      name,
+      faturado: porMes[i].faturado,
+      vista: porMes[i].vista,
+    }));
+
+    const mesIdx = mes - 1;
+    const totalMes = porMes[mesIdx].faturado + porMes[mesIdx].vista;
+    const totalMesAnterior =
+      mesIdx > 0
+        ? porMes[mesIdx - 1].faturado + porMes[mesIdx - 1].vista
+        : faturas
+            .filter((f) => f.ref.getFullYear() === ano - 1 && f.ref.getMonth() === 11)
+            .reduce((s, f) => s + f.valor, 0);
+    const deltaPct = totalMesAnterior > 0 ? ((totalMes - totalMesAnterior) / totalMesAnterior) * 100 : 0;
+
+    const mesesComGasto = dataMensal.filter((d) => d.faturado + d.vista > 0).length || 1;
+    const mediaMensal = totalAno / mesesComGasto;
+
+    const totalFat = doAno.filter((f) => !isVista(f.forma)).reduce((s, f) => s + f.valor, 0);
+    const totalVista = doAno.filter((f) => isVista(f.forma)).reduce((s, f) => s + f.valor, 0);
+    const dataTipoPagamento = [
+      { name: "Boleto (Faturado)", value: totalFat, color: "hsl(var(--primary))" },
+      { name: "À Vista (PIX/Cartão)", value: totalVista, color: "#f59e0b" },
+    ];
+
+    return { totalMes, totalMesAnterior, mediaMensal, totalAno, deltaPct, dataMensal, dataTipoPagamento };
+  }, [faturas, mes, ano]);
+
   return (
     <div className="space-y-6 pb-10">
       <PageHeader title="Relatório de Despesas" subtitle="Acompanhe seus gastos com locações e serviços">
         <div className="flex items-center gap-2">
           <Calendar className="h-4 w-4 text-white/70 mr-1" />
-          <Select defaultValue="5">
+          <Select value={String(mes)} onValueChange={(v) => setMes(Number(v))}>
             <SelectTrigger className="w-[130px] h-9 text-xs bg-white/15 border-white/20 text-white backdrop-blur-md">
               <SelectValue placeholder="Mês" />
             </SelectTrigger>
@@ -57,11 +104,12 @@ const Despesas = () => {
               ))}
             </SelectContent>
           </Select>
-          <Select defaultValue="2026">
+          <Select value={String(ano)} onValueChange={(v) => setAno(Number(v))}>
             <SelectTrigger className="w-[100px] h-9 text-xs bg-white/15 border-white/20 text-white backdrop-blur-md">
               <SelectValue placeholder="Ano" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="2027">2027</SelectItem>
               <SelectItem value="2026">2026</SelectItem>
               <SelectItem value="2025">2025</SelectItem>
             </SelectContent>
@@ -76,10 +124,12 @@ const Despesas = () => {
               <div className="p-2 bg-white/20 rounded-lg">
                 <ArrowDownCircle className="h-5 w-5" />
               </div>
-              <span className="text-xs font-medium bg-white/20 px-2 py-1 rounded-full">-12% vs mês ant.</span>
+              <span className="text-xs font-medium bg-white/20 px-2 py-1 rounded-full">
+                {deltaPct >= 0 ? "+" : ""}{deltaPct.toFixed(0)}% vs mês ant.
+              </span>
             </div>
-            <p className="text-sm font-medium opacity-80 uppercase tracking-wider">Total do Mês (Maio)</p>
-            <p className="text-3xl font-bold mt-1">R$ 5.900,00</p>
+            <p className="text-sm font-medium opacity-80 uppercase tracking-wider">Total do Mês ({months[mes - 1]})</p>
+            <p className="text-3xl font-bold mt-1">{brl(totalMes)}</p>
           </CardContent>
         </Card>
 
@@ -91,7 +141,7 @@ const Despesas = () => {
               </div>
             </div>
             <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Média Mensal</p>
-            <p className="text-3xl font-bold mt-1 text-foreground">R$ 5.616,66</p>
+            <p className="text-3xl font-bold mt-1 text-foreground">{brl(mediaMensal)}</p>
           </CardContent>
         </Card>
 
@@ -103,7 +153,7 @@ const Despesas = () => {
               </div>
             </div>
             <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Total no Ano</p>
-            <p className="text-3xl font-bold mt-1 text-foreground">R$ 33.700,00</p>
+            <p className="text-3xl font-bold mt-1 text-foreground">{brl(totalAno)}</p>
           </CardContent>
         </Card>
       </div>

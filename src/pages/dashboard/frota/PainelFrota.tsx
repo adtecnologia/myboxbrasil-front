@@ -38,20 +38,23 @@ const PainelFrota = () => {
   const [veiculos, setVeiculos] = useState<VeiculoRow[]>([]);
   const [manutencoes, setManutencoes] = useState<ManutRow[]>([]);
   const [ocorrencias, setOcorrencias] = useState<OcorrRow[]>([]);
+  const [emRotaIds, setEmRotaIds] = useState<Set<string>>(new Set());
   const [alertas, setAlertas] = useState<Array<{ placa: string; servico: string; prazo: string; status: string }>>([]);
 
   useEffect(() => {
     const load = async () => {
-      const [v, m, o] = await Promise.all([
+      const [v, m, o, r] = await Promise.all([
         supabase.from("veiculos").select("id,placa,ativo"),
         supabase.from("manutencoes_frota").select("veiculo_id,status,tipo,data_manutencao,valor"),
         supabase.from("ocorrencias_frota").select("data_ocorrencia"),
+        supabase.from("rotas").select("veiculo_id").eq("status", "em_andamento"),
       ]);
       const vs = (v.data ?? []) as VeiculoRow[];
       const ms = (m.data ?? []) as ManutRow[];
       setVeiculos(vs);
       setManutencoes(ms);
       setOcorrencias((o.data ?? []) as OcorrRow[]);
+      setEmRotaIds(new Set(((r.data ?? []) as { veiculo_id: string | null }[]).map((x) => x.veiculo_id).filter(Boolean) as string[]));
 
       const placas = new Map(vs.map((x) => [x.id, x.placa]));
       const hoje = new Date();
@@ -79,8 +82,12 @@ const PainelFrota = () => {
     [manutencoes]
   );
   const emManutencao = emManutencaoIds.size;
-  const disponiveis = Math.max(0, veiculos.filter((v) => v.ativo).length - emManutencao);
-  const parados = Math.max(0, total - disponiveis - emManutencao);
+  const emRota = veiculos.filter((v) => emRotaIds.has(v.id) && !emManutencaoIds.has(v.id)).length;
+  const disponiveis = Math.max(
+    0,
+    veiculos.filter((v) => v.ativo && !emManutencaoIds.has(v.id) && !emRotaIds.has(v.id)).length,
+  );
+  const parados = Math.max(0, total - disponiveis - emManutencao - emRota);
   const preventivas = manutencoes.filter((m) => emManutencaoIds.has(m.veiculo_id) && m.tipo === "Preventiva").length;
   const corretivas = manutencoes.filter((m) => emManutencaoIds.has(m.veiculo_id) && m.tipo === "Corretiva").length;
 
@@ -91,6 +98,7 @@ const PainelFrota = () => {
 
   const dataDisponibilidade = [
     { name: "Operacionais", value: disponiveis, color: "#10b981" },
+    { name: "Em uso", value: emRota, color: "#3b82f6" },
     { name: "Manutenção", value: emManutencao, color: "#f59e0b" },
     { name: "Parados", value: parados, color: "#ef4444" },
   ];
@@ -185,8 +193,8 @@ const PainelFrota = () => {
               </div>
             </div>
           </CardHeader>
-          <CardContent className="flex justify-center">
-            <div className="h-[300px] w-full max-w-[300px]">
+          <CardContent className="flex flex-col items-center">
+            <div className="h-[260px] w-full max-w-[300px]">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
@@ -205,14 +213,14 @@ const PainelFrota = () => {
                   <Tooltip />
                 </PieChart>
               </ResponsiveContainer>
-              <div className="flex justify-center gap-4 mt-2">
-                {dataDisponibilidade.map((item) => (
-                  <div key={item.name} className="flex items-center gap-1.5">
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
-                    <span className="text-xs text-muted-foreground">{item.name}</span>
-                  </div>
-                ))}
-              </div>
+            </div>
+            <div className="mt-4 flex flex-wrap justify-center gap-x-4 gap-y-2">
+              {dataDisponibilidade.map((item) => (
+                <div key={item.name} className="flex items-center gap-1.5 whitespace-nowrap">
+                  <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                  <span className="text-xs text-muted-foreground">{item.name}</span>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>

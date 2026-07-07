@@ -63,6 +63,14 @@ const LocatarioDashboard = () => {
             .order("created_at", { ascending: false })
         : { data: [] as Array<{ id: string; status: string; created_at: string; pedido_fornecedor_id: string; equipment_type: string; cacamba_id: string | null; equipamento_id: string | null }> };
 
+      const olIds = (ordens ?? []).map((o) => o.id);
+      const { data: unidades } = olIds.length
+        ? await supabase
+            .from("ordem_locacao_unidades")
+            .select("id, status, ordem_locacao_id")
+            .in("ordem_locacao_id", olIds)
+        : { data: [] as Array<{ id: string; status: string; ordem_locacao_id: string }> };
+
       const cacIds = Array.from(new Set((ordens ?? []).map((o) => o.cacamba_id).filter(Boolean) as string[]));
       const eqpIds = Array.from(new Set((ordens ?? []).map((o) => o.equipamento_id).filter(Boolean) as string[]));
       const { data: cacs } = cacIds.length
@@ -72,23 +80,30 @@ const LocatarioDashboard = () => {
         ? await supabase.from("equipamentos").select("id, modelo").in("id", eqpIds)
         : { data: [] as Array<{ id: string; modelo: string }> };
 
-      return { pedidos: pedidos ?? [], ordens: ordens ?? [], cacs: cacs ?? [], eqps: eqps ?? [] };
+      const modeloIds = Array.from(
+        new Set((cacs ?? []).map((c) => c.modelo).filter(Boolean) as string[])
+      );
+      const { data: modelos } = modeloIds.length
+        ? await supabase.from("modelos_cacamba").select("id, modelo").in("id", modeloIds)
+        : { data: [] as Array<{ id: string; modelo: string }> };
+
+      return { pedidos: pedidos ?? [], ordens: ordens ?? [], unidades: unidades ?? [], cacs: cacs ?? [], eqps: eqps ?? [], modelos: modelos ?? [] };
     },
   });
 
   const ordens = data?.ordens ?? [];
+  const unidades = data?.unidades ?? [];
 
   const stats = useMemo(() => {
-    const byStatus = (s: string) => ordens.filter((o) => o.status === s).length;
+    const count = (arr: string[]) => unidades.filter((u) => arr.includes(u.status)).length;
     return [
-      { label: "CDF emitidos", value: 0, icon: Container },
+      { label: "CDF emitidos", value: count(["cdf_emitido"]), icon: Container },
       { label: "Resíduos tratados", value: "0m³", icon: Recycle },
-      { label: "Locadas", value: byStatus("entregue"), icon: ShoppingCart },
-      { label: "Entregas Pendentes", value: byStatus("aguardando_entrega"), icon: PackageOpen },
-      { label: "Em Trânsito", value: byStatus("em_transito"), icon: Truck },
-      { label: "Em Análise", value: byStatus("aguardando_aprovacao"), icon: ClipboardList },
+      { label: "Locadas", value: count(["locada", "aguardando_retirada"]), icon: ShoppingCart },
+      { label: "Entregas Pendentes", value: count(["entrega_pendente", "em_transito_locacao"]), icon: PackageOpen },
+      { label: "Em Análise", value: count(["aguardando_analise"]), icon: ClipboardList },
     ];
-  }, [ordens]);
+  }, [unidades]);
 
   const ordensMes = useMemo(() => {
     const year = new Date().getFullYear();
@@ -101,6 +116,9 @@ const LocatarioDashboard = () => {
   }, [ordens]);
 
   const ultimosPedidos = useMemo(() => {
+    const modeloMap = new Map<string, string>(
+      (data?.modelos ?? []).map((m) => [m.id, m.modelo] as const)
+    );
     const cacMap = new Map<string, { id: string; modelo: string; cores: string | null }>(
       (data?.cacs ?? []).map((c) => [c.id, c] as const)
     );
@@ -108,9 +126,11 @@ const LocatarioDashboard = () => {
       (data?.eqps ?? []).map((e) => [e.id, e] as const)
     );
     return ordens.slice(0, 4).map((o) => {
+      const cac = o.cacamba_id ? cacMap.get(o.cacamba_id) : undefined;
+      const cacModeloNome = cac ? modeloMap.get(cac.modelo) ?? "" : "";
       const label =
         o.equipment_type === "cacamba" && o.cacamba_id
-          ? `Caçamba ${cacMap.get(o.cacamba_id)?.modelo ?? ""}${cacMap.get(o.cacamba_id)?.cores ? ` - ${cacMap.get(o.cacamba_id)?.cores}` : ""}`
+          ? `Caçamba ${cacModeloNome}${cac?.cores ? ` - ${cac.cores}` : ""}`
           : o.equipamento_id
           ? `Equipamento ${eqpMap.get(o.equipamento_id)?.modelo ?? ""}`
           : "Item";
@@ -202,7 +222,7 @@ const LocatarioDashboard = () => {
       </div>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
         {stats.map((stat) => (
           <Card key={stat.label} className="overflow-hidden border-none shadow-sm bg-card hover:shadow-md transition-shadow">
             <CardContent className="p-4">

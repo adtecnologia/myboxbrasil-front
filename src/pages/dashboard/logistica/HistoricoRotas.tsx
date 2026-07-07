@@ -185,7 +185,9 @@ function useHistoricoRotas(): RotaHist[] {
           nome: `Rota ${String(idx + 1).padStart(3, "0")}`,
           motorista: nomes.get(r.motorista_id) ?? "—",
           veiculo: v.placa ? `${v.placa}${v.marca || v.modelo ? ` (${[v.marca, v.modelo].filter(Boolean).join(" ")})` : ""}` : "—",
-          data: r.data_programada ? new Date(r.data_programada).toLocaleDateString("pt-BR") : "—",
+          data: r.data_programada
+            ? (() => { const [y,m,d] = String(r.data_programada).slice(0,10).split("-"); return `${d}/${m}/${y}`; })()
+            : "—",
           status: r.status === "concluida" ? "Concluída" : "Cancelada",
           pontos: itinerario.length,
           estimado: { km: 0, tempo: "—", combustivel: "—" },
@@ -276,7 +278,7 @@ const HistoricoRotas = () => {
           {
             header: "Status",
             accessor: (r) => (
-              <Badge variant="outline" className="bg-green-50 text-green-600 border-green-200">
+              <Badge variant="outline" className={r.status === "Cancelada" ? "bg-red-50 text-red-600 border-red-200" : "bg-green-50 text-green-600 border-green-200"}>
                 {r.status}
               </Badge>
             )
@@ -303,7 +305,7 @@ const HistoricoRotas = () => {
                 <h4 className="font-bold text-sm">{r.nome}</h4>
                 <p className="text-[10px] text-muted-foreground uppercase">{r.id}</p>
               </div>
-              <Badge variant="outline" className="bg-green-50 text-green-600 border-green-200">
+              <Badge variant="outline" className={r.status === "Cancelada" ? "bg-red-50 text-red-600 border-red-200" : "bg-green-50 text-green-600 border-green-200"}>
                 {r.status}
               </Badge>
             </div>

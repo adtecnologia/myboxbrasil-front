@@ -18,6 +18,8 @@ import myboxLogo from "@/assets/mybox-logo.png";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -44,6 +46,7 @@ type Ordem = {
   tempoRestante?: string;
   locacao?: { motorista: string; veiculo: string; data?: string };
   retirada?: { motorista?: string; veiculo?: string; data?: string; status?: string };
+  entrega?: { motorista?: string; veiculo?: string; data?: string; status?: string };
   statusLabel: string;
   statusVariant: "warning" | "info" | "danger" | "purple";
 };
@@ -452,9 +455,41 @@ const AgendamentoModal = ({ tipo, selectedCount }: { tipo: "entrega" | "retirada
 const PedirRetiradaModal = () => {
   const [open, setOpen] = useState(false);
   const [method, setMethod] = useState<"qr" | "code" | null>(null);
+  const [codigo, setCodigo] = useState("");
+  const [loading, setLoading] = useState(false);
+  const queryClient = useQueryClient();
+
+  const handleConfirmar = async () => {
+    const code = codigo.trim();
+    if (!code) {
+      toast.error("Informe o código da caçamba");
+      return;
+    }
+    setLoading(true);
+    const { error } = await supabase.rpc("solicitar_retirada_por_codigo", { _codigo: code });
+    setLoading(false);
+    if (error) {
+      toast.error(error.message ?? "Não foi possível solicitar a retirada");
+      return;
+    }
+    toast.success("Retirada solicitada com sucesso");
+    setOpen(false);
+    setMethod(null);
+    setCodigo("");
+    queryClient.invalidateQueries();
+  };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o);
+        if (!o) {
+          setMethod(null);
+          setCodigo("");
+        }
+      }}
+    >
       <DialogTrigger asChild>
         <Button 
           className="absolute bottom-6 right-6 z-40 gap-2 shadow-2xl h-14 px-8 rounded-full bg-primary hover:bg-primary/90 transition-all scale-100 hover:scale-105 active:scale-95"
@@ -522,6 +557,8 @@ const PedirRetiradaModal = () => {
                     id="cacamba-code" 
                     placeholder="Ex: AR77M6TV" 
                     className="h-12 text-lg font-mono font-bold uppercase tracking-widest pl-4 pr-12 border-2 focus:border-primary" 
+                    value={codigo}
+                    onChange={(e) => setCodigo(e.target.value)}
                   />
                   <div className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                     <ArrowRight className="h-5 w-5" />
@@ -530,7 +567,9 @@ const PedirRetiradaModal = () => {
               </div>
               <div className="pt-2 flex gap-3">
                 <Button variant="outline" className="flex-1 h-11" onClick={() => setMethod(null)}>Voltar</Button>
-                <Button className="flex-1 h-11 bg-primary hover:bg-primary/90" onClick={() => setOpen(false)}>Confirmar</Button>
+                <Button className="flex-1 h-11 bg-primary hover:bg-primary/90" onClick={handleConfirmar} disabled={loading}>
+                  {loading ? "Enviando..." : "Confirmar"}
+                </Button>
               </div>
             </div>
           )}
@@ -630,7 +669,7 @@ const EmitirCdfDialog = ({ ordem }: { ordem: Ordem }) => {
   );
 };
 
-const OrdensTable = ({ data, mode, selected, setSelected, onFocusLocatario, isDestinoFinal }: { data: Ordem[]; mode: typeof allTabsConfig[number]["mode"]; selected: string[]; setSelected: (v: string[]) => void; onFocusLocatario?: (o: Ordem) => void; isDestinoFinal?: boolean }) => {
+const OrdensTable = ({ data, mode, selected, setSelected, onFocusLocatario, isDestinoFinal, tabKey }: { data: Ordem[]; mode: typeof allTabsConfig[number]["mode"]; selected: string[]; setSelected: (v: string[]) => void; onFocusLocatario?: (o: Ordem) => void; isDestinoFinal?: boolean; tabKey?: TabKey }) => {
   const activeProfileType = useAuthStore((state) => state.activeProfileType());
   const [search, setSearch] = useState("");
   const filtered = useMemo(() => data.filter(o => `${o.cliente} ${o.codigo} ${o.endereco}`.toLowerCase().includes(search.toLowerCase())), [data, search]);
@@ -704,10 +743,29 @@ const OrdensTable = ({ data, mode, selected, setSelected, onFocusLocatario, isDe
           header: "Locação",
           accessor: (o: Ordem) => <DriverVehicleCell motorista={o.locacao?.motorista} veiculo={o.locacao?.veiculo} />,
         }] : []),
-        {
-          header: mode === "view" && data === pendentes ? "Data Entrega" : "Retirada",
-          accessor: (o) => <DriverVehicleCell motorista={o.retirada?.motorista} veiculo={o.retirada?.veiculo} data={o.retirada?.data} status={o.retirada?.status} />,
-        },
+        tabKey === "entregas"
+          ? {
+              header: "Entrega",
+              accessor: (o: Ordem) => (
+                <DriverVehicleCell
+                  motorista={o.entrega?.motorista}
+                  veiculo={o.entrega?.veiculo}
+                  data={o.entrega?.data}
+                  status={o.entrega?.status}
+                />
+              ),
+            }
+          : {
+              header: "Retirada",
+              accessor: (o: Ordem) => (
+                <DriverVehicleCell
+                  motorista={o.retirada?.motorista}
+                  veiculo={o.retirada?.veiculo}
+                  data={o.retirada?.data}
+                  status={o.retirada?.status}
+                />
+              ),
+            },
       ]}
       actions={(o) => {
         const isLocatario = activeProfileType === "locatario";
@@ -858,6 +916,7 @@ const OrdensLocacao = () => {
             <OrdensTable
               data={t.data}
               mode={t.mode}
+              tabKey={t.key}
               selected={selectedByTab[t.key]}
               setSelected={(v) => setSelectedByTab(s => ({ ...s, [t.key]: v }))}
               onFocusLocatario={(o) => handleFocusOrdem(o, t.key)}
@@ -933,6 +992,61 @@ function useOrdensFromDB(statuses: string[], mode: "view" | "view-analise" | "vi
         (r: any) => r.ordens_locacao?.pedido_fornecedores?.status === "aceito"
       );
 
+      // Resolver nomes de modelos de caçamba (cacambas.modelo guarda o id do modelo)
+      const modeloIds = Array.from(
+        new Set(
+          aceitos
+            .map((r: any) => r.cacamba_unidades?.cacambas?.modelo)
+            .filter(Boolean)
+        )
+      );
+      const modeloNomes = new Map<string, string>();
+      if (modeloIds.length) {
+        const { data: mods } = await supabase
+          .from("modelos_cacamba")
+          .select("id, modelo")
+          .in("id", modeloIds as string[]);
+        (mods ?? []).forEach((m: any) => modeloNomes.set(m.id, m.modelo));
+      }
+
+      // Buscar dados de entrega (rota) para as OLUs da aba Entregas
+      const oluIds = aceitos.map((r: any) => r.id);
+      const entregaByOlu = new Map<string, { motorista?: string; veiculo?: string; data?: string }>();
+      if (mode === "view" && oluIds.length) {
+        const { data: itens } = await supabase
+          .from("rota_itens")
+          .select("ordem_locacao_unidade_id, tipo, rotas ( data_programada, motorista_id, veiculo_id, status )")
+          .in("ordem_locacao_unidade_id", oluIds)
+          .ilike("tipo", "entrega");
+        const motoristaIds = Array.from(new Set((itens ?? []).map((it: any) => it.rotas?.motorista_id).filter(Boolean)));
+        const veiculoIds = Array.from(new Set((itens ?? []).map((it: any) => it.rotas?.veiculo_id).filter(Boolean)));
+        const motNomes = new Map<string, string>();
+        if (motoristaIds.length) {
+          const { data: mprofs } = await supabase.from("profiles").select("id, nome").in("id", motoristaIds as string[]);
+          (mprofs ?? []).forEach((p: any) => motNomes.set(p.id, p.nome));
+        }
+        const veicMap = new Map<string, string>();
+        if (veiculoIds.length) {
+          const { data: vs } = await supabase.from("veiculos").select("id, placa, marca, modelo").in("id", veiculoIds as string[]);
+          (vs ?? []).forEach((v: any) => {
+            const label = [v.placa, [v.marca, v.modelo].filter(Boolean).join(" ")].filter(Boolean).join(" - ");
+            veicMap.set(v.id, label);
+          });
+        }
+        (itens ?? []).forEach((it: any) => {
+          const r = it.rotas;
+          if (!r) return;
+          if (r.status === "cancelada") return;
+          entregaByOlu.set(it.ordem_locacao_unidade_id, {
+            motorista: r.motorista_id ? motNomes.get(r.motorista_id) : undefined,
+            veiculo: r.veiculo_id ? veicMap.get(r.veiculo_id) : undefined,
+            data: r.data_programada
+              ? `Agendado para ${new Date(r.data_programada).toLocaleDateString("pt-BR")}`
+              : undefined,
+          });
+        });
+      }
+
       const locatarioIds = Array.from(
         new Set(
           aceitos
@@ -959,6 +1073,7 @@ function useOrdensFromDB(statuses: string[], mode: "view" | "view-analise" | "vi
         const obra = ol.obras ?? {};
         const cu = r.cacamba_unidades ?? {};
         const cac = cu.cacambas ?? {};
+        const modeloNome = cac.modelo ? modeloNomes.get(cac.modelo) ?? null : null;
         const endereco = obra
           ? [
               [obra.rua, obra.numero].filter(Boolean).join(", "),
@@ -984,10 +1099,11 @@ function useOrdensFromDB(statuses: string[], mode: "view" | "view-analise" | "vi
           endereco,
           pedidoNum: ped.numero ?? 0,
           codigo: cu.codigo ?? "—",
-          modelo: cac.modelo ?? ol.equipment_type ?? "—",
+          modelo: modeloNome ?? ol.equipment_type ?? "—",
           statusLabel: meta.label,
           statusVariant: meta.variant,
           retirada: { status: "Aguardando agendamento" },
+          entrega: entregaByOlu.get(r.id) ?? { status: "Aguardando agendamento" },
         };
       });
     },

@@ -28,6 +28,8 @@ import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ObraForm } from "@/components/dashboard/obras/ObraForm";
 import { Progress } from "@/components/ui/progress";
+import imgCacamba from "@/assets/equipamento-cacamba.jpg";
+import imgMaquinas from "@/assets/equipamento-maquinas.jpg";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -225,14 +227,14 @@ const SolicitarCacamba = () => {
       label: "Caçamba de Entulho", 
       description: "Ideal para resíduos de construção e reformas",
       icon: Trash2, 
-      img: "https://images.unsplash.com/photo-1590234934177-797598160000?auto=format&fit=crop&q=80&w=600" 
+      img: imgCacamba,
     },
     { 
       id: "outros", 
       label: "Máquinas e Ferramentas", 
       description: "Escavadeiras, compressores e ferramentas diversas",
       icon: HardHat, 
-      img: "https://images.unsplash.com/photo-1581094794329-c8112a89af12?auto=format&fit=crop&q=80&w=600" 
+      img: imgMaquinas,
     },
   ];
 
@@ -333,7 +335,7 @@ const SolicitarCacamba = () => {
                       </div>
                       <div className="flex items-center gap-3">
                         <MapPin className="h-5 w-5 text-primary shrink-0" />
-                        <span className="text-sm font-medium">Cidade: {obra?.endereco.split(" - ")[1].split("/")[0]}</span>
+                        <span className="text-sm font-medium">Cidade: {obra?.endereco.split(" - ")[1]?.split(",")[1]?.trim().split("/")[0]}</span>
                       </div>
                     </div>
                   </div>
@@ -350,7 +352,7 @@ const SolicitarCacamba = () => {
                           <CheckCircle2 className="h-5 w-5 text-primary shrink-0 mt-0.5" />
                           <div className="text-sm">
                             <p className="font-bold">Resíduos selecionados:</p>
-                            <p className="text-muted-foreground capitalize">{selectedResiduos.join(", ") || "Não informados"}</p>
+                            <p className="text-muted-foreground capitalize">{selectedResiduos.map(id => residuos.find(r => r.id === id)?.label || id).join(", ") || "Não informados"}</p>
                           </div>
                         </div>
                       </div>

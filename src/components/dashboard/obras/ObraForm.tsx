@@ -1,6 +1,7 @@
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { useState } from "react";
 
 interface ObraFormData {
   nome: string;
@@ -29,6 +30,16 @@ export const ObraForm = ({ onSave, initialData, submitLabel = "Salvar Obra" }: O
     const [day, month, year] = dateStr.split("/");
     return `${year}-${month}-${day}`;
   };
+
+  const maskPhone = (v: string) => {
+    const d = v.replace(/\D/g, "").slice(0, 11);
+    if (d.length <= 2) return d.length ? `(${d}` : "";
+    if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+    if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+    return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+  };
+
+  const [telefone, setTelefone] = useState(maskPhone(initialData?.telefone || ""));
 
   return (
     <form onSubmit={(e) => {
@@ -85,7 +96,16 @@ export const ObraForm = ({ onSave, initialData, submitLabel = "Salvar Obra" }: O
         </div>
         <div className="space-y-2">
           <Label htmlFor="telefone">Telefone</Label>
-          <Input id="telefone" name="telefone" required defaultValue={initialData?.telefone} placeholder="(11) 99999-9999" />
+          <Input
+            id="telefone"
+            name="telefone"
+            required
+            value={telefone}
+            onChange={(e) => setTelefone(maskPhone(e.target.value))}
+            inputMode="tel"
+            maxLength={15}
+            placeholder="(11) 99999-9999"
+          />
         </div>
       </div>
 

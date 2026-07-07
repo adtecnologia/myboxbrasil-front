@@ -217,19 +217,38 @@ const Rastreamento = () => {
         .from("profiles")
         .select("id, nome")
         .in("id", ids);
+      const { data: rotasAtivas } = await supabase
+        .from("rotas")
+        .select("motorista_id, id, veiculo:veiculo_id(placa, marca, modelo), rota_itens(id)")
+        .in("motorista_id", ids)
+        .eq("status", "em_andamento");
+      const rotaByMotorista = new Map<string, any>();
+      (rotasAtivas ?? []).forEach((r: any) => {
+        if (r.motorista_id) rotaByMotorista.set(r.motorista_id, r);
+      });
       return (profs ?? []).map((p: any, idx: number): Driver => {
         // dispersão determinística em torno do centro
         let h = 0;
         for (let i = 0; i < p.id.length; i++) h = (h * 31 + p.id.charCodeAt(i)) | 0;
         const lat = -20.8113 + (((h % 1000) / 1000) * 0.04 - 0.02);
         const lng = -49.3758 + ((((h >> 10) % 1000) / 1000) * 0.04 - 0.02);
+        const rotaAtiva = rotaByMotorista.get(p.id);
+        const paradas = rotaAtiva?.rota_itens?.length ?? 0;
+        const veic = rotaAtiva?.veiculo;
+        const veicLabel = veic
+          ? [veic.marca, veic.modelo, veic.placa ? `(${veic.placa})` : null]
+              .filter(Boolean)
+              .join(" ")
+          : "—";
         return {
           id: p.id,
           nome: p.nome ?? "Motorista",
-          status: "online",
-          entregaAtual: null,
+          status: rotaAtiva ? "online" : "online",
+          entregaAtual: rotaAtiva
+            ? `Rota em andamento • ${paradas} ${paradas === 1 ? "parada" : "paradas"}`
+            : null,
           posicao: [lat, lng],
-          veiculo: "—",
+          veiculo: veicLabel,
         };
       });
     },

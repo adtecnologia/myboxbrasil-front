@@ -155,6 +155,18 @@ function useVeiculosAtivos(): VeiculoOpt[] {
   return data;
 }
 
+function useDestinosFinais(): { id: string; nome: string }[] {
+  const { data = [] } = useQuery({
+    queryKey: ["destinos-finais"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_destinos_finais");
+      if (error) throw error;
+      return (data ?? []).map((p: any) => ({ id: p.id, nome: p.nome }));
+    },
+  });
+  return data;
+}
+
 function usePendentesEntrega(): Pendente[] {
   const user = useAuthStore((s) => s.user);
   const activeProfile = useAuthStore(
@@ -182,7 +194,7 @@ function usePendentesEntrega(): Pendente[] {
              )
            )`
         )
-        .eq("status", "entrega_pendente")
+        .in("status", ["entrega_pendente", "aguardando_retirada"])
         .eq("ordens_locacao.pedido_fornecedores.locador_id", locadorId!);
       if (error) throw error;
 
@@ -190,19 +202,23 @@ function usePendentesEntrega(): Pendente[] {
         (r: any) => r.ordens_locacao?.pedido_fornecedores?.status === "aceito"
       );
 
-      // Remove unidades que já estão em alguma rota
+      // Remove unidades que já estão em rota ativa do MESMO tipo (Entrega/Retirada)
       const unidadeIds = aceitos.map((r: any) => r.id);
       const jaEmRota = new Set<string>();
       if (unidadeIds.length) {
         const { data: existentes } = await supabase
           .from("rota_itens")
-          .select("ordem_locacao_unidade_id")
+          .select("ordem_locacao_unidade_id, tipo, rotas ( status )")
           .in("ordem_locacao_unidade_id", unidadeIds);
-        (existentes ?? []).forEach((x: any) =>
-          jaEmRota.add(x.ordem_locacao_unidade_id)
-        );
+        (existentes ?? []).forEach((x: any) => {
+          if (x.rotas?.status === "cancelada") return;
+          jaEmRota.add(`${x.ordem_locacao_unidade_id}:${(x.tipo || "").toLowerCase()}`);
+        });
       }
-      const disponiveis = aceitos.filter((r: any) => !jaEmRota.has(r.id));
+      const disponiveis = aceitos.filter((r: any) => {
+        const tipo = r.status === "aguardando_retirada" ? "retirada" : "entrega";
+        return !jaEmRota.has(`${r.id}:${tipo}`);
+      });
 
       const locIds = Array.from(
         new Set(
@@ -245,7 +261,7 @@ function usePendentesEntrega(): Pendente[] {
           id: r.id,
           cliente: nomes.get(ped.locatario_id) ?? "—",
           endereco,
-          tipo: "Entrega",
+          tipo: r.status === "aguardando_retirada" ? "Retirada" : "Entrega",
           modelo: cac.modelo ?? ol.equipment_type ?? "—",
           data: r.created_at ? new Date(r.created_at).toLocaleDateString("pt-BR") : "",
           posicao: [center[0] + dLat, center[1] + dLng],
@@ -294,13 +310,13 @@ const SortableItem = ({ id, item, index, onRemove }: SortableItemProps) => {
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between">
-          <h4 className="font-bold text-xs truncate">{item.cliente}</h4>
+          <h4 className="font-bold text-xs break-words">{item.cliente}</h4>
           <Badge variant="outline" className={`text-[8px] px-1 h-3.5 ${item.tipo === "Entrega" ? "text-blue-500 border-blue-100 bg-blue-50/30" : "text-orange-500 border-orange-100 bg-orange-50/30"}`}>
             {item.tipo}
           </Badge>
         </div>
-        <p className="text-[10px] text-muted-foreground truncate flex items-center gap-1">
-          <MapPin className="h-2.5 w-2.5" /> {item.endereco}
+        <p className="text-[10px] text-muted-foreground break-words flex items-start gap-1">
+          <MapPin className="h-2.5 w-2.5 mt-0.5 shrink-0" /> <span className="break-words">{item.endereco}</span>
         </p>
       </div>
       <Button 
@@ -319,12 +335,14 @@ const AgendarRota = () => {
   const pendentes = usePendentesEntrega();
   const motoristas = useMotoristas();
   const veiculos = useVeiculosAtivos();
+  const destinos = useDestinosFinais();
   const locadorId = useLocadorId();
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [motoristaId, setMotoristaId] = useState<string>("");
   const [veiculoId, setVeiculoId] = useState<string>("");
   const [dataProgramada, setDataProgramada] = useState<string>("");
+  const [destinoId, setDestinoId] = useState<string>("");
   const [saving, setSaving] = useState(false);
 
   const sensors = useSensors(
@@ -378,6 +396,7 @@ const AgendarRota = () => {
           veiculo_id: veiculoId,
           data_programada: dataProgramada,
           status: "agendada",
+          destino_final_id: destinoId || null,
         })
         .select("id")
         .single();
@@ -395,17 +414,27 @@ const AgendarRota = () => {
       const { error: itensErr } = await supabase.from("rota_itens").insert(itens);
       if (itensErr) throw itensErr;
 
-      const { error: updErr } = await supabase
-        .from("ordem_locacao_unidades")
-        .update({ status: "em_transito_locacao" })
-        .in("id", selectedIds);
-      if (updErr) throw updErr;
+      // Grava destino final nas OLUs que são de retirada
+      if (destinoId) {
+        const retiradaOluIds = selectedIds.filter((id) => {
+          const it = pendentes.find((p) => p.id === id);
+          return String(it?.tipo ?? "").toLowerCase() === "retirada";
+        });
+        if (retiradaOluIds.length) {
+          const { error: oluErr } = await supabase
+            .from("ordem_locacao_unidades")
+            .update({ destino_final_id: destinoId })
+            .in("id", retiradaOluIds);
+          if (oluErr) throw oluErr;
+        }
+      }
 
       toast.success("Rota criada e agendada com sucesso!");
       setSelectedIds([]);
       setMotoristaId("");
       setVeiculoId("");
       setDataProgramada("");
+      setDestinoId("");
     } catch (err: any) {
       toast.error(err.message ?? "Erro ao salvar rota");
     } finally {
@@ -461,15 +490,15 @@ const AgendarRota = () => {
                       className="group p-3 rounded-lg border bg-white hover:border-primary/50 transition-all cursor-pointer shadow-sm"
                     >
                       <div className="flex items-center justify-between mb-1">
-                        <h4 className="font-bold text-xs truncate flex-1">{item.cliente}</h4>
+                        <h4 className="font-bold text-xs break-words flex-1">{item.cliente}</h4>
                         <Plus className="h-3 w-3 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
                       </div>
-                      <p className="text-[10px] text-muted-foreground truncate mb-2">{item.endereco}</p>
-                      <div className="flex items-center gap-2">
+                      <p className="text-[10px] text-muted-foreground break-words mb-2">{item.endereco}</p>
+                      <div className="flex items-center gap-2 flex-wrap">
                         <Badge variant="outline" className={`text-[8px] h-4 ${item.tipo === "Entrega" ? "text-blue-500 border-blue-100 bg-blue-50/50" : "text-orange-500 border-orange-100 bg-orange-50/50"}`}>
                           {item.tipo}
                         </Badge>
-                        <span className="text-[10px] text-muted-foreground">{item.modelo}</span>
+                        <span className="text-[10px] text-muted-foreground break-all">{item.modelo}</span>
                       </div>
                     </div>
                   ))}
@@ -638,13 +667,14 @@ const AgendarRota = () => {
                 {selectedItems.some(i => i.tipo === "Retirada") && (
                   <div className="space-y-1.5 pt-2 border-t">
                     <Label className="text-xs">Destino Final</Label>
-                    <Select required>
+                    <Select required value={destinoId} onValueChange={setDestinoId}>
                       <SelectTrigger className="h-8 text-xs">
-                        <SelectValue placeholder="Ecoponto / Aterro" />
+                        <SelectValue placeholder={destinos.length ? "Selecione" : "Nenhum destino cadastrado"} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="1">Ecoponto Municipal</SelectItem>
-                        <SelectItem value="2">Aterro Regional</SelectItem>
+                        {destinos.map((d) => (
+                          <SelectItem key={d.id} value={d.id}>{d.nome}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>

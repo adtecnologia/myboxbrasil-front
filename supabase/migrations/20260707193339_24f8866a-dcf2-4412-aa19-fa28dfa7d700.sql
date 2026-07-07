@@ -1,0 +1,2 @@
+ALTER TABLE public.ordem_locacao_unidades ADD COLUMN IF NOT EXISTS destino_final_id uuid REFERENCES auth.users(id);
+CREATE INDEX IF NOT EXISTS idx_olu_destino_final ON public.ordem_locacao_unidades(destino_final_id);

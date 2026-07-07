@@ -10,6 +10,8 @@ export type MotoristaRotaItem = {
   endereco: string | null;
   cidade: string | null;
   estado: string | null;
+  codigo_cacamba: string | null;
+  olu_status: string | null;
 };
 
 export type MotoristaRota = {

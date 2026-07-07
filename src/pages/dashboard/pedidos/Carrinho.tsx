@@ -9,6 +9,7 @@ export interface CartItem {
   quantity: number;
   obra?: string;
   obraName?: string;
+  obraEndereco?: string;
   equipmentType: "cacamba" | "outros";
   locador?: string;
 }
@@ -82,12 +83,13 @@ const Carrinho = () => {
 
     const [profsRes, obrasRes, cacRes, equipRes] = await Promise.all([
       locadorIds.length ? supabase.from("profiles").select("id, nome").in("id", locadorIds) : Promise.resolve({ data: [] as any[] }),
-      obraIds.length ? supabase.from("obras").select("id, nome").in("id", obraIds) : Promise.resolve({ data: [] as any[] }),
+      obraIds.length ? supabase.from("obras").select("id, nome, rua, numero, bairro, cidade, estado").in("id", obraIds) : Promise.resolve({ data: [] as any[] }),
       cacambaIds.length ? supabase.from("cacambas").select("id, modelo").in("id", cacambaIds) : Promise.resolve({ data: [] as any[] }),
       equipIds.length ? supabase.from("equipamentos").select("id, nome").in("id", equipIds) : Promise.resolve({ data: [] as any[] }),
     ]);
     const nomes = Object.fromEntries(((profsRes as any).data ?? []).map((p: any) => [p.id, p.nome]));
     const obrasMap = Object.fromEntries(((obrasRes as any).data ?? []).map((o: any) => [o.id, o.nome]));
+    const obrasEndMap = Object.fromEntries(((obrasRes as any).data ?? []).map((o: any) => [o.id, [`${o.rua ?? ""}${o.numero ? ", " + o.numero : ""}`, o.bairro, [o.cidade, o.estado].filter(Boolean).join("/")].filter(Boolean).join(" - ")]));
     const cacambasMap = Object.fromEntries(((cacRes as any).data ?? []).map((c: any) => [c.id, c.modelo]));
     const equipMap = Object.fromEntries(((equipRes as any).data ?? []).map((e: any) => [e.id, e.nome]));
 
@@ -110,6 +112,7 @@ const Carrinho = () => {
         quantity: r.quantidade,
         obra: r.obra_id ?? undefined,
         obraName: obrasMap[r.obra_id] ?? "—",
+        obraEndereco: obrasEndMap[r.obra_id] ?? "",
         equipmentType: r.equipment_type === "cacamba" ? "cacamba" : "outros",
         locador: nomes[r.locador_id] ?? "Geral",
       };
@@ -207,13 +210,23 @@ const Carrinho = () => {
     }
   };
 
-  const finalizeOrder = async () => {
+  const finalizeOrder = async (forma?: string) => {
     if (!carrinhoId) { toast.error("Carrinho não encontrado."); return; }
-    const { error } = await supabase.rpc("confirmar_carrinho", { _carrinho_id: carrinhoId });
+    const { data: pedido, error } = await supabase.rpc("confirmar_carrinho", { _carrinho_id: carrinhoId });
     if (error) { toast.error("Erro ao confirmar: " + error.message); return; }
+    const formaPagamento = forma ?? (paymentStep === "pix" ? "pix" : paymentStep === "credit-card" ? "cartao_credito" : "faturado");
+    const pedidoId = (pedido as any)?.id;
+    if (pedidoId) {
+      const { error: fatErr } = await supabase.rpc("gerar_faturas_pedido", {
+        _pedido_id: pedidoId,
+        _forma_pagamento: formaPagamento,
+      });
+      if (fatErr) toast.error("Pedido confirmado, mas falha ao gerar faturas: " + fatErr.message);
+    }
     toast.success("Pedido enviado com sucesso!");
     setItems([]);
     setCarrinhoId(null);
+    setIsPaymentModalOpen(false);
     notifyCartChanged();
     navigate("/dashboard/pedidos");
   };
@@ -271,6 +284,11 @@ const Carrinho = () => {
                    <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground uppercase">
                      <Truck className="h-3.5 w-3.5" /> {item.locador}
                    </div>
+                   {item.obraEndereco && (
+                     <div className="flex items-start gap-1.5 text-xs font-medium text-muted-foreground w-full">
+                       <MapPin className="h-3.5 w-3.5 mt-0.5 shrink-0" /> <span>{item.obraEndereco}</span>
+                     </div>
+                   )}
                 </div>
               </div>
               <Button 
@@ -547,7 +565,7 @@ const Carrinho = () => {
                   </div>
                   <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Aguardando pagamento...</p>
                 </div>
-                <Button className="w-full h-14 rounded-2xl font-black uppercase text-sm shadow-lg" onClick={finalizeOrder}>
+                <Button className="w-full h-14 rounded-2xl font-black uppercase text-sm shadow-lg" onClick={() => finalizeOrder("pix")}>
                   Já realizei o pagamento
                 </Button>
               </div>
@@ -596,7 +614,7 @@ const Carrinho = () => {
                     </div>
                   </div>
                 </div>
-                <Button className="w-full h-14 rounded-2xl font-black uppercase text-sm shadow-lg shadow-primary/20" onClick={finalizeOrder}>
+                <Button className="w-full h-14 rounded-2xl font-black uppercase text-sm shadow-lg shadow-primary/20" onClick={() => finalizeOrder("cartao_credito")}>
                   Finalizar Pagamento <CheckCircle className="ml-2 h-5 w-5" />
                 </Button>
               </div>

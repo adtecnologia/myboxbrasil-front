@@ -61,6 +61,27 @@ const LocadorDashboard = () => {
             .in("cacamba_id", cacambaIds)
         : { data: [] as Array<{ id: string; cacamba_id: string; disponivel: boolean; manutencao: boolean }> };
 
+      const modeloIds = Array.from(new Set((cacambas ?? []).map((c) => c.modelo).filter(Boolean) as string[]));
+      const { data: modelos } = modeloIds.length
+        ? await supabase.from("modelos_cacamba").select("id, modelo").in("id", modeloIds)
+        : { data: [] as Array<{ id: string; modelo: string }> };
+
+      const unidadeIds = (unidades ?? []).map((u) => u.id);
+      const { data: olus } = unidadeIds.length
+        ? await supabase
+            .from("ordem_locacao_unidades")
+            .select("cacamba_unidade_id, status")
+            .in("cacamba_unidade_id", unidadeIds)
+            .in("status", [
+              "entrega_pendente",
+              "em_transito_locacao",
+              "locada",
+              "aguardando_retirada",
+              "em_transito_retirada",
+              "em_transito_analise",
+            ])
+        : { data: [] as Array<{ cacamba_unidade_id: string; status: string }> };
+
       const { data: pfs } = await supabase
         .from("pedido_fornecedores")
         .select("id, pedido_id, valor_total, status, created_at")
@@ -85,33 +106,51 @@ const LocadorDashboard = () => {
         ? await supabase.from("profiles").select("id, nome").in("id", locatarioIds)
         : { data: [] as Array<{ id: string; nome: string }> };
 
+      const { data: faturasAbertas } = await supabase
+        .from("faturas")
+        .select("valor_total, status")
+        .eq("locador_id", userId!)
+        .in("status", ["pendente", "vencida"]);
+
       return {
         cacambas: cacambas ?? [],
         unidades: unidades ?? [],
+        modelos: modelos ?? [],
+        olus: olus ?? [],
         pfs: pfs ?? [],
         ordens: ordens ?? [],
         pedidos: pedidos ?? [],
         profs: profs ?? [],
+        faturasAbertas: faturasAbertas ?? [],
       };
     },
   });
 
   const stats = useMemo(() => {
     const unidades = data?.unidades ?? [];
-    const ordens = data?.ordens ?? [];
+    const olus = data?.olus ?? [];
     const total = unidades.length;
     const manutencao = unidades.filter((u) => u.manutencao).length;
-    const disponiveis = unidades.filter((u) => u.disponivel && !u.manutencao).length;
-    const byStatus = (s: string) => ordens.filter((o) => o.status === s).length;
+    const emProcessoIds = new Set(olus.map((o) => o.cacamba_unidade_id));
+    const disponiveis = unidades.filter(
+      (u) => u.disponivel && !u.manutencao && !emProcessoIds.has(u.id),
+    ).length;
+    const countStatus = (arr: string[]) =>
+      olus.filter((o) => arr.includes(o.status)).length;
     return [
       { label: "Total Caçambas", value: total, icon: ShoppingCart },
       { label: "Disponíveis", value: disponiveis, icon: PackageSearch },
-      { label: "Entregas Pendentes", value: byStatus("aguardando_entrega"), icon: PackageOpen },
-      { label: "Locadas", value: byStatus("entregue"), icon: PackageCheck },
-      { label: "Aguardando Retirada", value: byStatus("aguardando_retirada"), icon: MapPin },
+      { label: "Entregas Pendentes", value: countStatus(["entrega_pendente", "em_transito_locacao"]), icon: PackageOpen },
+      { label: "Locadas", value: countStatus(["locada"]), icon: PackageCheck },
+      { label: "Aguardando Retirada", value: countStatus(["aguardando_retirada", "em_transito_retirada"]), icon: MapPin },
       { label: "Limpeza e Manutenção", value: manutencao, icon: Wrench },
     ];
   }, [data]);
+
+  const faturasEmAberto = useMemo(
+    () => (data?.faturasAbertas ?? []).reduce((acc, f) => acc + Number(f.valor_total ?? 0), 0),
+    [data],
+  );
 
   const receitaMes = useMemo(() => {
     const pfs = data?.pfs ?? [];
@@ -175,13 +214,18 @@ const LocadorDashboard = () => {
   const disponibilidadeModelo = useMemo(() => {
     const cacambas = data?.cacambas ?? [];
     const unidades = data?.unidades ?? [];
+    const modeloNomes = new Map((data?.modelos ?? []).map((m) => [m.id, m.modelo]));
+    const olus = data?.olus ?? [];
+    const emProcessoIds = new Set(olus.map((o) => o.cacamba_unidade_id));
     const byCacamba = new Map<string, { total: number; disp: number; modelo: string }>();
-    cacambas.forEach((c) => byCacamba.set(c.id, { total: 0, disp: 0, modelo: c.modelo }));
+    cacambas.forEach((c) =>
+      byCacamba.set(c.id, { total: 0, disp: 0, modelo: modeloNomes.get(c.modelo) ?? "Sem modelo" }),
+    );
     unidades.forEach((u) => {
       const entry = byCacamba.get(u.cacamba_id);
       if (!entry) return;
       entry.total += 1;
-      if (u.disponivel && !u.manutencao) entry.disp += 1;
+      if (u.disponivel && !u.manutencao && !emProcessoIds.has(u.id)) entry.disp += 1;
     });
     const byModelo = new Map<string, { total: number; disp: number }>();
     byCacamba.forEach(({ modelo, total, disp }) => {
@@ -242,13 +286,15 @@ const LocadorDashboard = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Faturas em Aberto</p>
-                <h3 className="text-2xl font-bold mt-1">{fmtBRL(0)}</h3>
+                <h3 className="text-2xl font-bold mt-1">{fmtBRL(faturasEmAberto)}</h3>
               </div>
               <div className="bg-amber-500/10 p-3 rounded-full">
                 <Clock className="h-6 w-6 text-amber-600" />
               </div>
             </div>
-            <div className="mt-4 text-xs text-muted-foreground">Sem registros</div>
+            <div className="mt-4 text-xs text-muted-foreground">
+              {faturasEmAberto > 0 ? "Faturas pendentes ou vencidas" : "Sem registros"}
+            </div>
           </CardContent>
         </Card>
 

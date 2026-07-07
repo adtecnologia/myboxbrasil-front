@@ -44,19 +44,33 @@ const PainelAtivos = () => {
       desde.setDate(desde.getDate() - 6);
       const desdeISO = desde.toISOString();
 
-      const [uCac, uEqp, manut, ocor] = await Promise.all([
+      const [uCac, uEqp, olus, olusProcesso, rotasMov] = await Promise.all([
         supabase.from("cacamba_unidades").select("id, disponivel, manutencao"),
         supabase.from("equipamento_unidades").select("id, disponivel"),
         supabase
-          .from("manutencoes_ativos")
-          .select("id, ativo_codigo, tipo, status, created_at")
-          .gte("created_at", desdeISO)
-          .order("created_at", { ascending: false }),
+          .from("ordem_locacao_unidades")
+          .select("cacamba_unidade_id, status")
+          .in("status", [
+            "locada",
+            "aguardando_retirada",
+          ]),
         supabase
-          .from("ocorrencias_ativos")
-          .select("id, ativo_codigo, tipo, gravidade, status, created_at")
-          .gte("created_at", desdeISO)
-          .order("created_at", { ascending: false }),
+          .from("ordem_locacao_unidades")
+          .select("cacamba_unidade_id, status")
+          .in("status", [
+            "em_transito_locacao",
+            "locada",
+            "aguardando_retirada",
+            "em_transito_retirada",
+            "em_transito_analise",
+          ]),
+        supabase
+          .from("rotas")
+          .select(
+            "id, status, iniciado_at, finalizado_at, rota_itens ( id, tipo, ordem_locacao_unidades:ordem_locacao_unidade_id ( cacamba_unidades:cacamba_unidade_id ( codigo ) ) )",
+          )
+          .or(`iniciado_at.gte.${desdeISO},finalizado_at.gte.${desdeISO}`)
+          .order("iniciado_at", { ascending: false }),
       ]);
       if (!active) return;
 
@@ -65,10 +79,23 @@ const PainelAtivos = () => {
       const total = uc.length + ue.length;
       const manutCount =
         uc.filter((u: { manutencao: boolean }) => u.manutencao).length;
+      const emCampoIds = new Set(
+        (olus.data ?? [])
+          .map((o: { cacamba_unidade_id: string | null }) => o.cacamba_unidade_id)
+          .filter(Boolean) as string[],
+      );
+      const emCampo = uc.filter((u: { id: string }) => emCampoIds.has(u.id)).length;
+      const emProcessoIds = new Set(
+        (olusProcesso.data ?? [])
+          .map((o: { cacamba_unidade_id: string | null }) => o.cacamba_unidade_id)
+          .filter(Boolean) as string[],
+      );
       const disponiveis =
-        uc.filter((u: { disponivel: boolean; manutencao: boolean }) => u.disponivel && !u.manutencao).length +
+        uc.filter(
+          (u: { id: string; disponivel: boolean; manutencao: boolean }) =>
+            u.disponivel && !u.manutencao && !emProcessoIds.has(u.id),
+        ).length +
         ue.filter((u: { disponivel: boolean }) => u.disponivel).length;
-      const emCampo = Math.max(0, total - disponiveis - manutCount);
       setStats({ total, disponiveis, emCampo, manutencao: manutCount });
 
       // Movimentação dos últimos 7 dias
@@ -86,32 +113,44 @@ const PainelAtivos = () => {
             b.date.getDate() === d.getDate()
         );
       };
-      (manut.data ?? []).forEach((m) => {
-        const i = idxByDay(m.created_at);
-        if (i >= 0) buckets[i].entradas += 1;
-      });
-      (ocor.data ?? []).forEach((o) => {
-        const i = idxByDay(o.created_at);
-        if (i >= 0) buckets[i].saidas += 1;
+      const histItems: HistItem[] = [];
+      (rotasMov.data ?? []).forEach((r: any) => {
+        const itens = r.rota_itens ?? [];
+        const entregas = itens.filter((it: any) => String(it.tipo ?? "").toLowerCase() === "entrega").length;
+        const retiradas = itens.filter((it: any) => String(it.tipo ?? "").toLowerCase() === "retirada").length;
+        if (r.iniciado_at) {
+          const i = idxByDay(r.iniciado_at);
+          if (i >= 0) buckets[i].saidas += entregas;
+        }
+        if (r.finalizado_at) {
+          const i = idxByDay(r.finalizado_at);
+          if (i >= 0) buckets[i].entradas += retiradas;
+        }
+        itens.forEach((it: any) => {
+          const codigo = it.ordem_locacao_unidades?.cacamba_unidades?.codigo ?? "—";
+          const tipo = String(it.tipo ?? "").toLowerCase();
+          if (r.finalizado_at) {
+            histItems.push({
+              id: `f-${it.id}`,
+              codigo,
+              acao: tipo === "retirada" ? "Retirada concluída" : "Entrega concluída",
+              data: new Date(r.finalizado_at).toLocaleString("pt-BR"),
+              ts: new Date(r.finalizado_at).getTime(),
+            });
+          } else if (r.iniciado_at) {
+            histItems.push({
+              id: `i-${it.id}`,
+              codigo,
+              acao: tipo === "retirada" ? "Retirada iniciada" : "Entrega iniciada",
+              data: new Date(r.iniciado_at).toLocaleString("pt-BR"),
+              ts: new Date(r.iniciado_at).getTime(),
+            });
+          }
+        });
       });
       setMovimentacao(buckets.map(({ name, entradas, saidas }) => ({ name, entradas, saidas })));
 
-      // Histórico recente combinado
-      const histM: HistItem[] = (manut.data ?? []).map((m) => ({
-        id: `m-${m.id}`,
-        codigo: m.ativo_codigo ?? "—",
-        acao: `Manutenção ${m.status}`,
-        data: new Date(m.created_at).toLocaleString("pt-BR"),
-        ts: new Date(m.created_at).getTime(),
-      }));
-      const histO: HistItem[] = (ocor.data ?? []).map((o) => ({
-        id: `o-${o.id}`,
-        codigo: o.ativo_codigo ?? "—",
-        acao: `Ocorrência ${o.gravidade}`,
-        data: new Date(o.created_at).toLocaleString("pt-BR"),
-        ts: new Date(o.created_at).getTime(),
-      }));
-      setHistorico([...histM, ...histO].sort((a, b) => b.ts - a.ts).slice(0, 4));
+      setHistorico(histItems.sort((a, b) => b.ts - a.ts).slice(0, 6));
     })();
     return () => {
       active = false;
@@ -199,8 +238,8 @@ const PainelAtivos = () => {
               </div>
             </div>
           </CardHeader>
-          <CardContent className="flex justify-center">
-            <div className="h-[300px] w-full max-w-[300px]">
+          <CardContent className="flex flex-col items-center">
+            <div className="h-[260px] w-full max-w-[300px]">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
@@ -219,14 +258,14 @@ const PainelAtivos = () => {
                   <Tooltip />
                 </PieChart>
               </ResponsiveContainer>
-              <div className="grid grid-cols-2 gap-2 mt-2">
-                {dataStatus.map((item) => (
-                  <div key={item.name} className="flex items-center gap-1.5">
-                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
-                    <span className="text-[10px] text-muted-foreground">{item.name}</span>
-                  </div>
-                ))}
-              </div>
+            </div>
+            <div className="mt-4 flex flex-wrap justify-center gap-x-4 gap-y-2">
+              {dataStatus.map((item) => (
+                <div key={item.name} className="flex items-center gap-1.5 whitespace-nowrap">
+                  <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                  <span className="text-xs text-muted-foreground">{item.name}</span>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>

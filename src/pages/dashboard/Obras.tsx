@@ -162,15 +162,20 @@ const Obras = () => {
           {
             header: "Obra",
             accessor: (o) => (
-              <div className="flex items-center gap-3">
-                <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
-                  <Building2 className="h-4 w-4" />
+              <div className="flex items-start gap-3">
+                <div
+                  className="rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0"
+                  style={{ width: 44, height: 44, minWidth: 44, minHeight: 44 }}
+                >
+                  <Building2 style={{ width: 22, height: 22 }} />
                 </div>
-                <div>
+                <div className="flex-1 min-w-0">
                   <p className="font-medium text-sm leading-none mb-1">{o.nome}</p>
-                  <div className="flex items-center text-[10px] text-muted-foreground">
-                    <MapPin className="mr-1 h-3 w-3" />
-                    {o.rua}, {o.numero} - {o.bairro}, {o.cidade}/{o.estado}
+                  <div className="flex items-start text-[10px] text-muted-foreground">
+                    <MapPin className="mr-1 mt-0.5 h-3 w-3 shrink-0" />
+                    <span className="break-words">
+                      {o.rua}, {o.numero} - {o.bairro}, {o.cidade}/{o.estado}
+                    </span>
                   </div>
                 </div>
               </div>

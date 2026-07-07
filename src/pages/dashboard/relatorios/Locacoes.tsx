@@ -15,17 +15,47 @@ const Locacoes = () => {
     queryKey: ["relatorio-locacoes-locador", userId],
     enabled: !!userId,
     queryFn: async () => {
-      const { data: pfs } = await supabase
-        .from("pedido_fornecedores")
-        .select("id, pedido_id")
+      // 1. Encontra caçambas do locador logado
+      const { data: cacambas } = await supabase
+        .from("cacambas")
+        .select("id")
         .eq("locador_id", userId!);
-      const pfIds = (pfs ?? []).map((p) => p.id);
-      if (!pfIds.length) return [] as Array<{ id: string; status: string; created_at: string; obra: { nome: string | null; bairro: string | null } | null; pedido_fornecedor_id: string }>;
-      const { data } = await supabase
+      const cacambaIds = (cacambas ?? []).map((c) => c.id);
+      if (!cacambaIds.length) return [];
+
+      // 2. Unidades dessas caçambas
+      const { data: unidades } = await supabase
+        .from("cacamba_unidades")
+        .select("id")
+        .in("cacamba_id", cacambaIds);
+      const unidadeIds = (unidades ?? []).map((u) => u.id);
+      if (!unidadeIds.length) return [];
+
+      // 3. Ordens de locação (unidades) efetivamente alocadas
+      const { data: olus } = await supabase
+        .from("ordem_locacao_unidades")
+        .select("id, status, created_at, ordem_locacao_id")
+        .in("cacamba_unidade_id", unidadeIds);
+      if (!olus?.length) return [];
+
+      // 4. Enriquecer com ordem_locacao → obra
+      const ordemIds = Array.from(new Set(olus.map((o) => o.ordem_locacao_id)));
+      const { data: ordensLoc } = await supabase
         .from("ordens_locacao")
-        .select("id, status, created_at, pedido_fornecedor_id, obra:obra_id(nome, bairro)")
-        .in("pedido_fornecedor_id", pfIds);
-      return (data ?? []) as Array<{ id: string; status: string; created_at: string; pedido_fornecedor_id: string; obra: { nome: string | null; bairro: string | null } | null }>;
+        .select("id, pedido_fornecedor_id, obra:obra_id(nome, bairro)")
+        .in("id", ordemIds);
+      const ordemMap = new Map((ordensLoc ?? []).map((o: any) => [o.id, o]));
+
+      return olus.map((u: any) => {
+        const ordem: any = ordemMap.get(u.ordem_locacao_id);
+        return {
+          id: u.id,
+          status: u.status as string,
+          created_at: u.created_at as string,
+          pedido_fornecedor_id: ordem?.pedido_fornecedor_id as string,
+          obra: ordem?.obra ?? null,
+        };
+      });
     },
   });
 
@@ -58,8 +88,16 @@ const Locacoes = () => {
   });
 
   const counts = useMemo(() => {
-    const emAndamento = ordens.filter((o) => ["pendente", "aceito", "em_entrega", "ativo"].includes(o.status)).length;
-    const concluidas = ordens.filter((o) => o.status === "finalizado").length;
+    const emAndamentoStatuses = [
+      "entrega_pendente",
+      "em_transito_locacao",
+      "locada",
+      "aguardando_retirada",
+      "em_transito_retirada",
+    ];
+    const concluidasStatuses = ["em_transito_destino_final", "aguardando_analise", "cdf_emitido"];
+    const emAndamento = ordens.filter((o) => emAndamentoStatuses.includes(o.status)).length;
+    const concluidas = ordens.filter((o) => concluidasStatuses.includes(o.status)).length;
     const atrasadas = 0;
     return { emAndamento, concluidas, atrasadas };
   }, [ordens]);
@@ -74,7 +112,12 @@ const Locacoes = () => {
     id: o.id,
     cliente: pfPedido.data?.get(o.pedido_fornecedor_id) ?? "—",
     data: new Date(o.created_at).toLocaleDateString("pt-BR"),
-    status: o.status === "finalizado" ? "Concluída" : o.status === "cancelado" || o.status === "recusado" ? "Cancelada" : "Em andamento",
+    status:
+      o.status === "cdf_emitido"
+        ? "Concluída"
+        : o.status === "cancelada"
+          ? "Cancelada"
+          : "Em andamento",
     obra: o.obra?.nome ?? "—",
     bairro: o.obra?.bairro ?? "—",
   }));
