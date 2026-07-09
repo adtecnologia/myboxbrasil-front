@@ -335,6 +335,7 @@ const Faturas = () => {
       </div>
 
       <DataTable
+      loading={loading}
         title="Histórico de Faturas"
         data={paginatedData}
         searchValue={search}

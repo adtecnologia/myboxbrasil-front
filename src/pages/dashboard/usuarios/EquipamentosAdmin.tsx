@@ -216,6 +216,7 @@ const EquipamentosAdmin = () => {
       </div>
 
       <DataTable<EquipamentoAdmin>
+      loading={loading}
         title={loading ? "Carregando…" : `${equipamentos.length} equipamentos registrados`}
         data={paginatedData}
         searchValue={search}
@@ -262,7 +263,7 @@ const EquipamentosAdmin = () => {
             align: "center",
           },
         ]}
-        actions={(e) => isLocador ? (
+        actions={activeProfileType === "admin" ? undefined : (e) => isLocador ? (
           <>
             <Button
               variant="outline"

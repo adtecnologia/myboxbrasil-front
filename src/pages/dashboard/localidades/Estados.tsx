@@ -60,6 +60,7 @@ const Estados = () => {
       </div>
 
       <DataTable<Estado>
+      loading={loading}
         title={`${estados.length} estados disponíveis`}
         data={paginatedData}
         searchValue={search}

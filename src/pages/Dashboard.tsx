@@ -91,6 +91,7 @@ import LocatarioDashboard from "@/pages/dashboard/LocatarioDashboard";
 import DestinoFinalDashboard from "@/pages/dashboard/DestinoFinalDashboard";
 import PrefeituraDashboard from "@/pages/dashboard/PrefeituraDashboard";
 import MotoristaDashboard from "@/pages/dashboard/MotoristaDashboard";
+import AdminDashboard from "@/pages/dashboard/AdminDashboard";
 
 
 const Dashboard = () => {
@@ -101,6 +102,12 @@ const Dashboard = () => {
   if (role === "prefeitura") return <PrefeituraDashboard />;
   if (role === "motorista") return <MotoristaDashboard />;
 
+  return <AdminDashboard />;
+};
+
+export default Dashboard;
+
+const _LegacyAdminDashboard = () => {
   return (
     <div className="space-y-6 pb-10">
       <PageHeader title="Painel de Controle" subtitle="Visão geral do ecossistema MyBox">
@@ -360,5 +367,3 @@ const Dashboard = () => {
     </div>
   );
 };
-
-export default Dashboard;

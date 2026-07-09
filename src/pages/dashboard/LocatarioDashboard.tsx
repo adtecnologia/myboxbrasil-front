@@ -10,7 +10,7 @@ import {
   AlertCircle,
   ArrowRight,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ import { useAuthStore } from "@/stores/useAuthStore";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { DashboardSkeleton } from "@/components/DashboardSkeleton";
 import {
   BarChart,
   Bar,
@@ -37,8 +38,9 @@ const LocatarioDashboard = () => {
   const activeProfileType = useAuthStore((state) => state.activeProfileType());
   const userId = useAuthStore((s) => s.user?.id);
   const isLocatario = activeProfileType === "locatario";
+  const navigate = useNavigate();
 
-  const { data } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ["locatario-dashboard", userId],
     enabled: !!userId,
     queryFn: async () => {
@@ -87,7 +89,7 @@ const LocatarioDashboard = () => {
         ? await supabase.from("modelos_cacamba").select("id, modelo").in("id", modeloIds)
         : { data: [] as Array<{ id: string; modelo: string }> };
 
-      return { pedidos: pedidos ?? [], ordens: ordens ?? [], unidades: unidades ?? [], cacs: cacs ?? [], eqps: eqps ?? [], modelos: modelos ?? [] };
+      return { pedidos: pedidos ?? [], pfs: pfs ?? [], ordens: ordens ?? [], unidades: unidades ?? [], cacs: cacs ?? [], eqps: eqps ?? [], modelos: modelos ?? [] };
     },
   });
 
@@ -134,12 +136,18 @@ const LocatarioDashboard = () => {
           : o.equipamento_id
           ? `Equipamento ${eqpMap.get(o.equipamento_id)?.modelo ?? ""}`
           : "Item";
+      const pf = (data?.pfs ?? []).find((p) => p.id === o.pedido_fornecedor_id);
       return {
         label,
         data: new Date(o.created_at).toLocaleString("pt-BR"),
+        pedidoId: pf?.pedido_id as string | undefined,
       };
     });
   }, [ordens, data]);
+
+  if (isLoading) {
+    return <DashboardSkeleton title="Painel" subtitle="Visão geral das suas locações" />;
+  }
 
   return (
     <div className="space-y-6 pb-10">
@@ -286,15 +294,18 @@ const LocatarioDashboard = () => {
               <p className="text-xs text-muted-foreground text-center py-6">Sem pedidos recentes</p>
             )}
             {ultimosPedidos.map((p, i) => (
-              <div
+              <button
                 key={i}
-                className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-3 transition-colors hover:bg-muted/30"
+                type="button"
+                disabled={!p.pedidoId}
+                onClick={() => p.pedidoId && navigate(`/dashboard/pedidos/${p.pedidoId}`)}
+                className="w-full flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-3 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <p className="text-xs font-semibold text-foreground">{p.label}</p>
+                <p className="text-xs font-semibold text-foreground truncate">{p.label}</p>
                 <Badge className="bg-primary/10 text-primary hover:bg-primary/20 border-0 text-[10px] font-bold whitespace-nowrap">
                   {p.data}
                 </Badge>
-              </div>
+              </button>
             ))}
           </CardContent>
         </Card>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,13 @@ import { useAuthStore } from "@/stores/useAuthStore";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCPF, formatCNPJ, formatCelular, formatTelefone, formatCEP } from "@/lib/auth-utils";
+
+const normalizeCityName = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
 
 const Field = ({
   label,
@@ -43,8 +50,13 @@ const Perfil = () => {
   const { theme, setTheme } = useTheme();
   const { user, activeProfile, logout, refreshUser } = useAuthStore();
   const profile = activeProfile();
+  const isPrefeitura = profile?.profileType === "prefeitura";
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [avatarPath, setAvatarPath] = useState<string | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState({
     tipo_pessoa: "juridica" as "fisica" | "juridica",
     nome: "",
@@ -69,10 +81,93 @@ const Perfil = () => {
     numero: "",
     complemento: "",
     bairro: "",
-    cidade_estado: "",
+    estado: "",
+    cidade: "",
   });
   const setField = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
+
+  const [cepLoading, setCepLoading] = useState(false);
+  const [estados, setEstados] = useState<{ sigla: string; nome: string }[]>([]);
+  const [municipios, setMunicipios] = useState<string[]>([]);
+  const [loadingMunicipios, setLoadingMunicipios] = useState(false);
+
+  const ufSelecionada = form.estado;
+  const cidadeSelecionada = form.cidade.trim();
+  const cidadeOficialSelecionada = cidadeSelecionada
+    ? municipios.find((municipio) => normalizeCityName(municipio) === normalizeCityName(cidadeSelecionada))
+    : "";
+  const cidadeSelectValue = cidadeOficialSelecionada || cidadeSelecionada;
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const resp = await fetch(
+          "https://servicodados.ibge.gov.br/api/v1/localidades/estados?orderBy=nome"
+        );
+        const data = await resp.json();
+        setEstados(data.map((e: any) => ({ sigla: e.sigla, nome: e.nome })));
+      } catch {
+        // silencioso
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (!ufSelecionada) {
+      setMunicipios([]);
+      return;
+    }
+    (async () => {
+      try {
+        setLoadingMunicipios(true);
+        const resp = await fetch(
+          `https://servicodados.ibge.gov.br/api/v1/localidades/estados/${ufSelecionada}/municipios`
+        );
+        const data = await resp.json();
+        setMunicipios(data.map((m: any) => m.nome));
+      } catch {
+        setMunicipios([]);
+      } finally {
+        setLoadingMunicipios(false);
+      }
+    })();
+  }, [ufSelecionada]);
+
+  useEffect(() => {
+    if (!cidadeSelecionada || municipios.length === 0) return;
+    if (cidadeOficialSelecionada && cidadeOficialSelecionada !== form.cidade) {
+      setField("cidade", cidadeOficialSelecionada);
+    }
+  }, [cidadeOficialSelecionada, cidadeSelecionada, municipios.length]);
+
+  const handleCepChange = async (value: string) => {
+    const masked = formatCEP(value);
+    setField("cep", masked);
+    const digits = masked.replace(/\D/g, "");
+    if (digits.length === 8) {
+      try {
+        setCepLoading(true);
+        const resp = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
+        const data = await resp.json();
+        if (data?.erro) {
+          toast.error("CEP não encontrado");
+          return;
+        }
+        setForm((prev) => ({
+          ...prev,
+          logradouro: data.logradouro || prev.logradouro,
+          bairro: data.bairro || prev.bairro,
+          estado: isPrefeitura ? prev.estado : (data.uf || prev.estado),
+          cidade: isPrefeitura ? prev.cidade : (data.localidade || prev.cidade),
+        }));
+      } catch {
+        toast.error("Erro ao buscar CEP");
+      } finally {
+        setCepLoading(false);
+      }
+    }
+  };
 
   const [copied, setCopied] = useState(false);
   const sharingCode = "MB-8492-X1";
@@ -115,8 +210,16 @@ const Perfil = () => {
           numero: data.numero ?? "",
           complemento: data.complemento ?? "",
           bairro: data.bairro ?? "",
-          cidade_estado: data.cidade && data.estado ? `${data.cidade} - ${data.estado}` : "",
+          estado: data.estado ?? "",
+          cidade: data.cidade ?? "",
         });
+        if (data.avatar_url) {
+          setAvatarPath(data.avatar_url);
+          const { data: signed } = await supabase.storage
+            .from("avatars")
+            .createSignedUrl(data.avatar_url, 60 * 60);
+          if (!cancelled && signed?.signedUrl) setAvatarUrl(signed.signedUrl);
+        }
       }
       setLoading(false);
     })();
@@ -145,9 +248,8 @@ const Perfil = () => {
     e.preventDefault();
     if (!user?.id) return;
     setSaving(true);
-    const [cidade, estado] = form.cidade_estado.includes(" - ")
-      ? form.cidade_estado.split(" - ")
-      : [form.cidade_estado || null, null];
+    const cidade = form.cidade || null;
+    const estado = form.estado || null;
     const { error } = await supabase
       .from("profiles")
       .update({
@@ -206,6 +308,51 @@ const Perfil = () => {
     toast.error("Solicitação de exclusão enviada.");
   };
 
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !user?.id) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Selecione um arquivo de imagem.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Imagem muito grande (máx. 5MB).");
+      return;
+    }
+    setUploadingAvatar(true);
+    const ext = file.name.split(".").pop() || "png";
+    const path = `${user.id}/avatar-${Date.now()}.${ext}`;
+    const { error: upErr } = await supabase.storage
+      .from("avatars")
+      .upload(path, file, { upsert: true, contentType: file.type });
+    if (upErr) {
+      setUploadingAvatar(false);
+      toast.error("Erro ao enviar foto: " + upErr.message);
+      return;
+    }
+    const { error: dbErr } = await supabase
+      .from("profiles")
+      .update({ avatar_url: path })
+      .eq("id", user.id);
+    if (dbErr) {
+      setUploadingAvatar(false);
+      toast.error("Erro ao salvar foto: " + dbErr.message);
+      return;
+    }
+    if (avatarPath && avatarPath !== path) {
+      await supabase.storage.from("avatars").remove([avatarPath]);
+    }
+    const { data: signed } = await supabase.storage
+      .from("avatars")
+      .createSignedUrl(path, 60 * 60);
+    setAvatarPath(path);
+    setAvatarUrl(signed?.signedUrl ?? null);
+    setUploadingAvatar(false);
+    toast.success("Foto atualizada!");
+    await refreshUser();
+  };
+
   return (
     <div className="space-y-6 pb-10">
       <PageHeader title="Meu Perfil" subtitle="Gerencie suas informações pessoais e preferências">
@@ -235,12 +382,21 @@ const Perfil = () => {
             <CardContent className="p-6 flex flex-col items-center text-center">
               <div className="relative">
                 <Avatar className="h-28 w-28 ring-4 ring-primary/10">
-                  <AvatarImage src={myboxLogo} />
+                  <AvatarImage src={avatarUrl || myboxLogo} />
                   <AvatarFallback className="text-2xl bg-primary/10 text-primary">MB</AvatarFallback>
                 </Avatar>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleAvatarChange}
+                />
                 <button
                   type="button"
-                  className="absolute bottom-0 right-0 h-9 w-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-md hover:bg-primary/90 transition"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingAvatar}
+                  className="absolute bottom-0 right-0 h-9 w-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-md hover:bg-primary/90 transition disabled:opacity-60"
                   aria-label="Alterar foto"
                 >
                   <Camera className="h-4 w-4" />
@@ -492,8 +648,9 @@ const Perfil = () => {
                   <Field label="CEP" required>
                     <Input
                       value={form.cep}
-                      onChange={(e) => setField("cep", formatCEP(e.target.value))}
+                      onChange={(e) => handleCepChange(e.target.value)}
                       placeholder="00000-000"
+                      disabled={cepLoading}
                     />
                   </Field>
                   <div className="md:col-span-3">
@@ -506,7 +663,7 @@ const Perfil = () => {
                     </Field>
                   </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
                   <Field label="Número" required>
                     <Input
                       value={form.numero}
@@ -528,18 +685,45 @@ const Perfil = () => {
                       placeholder="Bairro"
                     />
                   </Field>
-                  <Field label="Cidade - Estado" required>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                  <Field label="Estado" required>
                     <Select
-                      value={form.cidade_estado}
-                      onValueChange={(v) => setField("cidade_estado", v)}
+                      value={ufSelecionada}
+                      onValueChange={(uf) => setForm((p) => ({ ...p, estado: uf, cidade: "" }))}
+                      disabled={isPrefeitura}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Cidade" />
+                        <SelectValue placeholder="UF" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="São José do Rio Preto - SP">São José do Rio Preto - SP</SelectItem>
-                        <SelectItem value="Mirassol - SP">Mirassol - SP</SelectItem>
-                        <SelectItem value="Bady Bassitt - SP">Bady Bassitt - SP</SelectItem>
+                        {estados.map((e) => (
+                          <SelectItem key={e.sigla} value={e.sigla}>
+                            {e.sigla} - {e.nome}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Field label="Cidade" required>
+                    <Select
+                      key={`cidade-${ufSelecionada}-${loadingMunicipios ? "loading" : "ready"}-${cidadeSelectValue}-${municipios.length}`}
+                      value={cidadeSelectValue || undefined}
+                      onValueChange={(c) => setField("cidade", c)}
+                      disabled={!ufSelecionada || loadingMunicipios || isPrefeitura}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={loadingMunicipios ? "Carregando..." : "Cidade"}>
+                          {cidadeSelectValue || undefined}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {cidadeSelectValue && !municipios.includes(cidadeSelectValue) && (
+                          <SelectItem value={cidadeSelectValue}>{cidadeSelectValue}</SelectItem>
+                        )}
+                        {municipios.map((m) => (
+                          <SelectItem key={m} value={m}>{m}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </Field>

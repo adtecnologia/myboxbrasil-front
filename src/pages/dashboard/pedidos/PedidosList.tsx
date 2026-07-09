@@ -101,6 +101,7 @@ const PedidosList = () => {
   const activeProfile = useAuthStore((s) => s.activeProfile() ?? s.user?.profiles[0] ?? null);
   const profileType = activeProfile?.profileType;
   const isLocador = profileType === "locador";
+  const isAdmin = profileType === "admin";
   const rawTenant = activeProfile?.tenantId;
   // tenantId === 'self' significa que o próprio usuário é o locador
   const locadorId =
@@ -111,7 +112,7 @@ const PedidosList = () => {
   const [mapaPedido, setMapaPedido] = useState<PedidoRow | null>(null);
 
   const { data: rows = [], isLoading } = useQuery({
-    queryKey: ["meus-pedidos", profileType, isLocador ? locadorId : user?.id],
+    queryKey: ["meus-pedidos", profileType, isAdmin ? "all" : isLocador ? locadorId : user?.id],
     enabled: !!user?.id && !!profileType,
     queryFn: async (): Promise<PedidoRow[]> => {
       const query = supabase
@@ -122,18 +123,24 @@ const PedidosList = () => {
            ordens_locacao ( id, equipment_type, quantidade, cacamba_id, equipamento_id,
              obras ( rua, numero, bairro, cidade, estado, complemento ) )`
         );
-      const { data: pfs, error } = isLocador
-        ? await query.eq("locador_id", locadorId!)
-        : await query.eq("pedidos.locatario_id", user!.id);
+      const { data: pfs, error } = isAdmin
+        ? await query
+        : isLocador
+          ? await query.eq("locador_id", locadorId!)
+          : await query.eq("pedidos.locatario_id", user!.id);
       if (error) throw error;
 
       // resolve nome da contraparte (locador p/ locatário; locatário p/ locador)
       const ids = Array.from(
         new Set(
           (pfs ?? [])
-            .map((pf: any) => (isLocador ? pf.pedidos?.locatario_id : pf.locador_id))
-            .filter(Boolean)
-        )
+            .flatMap((pf: any) =>
+              isAdmin
+                ? [pf.locador_id, pf.pedidos?.locatario_id]
+                : [isLocador ? pf.pedidos?.locatario_id : pf.locador_id],
+            )
+            .filter(Boolean),
+        ),
       );
       const nomes = new Map<string, string>();
       if (ids.length) {
@@ -151,7 +158,13 @@ const PedidosList = () => {
         .map((pf: any) => {
           const ords = pf.ordens_locacao ?? [];
           const qtd = ords.reduce((s: number, o: any) => s + (o.quantidade ?? 0), 0);
-          const contraparteId = isLocador ? pf.pedidos?.locatario_id : pf.locador_id;
+          const contraparteId = isAdmin
+            ? pf.pedidos?.locatario_id
+            : isLocador
+              ? pf.pedidos?.locatario_id
+              : pf.locador_id;
+          const contraparteNome = contraparteId ? nomes.get(contraparteId) ?? "—" : "—";
+          const locadorNome = pf.locador_id ? nomes.get(pf.locador_id) ?? "—" : "—";
           const createdAt = pf.pedidos?.created_at ?? "";
           const obra = ords.map((o: any) => o.obras).find(Boolean);
           const endereco = obra
@@ -171,7 +184,9 @@ const PedidosList = () => {
             dataAbertura: createdAt ? new Date(createdAt).toLocaleString("pt-BR") : "—",
             dataAberturaISO: createdAt ? createdAt.slice(0, 10) : "",
             status: pf.status as PFStatus,
-            contraparteNome: contraparteId ? nomes.get(contraparteId) ?? "—" : "—",
+            contraparteNome: isAdmin
+              ? `${contraparteNome} • Locador: ${locadorNome}`
+              : contraparteNome,
             valorTotal: Number(pf.valor_total ?? 0),
             qtdOrdens: qtd,
             resumoOrdens: ords
@@ -225,11 +240,12 @@ const PedidosList = () => {
       </div>
 
       <DataTable<PedidoRow>
+        loading={isLoading}
         title={isLoading ? "Carregando..." : `${filtered.length} pedidos`}
         data={paginatedData}
         searchValue={search}
         onSearchChange={setSearch}
-        searchPlaceholder={`Buscar por ${isLocador ? "locatário" : "locador"} ou nº do pedido...`}
+        searchPlaceholder={`Buscar por ${isLocador ? "locatário" : isAdmin ? "locatário/locador" : "locador"} ou nº do pedido...`}
         activeFiltersCount={(dateFilter ? 1 : 0) + (statusFilter !== "all" ? 1 : 0)}
         onClearFilters={() => { setDateFilter(""); setStatusFilter("all"); }}
         filters={
@@ -282,7 +298,7 @@ const PedidosList = () => {
             ),
           },
           {
-            header: isLocador ? "Locatário" : "Locador",
+            header: isAdmin ? "Locatário / Locador" : isLocador ? "Locatário" : "Locador",
             className: "max-w-xs",
             accessor: (p) => (
               <>

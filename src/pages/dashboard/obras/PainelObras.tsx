@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { DashboardSkeleton } from "@/components/DashboardSkeleton";
 import {
   Building2,
   MapPin,
@@ -94,6 +95,10 @@ const PainelObras = () => {
   }, [obras]);
 
   const destaque = obras.slice(0, 4);
+
+  if (loading) {
+    return <DashboardSkeleton title="Painel de Obras" subtitle="Visão geral dos seus canteiros de obras" />;
+  }
 
   return (
     <div className="space-y-6">

@@ -17,7 +17,7 @@ const LocacoesBairro = () => {
   const profileType = useAuthStore((s) => s.activeProfileType());
   const [search, setSearch] = useState("");
 
-  const { data: bairroData = [] } = useQuery({
+  const { data: bairroData = [], isLoading } = useQuery({
     queryKey: ["relatorio-locacoes-bairro", userId, profileType],
     enabled: !!userId,
     queryFn: async () => {
@@ -210,6 +210,7 @@ const LocacoesBairro = () => {
       </Card>
 
       <DataTable
+        loading={isLoading}
         title="Dados por Bairro"
         data={filtered}
         columns={[

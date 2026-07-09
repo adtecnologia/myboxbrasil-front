@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuthStore } from "@/stores/useAuthStore";
+import { useThemeSync } from "@/hooks/useThemeSync";
 
 /**
  * Garante que apenas usuários autenticados acessem rotas filhas.
@@ -12,6 +13,7 @@ export const SessionInitializer = ({ children }: { children: React.ReactNode }) 
     const cleanup = initSession();
     return cleanup;
   }, [initSession]);
+  useThemeSync();
   return <>{children}</>;
 };
 

@@ -36,6 +36,7 @@ import {
   Cell
 } from "recharts";
 import { useNavigate } from "react-router-dom";
+import { DashboardSkeleton } from "@/components/DashboardSkeleton";
 
 const PainelLogistico = () => {
   const navigate = useNavigate();
@@ -43,9 +44,9 @@ const PainelLogistico = () => {
   const activeRole = useAuthStore((s) => s.activeProfileType?.() ?? null);
   const isMotorista = activeRole === "motorista";
   const isLocador = activeRole === "locador";
-  const { data: rotasMotorista = [] } = useMotoristaRotas({ includeFinalizadas: true });
+  const { data: rotasMotorista = [], isLoading: loadingMot } = useMotoristaRotas({ includeFinalizadas: true });
 
-  const { data: rotasLocador = [] } = useQuery({
+  const { data: rotasLocador = [], isLoading: loadingLoc } = useQuery({
     queryKey: ["painel-logistico-locador", userId],
     enabled: !!userId && isLocador,
     queryFn: async () => {
@@ -147,6 +148,20 @@ const PainelLogistico = () => {
       { name: "Atrasado", value: Math.round((atraso / total) * 100), color: "#ef4444" },
     ];
   }, [rotasFonte, hojeISO]);
+
+  const isLoading = (isMotorista && loadingMot) || (isLocador && loadingLoc);
+  if (isLoading) {
+    return (
+      <DashboardSkeleton
+        title="Painel Logístico"
+        subtitle={
+          isMotorista
+            ? "Visão geral das suas rotas atribuídas"
+            : "Visão geral e monitoramento das operações de transporte"
+        }
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">

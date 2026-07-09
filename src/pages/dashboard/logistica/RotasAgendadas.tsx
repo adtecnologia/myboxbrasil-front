@@ -109,7 +109,7 @@ function posDe(id: string): [number, number] {
   return [lat, lng];
 }
 
-function useRotasAgendadas(): Rota[] {
+function useRotasAgendadas() {
   const user = useAuthStore((s) => s.user);
   const activeProfile = useAuthStore(
     (s) => s.activeProfile() ?? s.user?.profiles[0] ?? null
@@ -117,7 +117,7 @@ function useRotasAgendadas(): Rota[] {
   const rawTenant = activeProfile?.tenantId;
   const locadorId = rawTenant && rawTenant !== "self" ? rawTenant : user?.id;
 
-  const { data = [] } = useQuery({
+  const { data = [], isLoading } = useQuery({
     queryKey: ["rotas-agendadas", locadorId],
     enabled: !!locadorId,
     queryFn: async (): Promise<Rota[]> => {
@@ -210,11 +210,11 @@ function useRotasAgendadas(): Rota[] {
       }).sort((a, b) => (a.dataProgramada ?? "9999-12-31").localeCompare(b.dataProgramada ?? "9999-12-31"));
     },
   });
-  return data;
+  return { data, isLoading };
 }
 
 const RotasAgendadas = () => {
-  const rotas = useRotasAgendadas();
+  const { data: rotas, isLoading } = useRotasAgendadas();
   const [search, setSearch] = useState("");
   const [selectedRoute, setSelectedRoute] = useState<Rota | null>(null);
   const [rotaToCancel, setRotaToCancel] = useState<Rota | null>(null);
@@ -263,6 +263,7 @@ const RotasAgendadas = () => {
       />
 
       <DataTable
+      loading={isLoading}
         title="Próximas Rotas"
         data={paginatedData}
         searchValue={search}

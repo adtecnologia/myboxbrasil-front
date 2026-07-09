@@ -26,7 +26,7 @@ const PerformanceMotoristas = () => {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
-  const { data } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ["performance-motoristas", locadorId],
     enabled: !!locadorId,
     queryFn: async () => {
@@ -150,6 +150,7 @@ const PerformanceMotoristas = () => {
       </div>
 
       <DataTable
+        loading={isLoading}
         title="Métricas Individuais"
         data={pageRows}
         columns={[

@@ -46,8 +46,6 @@ const MotoristaDashboard = () => {
     "cdf_emitido",
   ]);
   const STATUS_CONCLUIDO_RETIRADA = new Set([
-    "em_transito_analise",
-    "em_transito_destino_final",
     "aguardando_analise",
     "cdf_emitido",
   ]);

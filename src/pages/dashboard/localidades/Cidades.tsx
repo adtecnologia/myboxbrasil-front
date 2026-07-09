@@ -154,6 +154,7 @@ const Cidades = () => {
       </div>
 
       <DataTable<Cidade>
+      loading={loading}
         title={`${totalItems} cidades encontradas`}
         data={paginatedData}
         searchValue={search}

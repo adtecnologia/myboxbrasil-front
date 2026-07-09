@@ -213,6 +213,7 @@ const Veiculos = () => {
       </div>
 
       <DataTable<Veiculo>
+      loading={loading}
         title={`${items.length} veículos cadastrados`}
         data={paginatedData}
         searchValue={search}

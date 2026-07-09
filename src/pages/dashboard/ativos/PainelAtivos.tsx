@@ -26,6 +26,7 @@ import {
   Cell
 } from "recharts";
 import { Button } from "@/components/ui/button";
+import { DashboardSkeleton } from "@/components/DashboardSkeleton";
 import { supabase } from "@/integrations/supabase/client";
 
 const DIAS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sab"];
@@ -36,10 +37,12 @@ const PainelAtivos = () => {
   const [stats, setStats] = useState({ total: 0, disponiveis: 0, emCampo: 0, manutencao: 0 });
   const [movimentacao, setMovimentacao] = useState<{ name: string; entradas: number; saidas: number }[]>([]);
   const [historico, setHistorico] = useState<HistItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
     (async () => {
+      setLoading(true);
       const desde = new Date();
       desde.setDate(desde.getDate() - 6);
       const desdeISO = desde.toISOString();
@@ -151,6 +154,7 @@ const PainelAtivos = () => {
       setMovimentacao(buckets.map(({ name, entradas, saidas }) => ({ name, entradas, saidas })));
 
       setHistorico(histItems.sort((a, b) => b.ts - a.ts).slice(0, 6));
+      setLoading(false);
     })();
     return () => {
       active = false;
@@ -166,6 +170,10 @@ const PainelAtivos = () => {
     [stats]
   );
   const utilizacao = stats.total > 0 ? Math.round((stats.emCampo / stats.total) * 100) : 0;
+
+  if (loading) {
+    return <DashboardSkeleton title="Painel de Ativos" subtitle="Gestão e monitoramento de caçambas e equipamentos" />;
+  }
 
   return (
     <div className="space-y-6">

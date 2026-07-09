@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Recycle,
   Users,
@@ -40,6 +40,8 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { DashboardSkeleton } from "@/components/DashboardSkeleton";
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -49,17 +51,6 @@ L.Icon.Default.mergeOptions({
 });
 
 const months = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
-
-const cacambasMes = months.map((m, i) => ({ name: m, value: i < 6 ? [42, 38, 51, 47, 63, 58][i] : 0 }));
-const usuariosMes = months.map((m, i) => ({ name: m, value: i < 6 ? [3, 5, 4, 7, 6, 9][i] : 0 }));
-
-const statCards = [
-  { label: "Resíduos tratados", value: "22m³", icon: Recycle, change: "+12%", up: true },
-  { label: "Locadores", value: 11, icon: Users, change: "+2", up: true, alert: true },
-  { label: "Caçambas", value: 568, icon: Container, change: "+23", up: true },
-  { label: "Caçambas locadas", value: 10, icon: PackageCheck, change: "-3", up: false },
-  { label: "Destino final", value: 1, icon: MapPin, change: "0", up: true, alert: true },
-];
 
 const classeResiduos = [
   { name: "Classe A", value: 58, color: "hsl(142, 76%, 36%)" },
@@ -120,10 +111,52 @@ const markers = [
 
 const PrefeituraDashboard = () => {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<any>(null);
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      const { data, error } = await supabase.rpc("get_prefeitura_dashboard" as any);
+      if (!error) setData(data);
+      setLoading(false);
+    })();
+  }, []);
+
+  if (loading) {
+    return <DashboardSkeleton title="Painel da Prefeitura" subtitle="Fiscalização e gestão de resíduos sólidos" statCount={5} />;
+  }
+
+  const stats = data?.stats ?? {};
+  const topBairros: { bairro: string; count: number }[] = data?.top_bairros ?? [];
+  const pedidosRecentes: any[] = data?.pedidos_recentes ?? [];
+  const ordensPorMes: { mes: string; value: number }[] = data?.ordens_por_mes ?? [];
+  const maxBairro = Math.max(1, ...topBairros.map((b) => b.count));
+
+  const ordensMesChart = months.map((m, i) => {
+    const key = `${new Date().getFullYear()}-${String(i + 1).padStart(2, "0")}`;
+    const found = ordensPorMes.find((o) => o.mes === key);
+    return { name: m, value: found?.value ?? 0 };
+  });
+
+  const statCards = [
+    { label: "Resíduos tratados", value: `${Number(stats.residuos_m3 ?? 0).toFixed(0)}m³`, icon: Recycle },
+    { label: "Locadores", value: stats.locadores ?? 0, icon: Users },
+    { label: "Caçambas", value: stats.cacambas ?? 0, icon: Container },
+    { label: "Caçambas locadas", value: stats.cacambas_locadas ?? 0, icon: PackageCheck },
+    { label: "Destino final", value: stats.destino_final ?? 0, icon: MapPin },
+  ];
 
   return (
     <div className="space-y-6 pb-10">
-      <PageHeader title="Painel da Prefeitura" subtitle="Fiscalização e gestão de resíduos sólidos">
+      <PageHeader
+        title="Painel da Prefeitura"
+        subtitle={
+          data?.cidade
+            ? `${data.cidade}/${data.estado} · ${stats.total_pedidos ?? 0} pedidos · ${stats.total_ordens ?? 0} ordens`
+            : "Cadastre a cidade no seu perfil para ver os dados"
+        }
+      >
         <div className="flex items-center gap-2">
           <Calendar className="h-4 w-4 text-white/70 mr-1" />
           <Select defaultValue="5">
@@ -156,13 +189,6 @@ const PrefeituraDashboard = () => {
               <div className="flex items-center justify-between mb-3">
                 <div className="rounded-lg bg-primary/10 p-2">
                   <stat.icon className="h-4 w-4 text-primary" />
-                </div>
-                <div className="flex items-center gap-1">
-                  {stat.alert && <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />}
-                  <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-5 font-medium border-0 ${stat.up ? "bg-emerald-500/10 text-emerald-600" : "bg-rose-500/10 text-rose-600"}`}>
-                    {stat.up ? <TrendingUp className="h-3 w-3 mr-0.5" /> : <TrendingDown className="h-3 w-3 mr-0.5" />}
-                    {stat.change}
-                  </Badge>
                 </div>
               </div>
               <p className="text-2xl font-bold tracking-tight text-foreground">{stat.value}</p>
@@ -204,11 +230,11 @@ const PrefeituraDashboard = () => {
       <div className="grid gap-6 lg:grid-cols-2">
         <Card className="border-none shadow-sm">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Novas caçambas por mês / 2026</CardTitle>
+            <CardTitle className="text-base">Ordens por mês / {new Date().getFullYear()}</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={240}>
-              <AreaChart data={cacambasMes}>
+              <AreaChart data={ordensMesChart}>
                 <defs>
                   <linearGradient id="cacGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.4} />
@@ -227,18 +253,24 @@ const PrefeituraDashboard = () => {
 
         <Card className="border-none shadow-sm">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Novos usuários por mês / 2026</CardTitle>
+            <CardTitle className="text-base">Top Bairros com Ordens</CardTitle>
           </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={usuariosMes}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.1} />
-                <XAxis dataKey="name" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} width={30} />
-                <Tooltip cursor={{ fill: "hsl(var(--muted)/0.3)" }} contentStyle={{ borderRadius: 8, border: "1px solid hsl(var(--border))" }} />
-                <Bar dataKey="value" fill="hsl(217, 91%, 60%)" radius={[6, 6, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+          <CardContent className="space-y-4 pt-2">
+            {topBairros.length === 0 && (
+              <p className="text-xs text-muted-foreground text-center py-8">Nenhuma ordem encontrada para sua cidade.</p>
+            )}
+            {topBairros.map((b) => (
+              <div key={b.bairro} className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-medium text-foreground flex items-center gap-1.5">
+                    <Building2 className="h-3 w-3 text-muted-foreground" />
+                    {b.bairro}
+                  </span>
+                  <span className="font-bold">{b.count}</span>
+                </div>
+                <Progress value={(b.count / maxBairro) * 100} className="h-1.5" />
+              </div>
+            ))}
           </CardContent>
         </Card>
       </div>
@@ -317,44 +349,48 @@ const PrefeituraDashboard = () => {
         </Card>
       </div>
 
-      {/* Ocorrências recentes */}
+      {/* Pedidos recentes */}
       <Card className="border-none shadow-sm">
         <CardHeader className="pb-4 border-b">
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="text-lg flex items-center gap-2">
-                <ShieldAlert className="h-5 w-5 text-rose-600" />
-                Ocorrências Recentes
+                <FileCheck2 className="h-5 w-5 text-primary" />
+                Pedidos Recentes na Cidade
               </CardTitle>
-              <CardDescription className="text-sm">Fiscalizações nas últimas 48 horas</CardDescription>
+              <CardDescription className="text-sm">Últimos pedidos com obras em {data?.cidade ?? "sua cidade"}</CardDescription>
             </div>
-            <Button variant="ghost" size="sm" className="text-xs text-primary font-semibold" onClick={() => navigate("/dashboard/pedidos/ocorrencias")}>
-              Ver todas <ArrowRight className="h-4 w-4 ml-1" />
+            <Button variant="ghost" size="sm" className="text-xs text-primary font-semibold" onClick={() => navigate("/dashboard/pedidos")}> 
+              Ver todos <ArrowRight className="h-4 w-4 ml-1" />
             </Button>
           </div>
         </CardHeader>
         <CardContent className="p-0">
           <div className="divide-y divide-border">
-            {ocorrenciasRecentes.map((o) => (
-              <div key={o.id} className="flex items-center justify-between px-6 py-3.5 hover:bg-muted/30 transition-colors">
+            {pedidosRecentes.length === 0 && (
+              <div className="px-6 py-10 text-center text-sm text-muted-foreground">Nenhum pedido encontrado para sua cidade.</div>
+            )}
+            {pedidosRecentes.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => navigate(`/dashboard/pedidos/${p.id}`)}
+                className="w-full flex items-center justify-between px-6 py-3.5 hover:bg-muted/30 transition-colors text-left"
+              >
                 <div className="flex items-center gap-4">
-                  <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center font-bold text-[10px] text-muted-foreground">
-                    {o.id.split("-")[1]}
+                  <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center font-bold text-xs text-primary">
+                    #{p.numero}
                   </div>
                   <div>
-                    <p className="text-sm font-semibold">{o.local}</p>
-                    <p className="text-[11px] text-muted-foreground">Fiscal: {o.fiscal} · {o.data}</p>
+                    <p className="text-sm font-semibold">{p.locatario_nome ?? "Locatário"}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {new Date(p.created_at).toLocaleDateString("pt-BR")} · R$ {Number(p.valor_total ?? 0).toFixed(2)}
+                    </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className={`text-[10px] px-2 py-0.5 border-0 font-medium ${gravidadeColor[o.gravidade]}`}>
-                    {o.gravidade}
-                  </Badge>
-                  <Badge variant="outline" className={`text-[10px] px-2 py-0.5 border-0 font-medium ${statusColor[o.status]}`}>
-                    {o.status}
-                  </Badge>
-                </div>
-              </div>
+                <Badge variant="outline" className="text-[10px] px-2 py-0.5 border-0 font-medium bg-primary/10 text-primary">
+                  {p.status}
+                </Badge>
+              </button>
             ))}
           </div>
         </CardContent>

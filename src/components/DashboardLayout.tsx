@@ -118,6 +118,21 @@ function CartButton() {
   );
 }
 
+function useAvatarSignedUrl(path?: string | null) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    if (!path) { setUrl(null); return; }
+    if (/^https?:\/\//.test(path)) { setUrl(path); return; }
+    (async () => {
+      const { data } = await supabase.storage.from("avatars").createSignedUrl(path, 60 * 60);
+      if (!cancelled) setUrl(data?.signedUrl ?? null);
+    })();
+    return () => { cancelled = true; };
+  }, [path]);
+  return url;
+}
+
 
 interface MenuItem {
   label: string;
@@ -513,6 +528,16 @@ const DashboardLayout = ({ children }: DashboardLayoutProps = {}) => {
   const location = useLocation();
   const navigate = useNavigate();
   const activeProfileType = useAuthStore((state) => state.activeProfileType());
+  const currentUser = useAuthStore((state) => state.user);
+  const avatarSignedUrl = useAvatarSignedUrl(currentUser?.avatarUrl);
+  const avatarSrc = avatarSignedUrl || myboxLogo;
+  const displayName = currentUser?.name || "MyBox Brasil";
+  const initials = (displayName
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((n) => n[0]?.toUpperCase())
+    .join("") || "MB");
 
   const filteredMenuItems = useMemo(() => {
     return menuItems
@@ -641,8 +666,8 @@ const DashboardLayout = ({ children }: DashboardLayoutProps = {}) => {
 
               <Link to="/dashboard/perfil" className="ml-1">
                 <Avatar className="h-8 w-8">
-                  <AvatarImage src={myboxLogo} />
-                  <AvatarFallback className="text-xs bg-primary/10 text-primary">MB</AvatarFallback>
+                  <AvatarImage src={avatarSrc} />
+                  <AvatarFallback className="text-xs bg-primary/10 text-primary">{initials}</AvatarFallback>
                 </Avatar>
               </Link>
             </>
@@ -669,11 +694,11 @@ const DashboardLayout = ({ children }: DashboardLayoutProps = {}) => {
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="h-9 gap-2 px-2 hover:bg-muted">
                     <Avatar className="h-7 w-7">
-                      <AvatarImage src={myboxLogo} />
-                      <AvatarFallback className="text-xs bg-primary/10 text-primary">MB</AvatarFallback>
+                      <AvatarImage src={avatarSrc} />
+                      <AvatarFallback className="text-xs bg-primary/10 text-primary">{initials}</AvatarFallback>
                     </Avatar>
                     <div className="hidden text-left sm:block">
-                      <p className="text-xs font-medium text-foreground leading-tight">MyBox Brasil</p>
+                      <p className="text-xs font-medium text-foreground leading-tight max-w-[140px] truncate">{displayName}</p>
                       <p className="text-[10px] text-muted-foreground leading-tight">
                         {activeProfileType === 'admin' ? 'Administrador' : 
                          activeProfileType === 'locatario' ? 'Locatário' :

@@ -11,7 +11,7 @@ import { useAuthStore } from "@/stores/useAuthStore";
 const Locacoes = () => {
   const userId = useAuthStore((s) => s.user?.id);
 
-  const { data: ordens = [] } = useQuery({
+  const { data: ordens = [], isLoading } = useQuery({
     queryKey: ["relatorio-locacoes-locador", userId],
     enabled: !!userId,
     queryFn: async () => {
@@ -233,6 +233,7 @@ const Locacoes = () => {
       </div>
 
       <DataTable
+        loading={isLoading}
         title="Listagem Detalhada"
         data={locacoesData}
         columns={[

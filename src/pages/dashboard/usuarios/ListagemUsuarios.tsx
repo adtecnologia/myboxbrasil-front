@@ -37,7 +37,7 @@ const ROLE_LABEL: Record<string, string> = {
   destino: "Destino Final",
 };
 
-function useTenantUsuarios(): UsuarioTenant[] {
+function useTenantUsuarios(): { data: UsuarioTenant[]; isLoading: boolean } {
   const user = useAuthStore((s) => s.user);
   const activeProfile = useAuthStore(
     (s) => s.activeProfile() ?? s.user?.profiles[0] ?? null
@@ -46,7 +46,7 @@ function useTenantUsuarios(): UsuarioTenant[] {
   const locadorId =
     rawTenant && rawTenant !== "self" ? rawTenant : user?.id;
 
-  const { data = [] } = useQuery({
+  const { data = [], isLoading } = useQuery({
     queryKey: ["tenant-usuarios", locadorId],
     enabled: !!locadorId,
     queryFn: async (): Promise<UsuarioTenant[]> => {
@@ -91,11 +91,11 @@ function useTenantUsuarios(): UsuarioTenant[] {
       });
     },
   });
-  return data;
+  return { data, isLoading };
 }
 
 const ListagemUsuarios = () => {
-  const lista = useTenantUsuarios();
+  const { data: lista, isLoading } = useTenantUsuarios();
   const usuarios = lista;
   const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
@@ -334,6 +334,7 @@ const ListagemUsuarios = () => {
       <DataTable<UsuarioTenant>
         title={`${lista.length} usuários cadastrados`}
         data={paginatedData}
+        loading={isLoading}
         searchValue={search}
         onSearchChange={setSearch}
         searchPlaceholder="Buscar por nome ou e-mail..."

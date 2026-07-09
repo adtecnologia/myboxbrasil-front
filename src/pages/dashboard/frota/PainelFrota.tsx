@@ -27,6 +27,7 @@ import {
   Cell
 } from "recharts";
 import { Button } from "@/components/ui/button";
+import { DashboardSkeleton } from "@/components/DashboardSkeleton";
 
 interface VeiculoRow { id: string; placa: string; ativo: boolean }
 interface ManutRow { veiculo_id: string; status: string; tipo: string; data_manutencao: string; valor: number | null }
@@ -40,9 +41,11 @@ const PainelFrota = () => {
   const [ocorrencias, setOcorrencias] = useState<OcorrRow[]>([]);
   const [emRotaIds, setEmRotaIds] = useState<Set<string>>(new Set());
   const [alertas, setAlertas] = useState<Array<{ placa: string; servico: string; prazo: string; status: string }>>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
+      setLoading(true);
       const [v, m, o, r] = await Promise.all([
         supabase.from("veiculos").select("id,placa,ativo"),
         supabase.from("manutencoes_frota").select("veiculo_id,status,tipo,data_manutencao,valor"),
@@ -72,6 +75,7 @@ const PainelFrota = () => {
           };
         });
       setAlertas(futuras);
+      setLoading(false);
     };
     load();
   }, []);
@@ -121,6 +125,10 @@ const PainelFrota = () => {
   }, [manutencoes]);
 
   const pct = total > 0 ? Math.round((disponiveis / total) * 100) : 0;
+
+  if (loading) {
+    return <DashboardSkeleton title="Painel Frota" subtitle="Gerenciamento e monitoramento da frota de veículos" />;
+  }
 
   return (
     <div className="space-y-6">

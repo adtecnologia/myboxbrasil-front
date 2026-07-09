@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { PageHeader } from "@/components/PageHeader";
+import { DashboardSkeleton } from "@/components/DashboardSkeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar, TrendingDown, ArrowDownCircle, AlertCircle, CheckCircle2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -30,6 +31,7 @@ const Despesas = () => {
   const [mes, setMes] = useState<number>(now.getMonth() + 1);
   const [ano, setAno] = useState<number>(now.getFullYear());
   const [faturas, setFaturas] = useState<Array<{ valor: number; forma: string | null; ref: Date }>>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
@@ -45,6 +47,7 @@ const Despesas = () => {
         };
       });
       setFaturas(rows);
+      setLoading(false);
     };
     load();
   }, []);
@@ -88,6 +91,10 @@ const Despesas = () => {
 
     return { totalMes, totalMesAnterior, mediaMensal, totalAno, deltaPct, dataMensal, dataTipoPagamento };
   }, [faturas, mes, ano]);
+
+  if (loading) {
+    return <DashboardSkeleton title="Relatório de Despesas" subtitle="Acompanhe seus gastos com locações e serviços" statCount={3} />;
+  }
 
   return (
     <div className="space-y-6 pb-10">

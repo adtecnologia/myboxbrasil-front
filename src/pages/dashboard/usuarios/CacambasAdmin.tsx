@@ -322,6 +322,7 @@ const CacambasAdmin = () => {
       </div>
 
       <DataTable<CacambaAdmin>
+      loading={loading}
         title={loading ? "Carregando…" : `${cacambas.length} caçambas registradas`}
         data={paginatedData}
         searchValue={search}
@@ -396,7 +397,7 @@ const CacambasAdmin = () => {
           },
 
         ]}
-        actions={(v) => isLocador ? (
+        actions={activeProfileType === "admin" ? undefined : (v) => isLocador ? (
           <>
             <Button 
               variant="outline" 

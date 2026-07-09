@@ -119,13 +119,17 @@ interface DeliveryItem {
   client: string;
   address: string;
   status: "Pendente" | "Em Rota" | "Concluída";
-  type: "Entrega" | "Retirada";
+  type: "Entrega" | "Retirada" | "Destino Final";
   time: string;
   sequence: number;
   qrCode: string;
   posicao: [number, number];
   obra?: string;
   residuo?: string;
+  residuos?: { id: string | null; nome: string }[];
+  oluStatus?: string | null;
+  destinoFinalNome?: string | null;
+  destinoFinalEndereco?: string | null;
 }
 
 interface Route {
@@ -145,11 +149,12 @@ const MinhasRotas = () => {
   
   // Delivery confirmation states
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
-  const [confirmStep, setConfirmStep] = useState<"qr" | "photo">("qr");
+  const [confirmStep, setConfirmStep] = useState<"qr" | "medicao" | "photo">("qr");
   const [selectedDeliveryItem, setSelectedDeliveryItem] = useState<DeliveryItem | null>(null);
   const [deliveryPhotos, setDeliveryPhotos] = useState<{ path: string; preview: string }[]>([]);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [isFinishing, setIsFinishing] = useState(false);
+  const [medicoes, setMedicoes] = useState<Record<string, { peso: string; volume: string }>>({});
   const photoInputRef = useRef<HTMLInputElement | null>(null);
   
   const [truckPos, setTruckPos] = useState<[number, number]>([-20.8050, -49.3700]);
@@ -179,7 +184,7 @@ const MinhasRotas = () => {
           ? (() => { const [y,m,d] = String(r.data_programada).slice(0,10).split("-"); return `${d}/${m}/${y}`; })()
           : "—",
         status: r.status === "em_andamento" ? "Em Rota" : "Pendente",
-        items: r.itens.map((it): DeliveryItem => {
+        items: r.itens.flatMap((it): DeliveryItem[] => {
           const tipo = it.tipo?.toLowerCase() === "retirada" ? "Retirada" : "Entrega";
           const concluidosEntrega = new Set([
             "locada",
@@ -196,22 +201,48 @@ const MinhasRotas = () => {
             "aguardando_analise",
             "cdf_emitido",
           ]);
+          const destinoFases = new Set([
+            "em_transito_analise",
+            "em_transito_destino_final",
+            "aguardando_analise",
+            "cdf_emitido",
+          ]);
           const doneSet = tipo === "Retirada" ? concluidosRetirada : concluidosEntrega;
           const status: DeliveryItem["status"] =
             it.olu_status && doneSet.has(it.olu_status) ? "Concluída" : "Pendente";
-          return {
-          id: it.id,
-          client: it.cliente,
-          address: it.endereco ?? "—",
-          status,
-          type: tipo,
-          time: "",
-          sequence: it.sequencia,
-          qrCode: it.codigo_cacamba ?? `C-${it.id.slice(0, 6).toUpperCase()}`,
-          posicao: posDe(it.id),
-          obra: it.endereco ?? undefined,
-          residuo: undefined,
+          const base: DeliveryItem = {
+            id: it.id,
+            client: it.cliente,
+            address: it.endereco ?? "—",
+            status,
+            type: tipo,
+            time: "",
+            sequence: it.sequencia,
+            qrCode: it.codigo_cacamba ?? `C-${it.id.slice(0, 6).toUpperCase()}`,
+            posicao: posDe(it.id),
+            obra: it.endereco ?? undefined,
+            residuo: undefined,
+            residuos: it.residuos ?? [],
+            oluStatus: it.olu_status ?? null,
+            destinoFinalNome: it.destino_final_nome ?? null,
+            destinoFinalEndereco: it.destino_final_endereco ?? null,
           };
+          // Para retiradas que já saíram do cliente, cria um item extra no itinerário
+          // referente à entrega no destino final.
+          if (tipo === "Retirada" && it.olu_status && destinoFases.has(it.olu_status)) {
+            const destinoConcluido = new Set(["aguardando_analise", "cdf_emitido"]);
+            const destinoItem: DeliveryItem = {
+              ...base,
+              id: `${it.id}::destino`,
+              type: "Destino Final",
+              client: it.destino_final_nome ?? "Destino Final",
+              address: it.destino_final_endereco ?? "—",
+              obra: it.destino_final_endereco ?? undefined,
+              status: destinoConcluido.has(it.olu_status) ? "Concluída" : "Pendente",
+            };
+            return [base, destinoItem];
+          }
+          return [base];
         }),
       })),
     [rotasReais]
@@ -329,8 +360,13 @@ const MinhasRotas = () => {
     if (!qrCode || !selectedDeliveryItem) return;
     
     if (qrCode === selectedDeliveryItem.qrCode) {
-      toast.success("Caçamba validada! Agora tire as fotos do local.");
-      setConfirmStep("photo");
+      if (selectedDeliveryItem.type === "Retirada") {
+        toast.success("Caçamba validada! Informe a quantidade de resíduo.");
+        setConfirmStep("medicao");
+      } else {
+        toast.success("Caçamba validada! Agora tire as fotos do local.");
+        setConfirmStep("photo");
+      }
       setQrCode("");
     } else {
       toast.error("QR Code incorreto para este local.");
@@ -342,7 +378,8 @@ const MinhasRotas = () => {
     setIsUploadingPhoto(true);
     try {
       const ext = file.name.split(".").pop() || "jpg";
-      const path = `${selectedDeliveryItem.id}/${crypto.randomUUID()}.${ext}`;
+      const rotaItemId = selectedDeliveryItem.id.split("::")[0];
+      const path = `${rotaItemId}/${crypto.randomUUID()}.${ext}`;
       const { error } = await supabase.storage
         .from("entregas-fotos")
         .upload(path, file, { contentType: file.type });
@@ -365,9 +402,93 @@ const MinhasRotas = () => {
       toast.warning("Adicione ao menos uma foto.");
       return;
     }
+    const isRetirada = selectedDeliveryItem.type === "Retirada";
+    const isDestinoFinal = selectedDeliveryItem.type === "Destino Final";
+    const baseItemId = selectedDeliveryItem.id.replace(/::destino$/, "");
+    const residuosList = selectedDeliveryItem.residuos ?? [];
+    const parse = (v: string) => (v ? Number(v.replace(",", ".")) : null);
+    const linhas = residuosList.map((r) => {
+      const key = r.id ?? r.nome;
+      const m = medicoes[key] ?? { peso: "", volume: "" };
+      return {
+        classe_id: r.id,
+        classe_nome: r.nome,
+        peso_kg: parse(m.peso),
+        volume_m3: parse(m.volume),
+      };
+    });
+    const algumInformado = linhas.some((l) => l.peso_kg || l.volume_m3);
+    if (isRetirada && !algumInformado) {
+      toast.warning("Informe o peso (kg) ou o volume (m³) de pelo menos um resíduo.");
+      return;
+    }
+    const pesoNum = linhas.reduce((s, l) => s + (l.peso_kg ?? 0), 0) || null;
+    const volumeNum = linhas.reduce((s, l) => s + (l.volume_m3 ?? 0), 0) || null;
     setIsFinishing(true);
+
+    // Fluxo do Destino Final: só sobe fotos e marca OLU como 'aguardando_analise'
+    if (isDestinoFinal) {
+      const { error: dErr } = await supabase.rpc("confirmar_destino_final", {
+        _rota_item_id: baseItemId,
+        _fotos: deliveryPhotos.map((p) => p.path),
+      });
+      if (dErr) {
+        setIsFinishing(false);
+        toast.error(dErr.message ?? "Erro ao confirmar destino final");
+        return;
+      }
+      setIsFinishing(false);
+      setIsConfirmModalOpen(false);
+      setSelectedDeliveryItem(null);
+      setConfirmStep("qr");
+      setDeliveryPhotos([]);
+      setMedicoes({});
+      queryClient.invalidateQueries({ queryKey: ["motorista-rotas"] });
+      toast.success("Entrega no destino final confirmada!");
+      return;
+    }
+
+    // Se for retirada, gravar peso/volume na OLU correspondente
+    if (isRetirada) {
+      const { data: ri } = await supabase
+        .from("rota_itens")
+        .select("ordem_locacao_unidade_id")
+        .eq("id", baseItemId)
+        .maybeSingle();
+      if (ri?.ordem_locacao_unidade_id) {
+        const { error: updErr } = await supabase
+          .from("ordem_locacao_unidades")
+          .update({ peso_kg: pesoNum, volume_m3: volumeNum })
+          .eq("id", ri.ordem_locacao_unidade_id);
+        if (updErr) {
+          setIsFinishing(false);
+          toast.error(updErr.message ?? "Erro ao salvar medição");
+          return;
+        }
+        const rows = linhas
+          .filter((l) => l.peso_kg || l.volume_m3)
+          .map((l) => ({
+            ordem_locacao_unidade_id: ri.ordem_locacao_unidade_id,
+            classe_id: l.classe_id,
+            classe_nome: l.classe_nome,
+            peso_kg: l.peso_kg,
+            volume_m3: l.volume_m3,
+          }));
+        if (rows.length > 0) {
+          const { error: resErr } = await supabase
+            .from("ordem_locacao_unidade_residuos")
+            .upsert(rows, { onConflict: "ordem_locacao_unidade_id,classe_nome" });
+          if (resErr) {
+            setIsFinishing(false);
+            toast.error(resErr.message ?? "Erro ao salvar resíduos");
+            return;
+          }
+        }
+      }
+    }
+
     const { error } = await supabase.rpc("finalizar_rota_item", {
-      _rota_item_id: selectedDeliveryItem.id,
+      _rota_item_id: baseItemId,
       _fotos: deliveryPhotos.map((p) => p.path),
     });
     setIsFinishing(false);
@@ -394,6 +515,7 @@ const MinhasRotas = () => {
     setSelectedDeliveryItem(null);
     setConfirmStep("qr");
     setDeliveryPhotos([]);
+    setMedicoes({});
     queryClient.invalidateQueries({ queryKey: ["motorista-rotas"] });
     toast.success("Finalizado com sucesso!");
   };
@@ -533,7 +655,13 @@ const MinhasRotas = () => {
                         <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
                               <h5 className="font-bold text-sm">{item.client}</h5>
-                              <Badge variant="outline" className={`text-[8px] h-4 ${item.type === "Entrega" ? "text-blue-500 border-blue-200" : "text-orange-500 border-orange-200"}`}>
+                              <Badge variant="outline" className={`text-[8px] h-4 ${
+                                item.type === "Entrega"
+                                  ? "text-blue-500 border-blue-200"
+                                  : item.type === "Destino Final"
+                                  ? "text-emerald-600 border-emerald-200"
+                                  : "text-orange-500 border-orange-200"
+                              }`}>
                                 {item.type}
                               </Badge>
                               {item.status === "Concluída" && <Badge className="bg-emerald-500 text-white text-[8px] h-4">Concluído</Badge>}
@@ -541,9 +669,6 @@ const MinhasRotas = () => {
                             <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                               <MapPin className="h-3 w-3" /> {item.address}
                             </p>
-                          <p className="text-[10px] font-medium text-primary/70 mt-1 uppercase tracking-tighter">
-                            Previsão: {item.time}
-                          </p>
                         </div>
                         {item.status !== "Concluída" && (
                             <Button 
@@ -555,7 +680,7 @@ const MinhasRotas = () => {
                                 setIsConfirmModalOpen(true);
                               }}
                             >
-                              Confirmar {item.type}
+                              {item.type === "Destino Final" ? "Confirmar destino final" : `Confirmar ${item.type}`}
                             </Button>
                           )}
                         </div>
@@ -643,16 +768,19 @@ const MinhasRotas = () => {
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2">
                                   <h5 className="font-bold text-sm">{item.client}</h5>
-                                  <Badge variant="outline" className={`text-[8px] h-4 ${item.type === "Entrega" ? "text-blue-500 border-blue-200" : "text-orange-500 border-orange-200"}`}>
+                                  <Badge variant="outline" className={`text-[8px] h-4 ${
+                                    item.type === "Entrega"
+                                      ? "text-blue-500 border-blue-200"
+                                      : item.type === "Destino Final"
+                                      ? "text-emerald-600 border-emerald-200"
+                                      : "text-orange-500 border-orange-200"
+                                  }`}>
                                     {item.type}
                                   </Badge>
                                   {item.status === "Concluída" && <Badge className="bg-emerald-500 text-white text-[8px] h-4">Concluído</Badge>}
                                 </div>
                                 <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                                   <MapPin className="h-3 w-3" /> {item.address}
-                                </p>
-                                <p className="text-[10px] font-medium text-primary/70 mt-1 uppercase tracking-tighter">
-                                  Previsão: {item.time}
                                 </p>
                               </div>
                               {route.status === "Em Rota" && item.status !== "Concluída" && (
@@ -665,7 +793,7 @@ const MinhasRotas = () => {
                                     setIsConfirmModalOpen(true);
                                   }}
                                 >
-                                  Confirmar {item.type}
+                                  {item.type === "Destino Final" ? "Confirmar destino final" : `Confirmar ${item.type}`}
                                 </Button>
                               )}
                             </div>
@@ -800,7 +928,11 @@ const MinhasRotas = () => {
                 <span className="text-muted-foreground">Obra:</span>
                 <span className="font-semibold text-right">{selectedDeliveryItem?.obra}</span>
                 <span className="text-muted-foreground">Resíduo:</span>
-                <span className="font-semibold text-right">{selectedDeliveryItem?.residuo}</span>
+                <span className="font-semibold text-right">
+                  {selectedDeliveryItem?.residuos && selectedDeliveryItem.residuos.length > 0
+                    ? selectedDeliveryItem.residuos.map((r) => r.nome).join(", ")
+                    : "—"}
+                </span>
                 <span className="text-muted-foreground">Endereço:</span>
                 <span className="font-semibold text-right line-clamp-2">{selectedDeliveryItem?.address}</span>
               </div>
@@ -828,10 +960,87 @@ const MinhasRotas = () => {
                   <Button onClick={handleConfirmDeliveryQr}>Validar</Button>
                 </div>
               </div>
+            ) : confirmStep === "medicao" ? (
+              <div className="space-y-4">
+                <div className="text-center space-y-1">
+                  <p className="text-sm font-bold">Passo 2: Quantidade de Resíduo</p>
+                  <p className="text-xs text-muted-foreground">
+                    Informe o peso e/ou o volume retirado por tipo de resíduo.
+                  </p>
+                </div>
+                {(selectedDeliveryItem?.residuos ?? []).length === 0 ? (
+                  <p className="text-xs text-center text-muted-foreground">
+                    Nenhum resíduo cadastrado para esta caçamba.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {(selectedDeliveryItem?.residuos ?? []).map((r) => {
+                      const key = r.id ?? r.nome;
+                      const m = medicoes[key] ?? { peso: "", volume: "" };
+                      return (
+                        <div key={key} className="rounded-lg border p-3 space-y-2">
+                          <p className="text-xs font-semibold text-foreground">{r.nome}</p>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                              <label className="text-xs font-medium text-muted-foreground">Peso (kg)</label>
+                              <Input
+                                type="number"
+                                inputMode="decimal"
+                                min="0"
+                                step="0.01"
+                                placeholder="0,00"
+                                value={m.peso}
+                                onChange={(e) =>
+                                  setMedicoes((prev) => ({
+                                    ...prev,
+                                    [key]: { ...m, peso: e.target.value },
+                                  }))
+                                }
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-xs font-medium text-muted-foreground">Volume (m³)</label>
+                              <Input
+                                type="number"
+                                inputMode="decimal"
+                                min="0"
+                                step="0.01"
+                                placeholder="0,00"
+                                value={m.volume}
+                                onChange={(e) =>
+                                  setMedicoes((prev) => ({
+                                    ...prev,
+                                    [key]: { ...m, volume: e.target.value },
+                                  }))
+                                }
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                <Button
+                  className="w-full"
+                  disabled={
+                    (selectedDeliveryItem?.residuos ?? []).length > 0 &&
+                    !(selectedDeliveryItem?.residuos ?? []).some((r) => {
+                      const m = medicoes[r.id ?? r.nome];
+                      return m && (m.peso || m.volume);
+                    })
+                  }
+                  onClick={() => setConfirmStep("photo")}
+                >
+                  Continuar
+                </Button>
+              </div>
             ) : (
               <div className="space-y-4">
                 <div className="text-center space-y-1">
-                  <p className="text-sm font-bold">Passo 2: Fotos da Atividade</p>
+                  <p className="text-sm font-bold">
+                    {selectedDeliveryItem?.type === "Retirada" ? "Passo 3" : "Passo 2"}: Fotos da Atividade
+                  </p>
                   <p className="text-xs text-muted-foreground">Tire fotos para comprovar a conclusão.</p>
                 </div>
 

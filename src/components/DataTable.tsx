@@ -1,5 +1,6 @@
 import React, { ReactNode } from "react";
 import { Search, Filter, X } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
@@ -20,6 +21,7 @@ export interface Column<T> {
 interface DataTableProps<T> {
   data: T[];
   columns: Column<T>[];
+  loading?: boolean;
   title?: string;
   searchPlaceholder?: string;
   searchValue?: string;
@@ -44,6 +46,7 @@ interface DataTableProps<T> {
 export function DataTable<T>({
   data,
   columns,
+  loading = false,
   title,
   searchPlaceholder = "Buscar...",
   searchValue,
@@ -115,7 +118,21 @@ export function DataTable<T>({
 
         {isMobile ? (
           <div className="space-y-3">
-            {data.map((item, index) => (
+            {loading && data.length === 0 ? (
+              <>
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="rounded-xl border border-border bg-card p-4 shadow-sm space-y-2 animate-pulse">
+                    <div className="h-4 w-1/3 bg-muted rounded" />
+                    <div className="h-3 w-2/3 bg-muted rounded" />
+                    <div className="h-3 w-1/2 bg-muted rounded" />
+                  </div>
+                ))}
+              </>
+            ) : data.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-border bg-card/50 p-8 text-center text-sm text-muted-foreground">
+                Nenhum registro encontrado.
+              </div>
+            ) : data.map((item, index) => (
               <React.Fragment key={String(item[idField]) || index}>
                 {renderMobileCard ? renderMobileCard(item) : (
                   <div className="rounded-xl border border-border bg-card p-4 shadow-sm space-y-2">
@@ -156,7 +173,16 @@ export function DataTable<T>({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data.length === 0 ? (
+                {loading && data.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={columns.length + (actions ? 1 : 0)} className="h-32 text-center text-muted-foreground">
+                      <div className="flex items-center justify-center gap-2 text-sm">
+                        <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                        Carregando registros...
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : data.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={columns.length + (actions ? 1 : 0)} className="h-32 text-center text-muted-foreground">
                       Nenhum registro encontrado.

@@ -27,6 +27,7 @@ import {
   Pie,
   Cell,
 } from "recharts";
+import { DashboardSkeleton } from "@/components/DashboardSkeleton";
 
 const ROLE_META: Record<string, { label: string; color: string }> = {
   admin: { label: "Admin", color: "#8b5cf6" },
@@ -95,7 +96,7 @@ function useTenantUsers() {
 }
 
 const PainelUsuarios = () => {
-  const { data: users = [] } = useTenantUsers();
+  const { data: users = [], isLoading } = useTenantUsers();
 
   const total = users.length;
   const ativos = users.filter((u) => u.ativo).length;
@@ -144,6 +145,10 @@ const PainelUsuarios = () => {
         })),
     [users]
   );
+
+  if (isLoading) {
+    return <DashboardSkeleton title="Painel de Usuários" subtitle="Visão geral dos usuários e perfis do sistema" />;
+  }
 
   return (
     <div className="space-y-6">

@@ -34,18 +34,44 @@ import {
 } from "recharts";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthStore } from "@/stores/useAuthStore";
+import { DashboardSkeleton } from "@/components/DashboardSkeleton";
 
 const months = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
 const DIAS_SEMANA = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 const fmtBRL = (v: number) =>
   v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
+const STATUS_LABELS: Record<string, string> = {
+  aguardando_aceite: "Aguardando Aceite",
+  aceito: "Aceito",
+  recusado: "Recusado",
+  cancelado: "Cancelado",
+  concluido: "Concluído",
+  em_andamento: "Em Andamento",
+  pendente: "Pendente",
+};
+
+const STATUS_STYLES: Record<string, string> = {
+  aguardando_aceite: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400",
+  aceito: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400",
+  recusado: "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-400",
+  cancelado: "bg-muted text-muted-foreground",
+  concluido: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400",
+  em_andamento: "bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-400",
+  pendente: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400",
+};
+
+const formatStatusLabel = (s: string) =>
+  STATUS_LABELS[s] ?? s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+
 const LocadorDashboard = () => {
   const userId = useAuthStore((s) => s.user?.id);
+  const navigate = useNavigate();
 
-  const { data } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ["locador-dashboard", userId],
     enabled: !!userId,
     queryFn: async () => {
@@ -112,6 +138,20 @@ const LocadorDashboard = () => {
         .eq("locador_id", userId!)
         .in("status", ["pendente", "vencida"]);
 
+      const { data: licencas } = await supabase
+        .from("licenca_cidade")
+        .select("id, cidade, estado")
+        .eq("user_id", userId!)
+        .order("estado", { ascending: true })
+        .order("cidade", { ascending: true });
+      const licencaIds = (licencas ?? []).map((l) => l.id);
+      const { data: licencaDocs } = licencaIds.length
+        ? await supabase
+            .from("documentos_licenca_cidade")
+            .select("licenca_cidade_id, status")
+            .in("licenca_cidade_id", licencaIds)
+        : { data: [] as Array<{ licenca_cidade_id: string; status: string }> };
+
       return {
         cacambas: cacambas ?? [],
         unidades: unidades ?? [],
@@ -122,6 +162,8 @@ const LocadorDashboard = () => {
         pedidos: pedidos ?? [],
         profs: profs ?? [],
         faturasAbertas: faturasAbertas ?? [],
+        licencas: licencas ?? [],
+        licencaDocs: licencaDocs ?? [],
       };
     },
   });
@@ -138,12 +180,12 @@ const LocadorDashboard = () => {
     const countStatus = (arr: string[]) =>
       olus.filter((o) => arr.includes(o.status)).length;
     return [
-      { label: "Total Caçambas", value: total, icon: ShoppingCart },
-      { label: "Disponíveis", value: disponiveis, icon: PackageSearch },
-      { label: "Entregas Pendentes", value: countStatus(["entrega_pendente", "em_transito_locacao"]), icon: PackageOpen },
-      { label: "Locadas", value: countStatus(["locada"]), icon: PackageCheck },
-      { label: "Aguardando Retirada", value: countStatus(["aguardando_retirada", "em_transito_retirada"]), icon: MapPin },
-      { label: "Limpeza e Manutenção", value: manutencao, icon: Wrench },
+      { label: "Total Caçambas", value: total, icon: ShoppingCart, href: "/dashboard/ativos/cacambas" },
+      { label: "Disponíveis", value: disponiveis, icon: PackageSearch, href: "/dashboard/ativos/cacambas" },
+      { label: "Entregas Pendentes", value: countStatus(["entrega_pendente", "em_transito_locacao"]), icon: PackageOpen, href: "/dashboard/pedidos/ordens?tab=entregas" },
+      { label: "Locadas", value: countStatus(["locada"]), icon: PackageCheck, href: "/dashboard/pedidos/ordens?tab=locadas" },
+      { label: "Aguardando Retirada", value: countStatus(["aguardando_retirada", "em_transito_retirada"]), icon: MapPin, href: "/dashboard/pedidos/ordens?tab=locadas" },
+      { label: "Limpeza e Manutenção", value: manutencao, icon: Wrench, href: "/dashboard/ativos/manutencoes" },
     ];
   }, [data]);
 
@@ -204,6 +246,7 @@ const LocadorDashboard = () => {
     const userToName = new Map((data?.profs ?? []).map((p) => [p.id, p.nome]));
     return pfs.slice(0, 3).map((p) => ({
       id: `PF-${String(p.id).slice(0, 8).toUpperCase()}`,
+      pedidoId: p.pedido_id as string,
       cliente: userToName.get(pedidoToUser.get(p.pedido_id) ?? "") ?? "—",
       status: p.status,
       valor: Number(p.valor_total ?? 0),
@@ -236,6 +279,32 @@ const LocadorDashboard = () => {
     });
     return Array.from(byModelo.entries()).map(([modelo, v]) => ({ modelo, ...v }));
   }, [data]);
+
+  const licencasCidades = useMemo(() => {
+    const licencas = data?.licencas ?? [];
+    const docs = data?.licencaDocs ?? [];
+    const byLic = new Map<string, string[]>();
+    docs.forEach((d) => {
+      const arr = byLic.get(d.licenca_cidade_id) ?? [];
+      arr.push(d.status);
+      byLic.set(d.licenca_cidade_id, arr);
+    });
+    return licencas.map((l) => {
+      const statuses = byLic.get(l.id) ?? [];
+      const status = statuses.length === 0
+        ? { label: "Sem documentos", cls: "bg-muted text-muted-foreground border-border" }
+        : statuses.some((s) => s === "negado")
+        ? { label: "Não aprovada", cls: "bg-red-100 text-red-700 border-red-200 dark:bg-red-500/15 dark:text-red-400" }
+        : statuses.every((s) => s === "aceito")
+        ? { label: "Aprovada", cls: "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-400" }
+        : { label: "Em análise", cls: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/15 dark:text-amber-400" };
+      return { id: l.id, cidade: l.cidade, estado: l.estado, docs: statuses.length, status };
+    });
+  }, [data]);
+
+  if (isLoading) {
+    return <DashboardSkeleton title="Painel" subtitle="Visão geral da sua operação" />;
+  }
 
   return (
     <div className="space-y-6 pb-10">
@@ -319,25 +388,27 @@ const LocadorDashboard = () => {
         <h4 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wider">Status da Frota</h4>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
           {stats.map((stat) => (
-            <Card key={stat.label} className="overflow-hidden border-none shadow-sm bg-card hover:shadow-md transition-all group">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="rounded-lg bg-primary/10 p-2 group-hover:bg-primary group-hover:text-white transition-colors">
-                    <stat.icon className="h-4 w-4 text-primary group-hover:text-white" />
+            <Link key={stat.label} to={stat.href} className="focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-lg">
+              <Card className="overflow-hidden border-none shadow-sm bg-card hover:shadow-md transition-all group cursor-pointer h-full">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="rounded-lg bg-primary/10 p-2 group-hover:bg-primary group-hover:text-white transition-colors">
+                      <stat.icon className="h-4 w-4 text-primary group-hover:text-white" />
+                    </div>
                   </div>
-                </div>
-                <p className="text-2xl font-bold tracking-tight text-foreground">{stat.value}</p>
-                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mt-1 leading-tight">{stat.label}</p>
-              </CardContent>
-            </Card>
+                  <p className="text-2xl font-bold tracking-tight text-foreground">{stat.value}</p>
+                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mt-1 leading-tight">{stat.label}</p>
+                </CardContent>
+              </Card>
+            </Link>
           ))}
         </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Gráfico de Faturamento */}
-        <Card className="border-none shadow-sm lg:col-span-2">
-          <CardHeader className="flex flex-row items-center justify-between pb-4">
+        <Card className="border-none shadow-sm lg:col-span-2 flex flex-col">
+          <CardHeader className="flex flex-row items-center justify-between pb-4 flex-none">
             <div>
               <CardTitle className="text-lg">Faturamento da Semana</CardTitle>
               <CardDescription className="text-sm">Comparativo diário de receitas</CardDescription>
@@ -346,8 +417,8 @@ const LocadorDashboard = () => {
               Ver Detalhes
             </Button>
           </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={280}>
+          <CardContent className="flex-1 min-h-0">
+            <ResponsiveContainer width="100%" height="100%" minHeight={280}>
               <BarChart data={faturamentoSemana}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.1} stroke="hsl(var(--muted-foreground))" />
                 <XAxis 
@@ -390,25 +461,33 @@ const LocadorDashboard = () => {
               <p className="text-xs text-muted-foreground text-center py-6">Sem pedidos recentes</p>
             )}
             {ultimosPedidos.map((pedido) => (
-              <div key={pedido.id} className="flex flex-col gap-2 p-3 rounded-lg border border-border bg-muted/20">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-mono font-medium text-muted-foreground">{pedido.id}</span>
-                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-0 bg-primary/10 text-primary">
-                    {pedido.status}
+              <button
+                key={pedido.id}
+                type="button"
+                onClick={() => navigate(`/dashboard/pedidos/${pedido.pedidoId}`)}
+                className="w-full text-left flex flex-col gap-2 p-3 rounded-lg border border-border bg-muted/20 hover:bg-muted/40 hover:border-primary/40 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-mono font-medium text-muted-foreground truncate">{pedido.id}</span>
+                  <Badge
+                    variant="outline"
+                    className={`text-[10px] px-1.5 py-0 border-0 whitespace-nowrap ${STATUS_STYLES[pedido.status] ?? "bg-primary/10 text-primary"}`}
+                  >
+                    {formatStatusLabel(pedido.status)}
                   </Badge>
                 </div>
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-semibold">{pedido.cliente}</p>
-                  <p className="text-xs font-bold text-primary">{fmtBRL(pedido.valor)}</p>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-semibold truncate">{pedido.cliente}</p>
+                  <p className="text-xs font-bold text-primary whitespace-nowrap">{fmtBRL(pedido.valor)}</p>
                 </div>
                 <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
                   <Clock className="h-3 w-3" />
                   {pedido.data}
                 </div>
-              </div>
+              </button>
             ))}
-            <Button variant="ghost" className="w-full text-xs text-primary" onClick={() => {}}>
-              Ver todos os pedidos
+            <Button variant="ghost" className="w-full text-xs text-primary" asChild>
+              <Link to="/dashboard/pedidos">Ver todos os pedidos</Link>
             </Button>
           </CardContent>
         </Card>
@@ -452,6 +531,50 @@ const LocadorDashboard = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Licenças por Cidade */}
+      <Card className="border-none shadow-sm">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <MapPin className="h-5 w-5 text-primary" />
+              Licenças por Cidade
+            </CardTitle>
+            <CardDescription>Situação das cidades onde você atua</CardDescription>
+          </div>
+          <Button variant="ghost" size="sm" className="text-xs text-primary" asChild>
+            <Link to="/dashboard/configuracoes">Gerenciar</Link>
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {licencasCidades.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-6">
+              Nenhuma cidade cadastrada. Configure em Configurações.
+            </p>
+          ) : (
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {licencasCidades.map((c) => (
+                <div
+                  key={c.id}
+                  className="flex items-center justify-between gap-2 rounded-md border border-border bg-muted/20 px-3 py-2"
+                >
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold truncate">
+                      {c.cidade} <span className="text-muted-foreground font-normal">/ {c.estado}</span>
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {c.docs} {c.docs === 1 ? "documento" : "documentos"}
+                    </p>
+                  </div>
+                  <Badge variant="outline" className={`text-[10px] h-5 px-1.5 whitespace-nowrap ${c.status.cls}`}>
+                    {c.status.label}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };

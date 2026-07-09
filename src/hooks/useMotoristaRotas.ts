@@ -12,6 +12,9 @@ export type MotoristaRotaItem = {
   estado: string | null;
   codigo_cacamba: string | null;
   olu_status: string | null;
+  residuos: { id: string | null; nome: string }[] | null;
+  destino_final_nome: string | null;
+  destino_final_endereco: string | null;
 };
 
 export type MotoristaRota = {

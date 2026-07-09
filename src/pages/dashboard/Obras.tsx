@@ -18,6 +18,7 @@ interface Obra {
   numero: string;
   bairro: string;
   complemento: string | null;
+  cep: string | null;
   cidade: string;
   estado: string;
   responsavel: string;
@@ -36,17 +37,20 @@ const formatDateBR = (iso: string) => {
 const Obras = () => {
   const userId = useAuthStore((s) => s.session?.user.id);
   const [obras, setObras] = useState<Obra[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingObra, setEditingObra] = useState<Obra | null>(null);
 
   const load = async () => {
+    setLoading(true);
     const { data, error } = await supabase
       .from("obras")
       .select("*")
       .order("created_at", { ascending: false });
     if (error) {
       toast.error("Erro ao carregar obras");
+      setLoading(false);
       return;
     }
     setObras(
@@ -57,6 +61,7 @@ const Obras = () => {
         numero: o.numero,
         bairro: o.bairro,
         complemento: o.complemento,
+        cep: o.cep,
         cidade: o.cidade,
         estado: o.estado,
         responsavel: o.responsavel,
@@ -66,6 +71,7 @@ const Obras = () => {
         status: o.status,
       }))
     );
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -92,6 +98,7 @@ const Obras = () => {
       numero: data.numero,
       bairro: data.bairro,
       complemento: data.complemento || null,
+      cep: data.cep || null,
       cidade: data.cidade,
       estado: data.estado,
       responsavel: data.responsavel,
@@ -155,6 +162,7 @@ const Obras = () => {
       <DataTable<Obra>
         title={`${obras.length} obras cadastradas`}
         data={paginatedData}
+        loading={loading}
         searchValue={search}
         onSearchChange={setSearch}
         searchPlaceholder="Buscar por nome, rua ou cidade..."

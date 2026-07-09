@@ -319,6 +319,50 @@ export type Database = {
         }
         Relationships: []
       }
+      documentos_licenca_cidade: {
+        Row: {
+          arquivo_path: string | null
+          created_at: string
+          data_vencimento: string | null
+          id: string
+          licenca_cidade_id: string
+          nome: string
+          status: Database["public"]["Enums"]["status_documento_licenca"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          arquivo_path?: string | null
+          created_at?: string
+          data_vencimento?: string | null
+          id?: string
+          licenca_cidade_id: string
+          nome: string
+          status?: Database["public"]["Enums"]["status_documento_licenca"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          arquivo_path?: string | null
+          created_at?: string
+          data_vencimento?: string | null
+          id?: string
+          licenca_cidade_id?: string
+          nome?: string
+          status?: Database["public"]["Enums"]["status_documento_licenca"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documentos_licenca_cidade_licenca_cidade_id_fkey"
+            columns: ["licenca_cidade_id"]
+            isOneToOne: false
+            referencedRelation: "licenca_cidade"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       entrega_fotos: {
         Row: {
           created_at: string
@@ -566,6 +610,62 @@ export type Database = {
         }
         Relationships: []
       }
+      licenca_cidade: {
+        Row: {
+          cidade: string
+          created_at: string
+          estado: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cidade: string
+          created_at?: string
+          estado: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cidade?: string
+          created_at?: string
+          estado?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      locador_residuos: {
+        Row: {
+          classe_residuo_id: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          classe_residuo_id: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          classe_residuo_id?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "locador_residuos_classe_residuo_id_fkey"
+            columns: ["classe_residuo_id"]
+            isOneToOne: false
+            referencedRelation: "classes_residuo"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       manutencoes_ativos: {
         Row: {
           ativo_codigo: string | null
@@ -718,6 +818,7 @@ export type Database = {
       obras: {
         Row: {
           bairro: string
+          cep: string | null
           cidade: string
           complemento: string | null
           created_at: string
@@ -736,6 +837,7 @@ export type Database = {
         }
         Insert: {
           bairro: string
+          cep?: string | null
           cidade: string
           complemento?: string | null
           created_at?: string
@@ -754,6 +856,7 @@ export type Database = {
         }
         Update: {
           bairro?: string
+          cep?: string | null
           cidade?: string
           complemento?: string | null
           created_at?: string
@@ -864,36 +967,93 @@ export type Database = {
           },
         ]
       }
+      ordem_locacao_unidade_residuos: {
+        Row: {
+          classe_id: string | null
+          classe_nome: string
+          created_at: string
+          id: string
+          ordem_locacao_unidade_id: string
+          peso_kg: number | null
+          updated_at: string
+          volume_m3: number | null
+        }
+        Insert: {
+          classe_id?: string | null
+          classe_nome: string
+          created_at?: string
+          id?: string
+          ordem_locacao_unidade_id: string
+          peso_kg?: number | null
+          updated_at?: string
+          volume_m3?: number | null
+        }
+        Update: {
+          classe_id?: string | null
+          classe_nome?: string
+          created_at?: string
+          id?: string
+          ordem_locacao_unidade_id?: string
+          peso_kg?: number | null
+          updated_at?: string
+          volume_m3?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ordem_locacao_unidade_residuos_classe_id_fkey"
+            columns: ["classe_id"]
+            isOneToOne: false
+            referencedRelation: "classes_residuo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ordem_locacao_unidade_residuos_ordem_locacao_unidade_id_fkey"
+            columns: ["ordem_locacao_unidade_id"]
+            isOneToOne: false
+            referencedRelation: "ordem_locacao_unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ordem_locacao_unidades: {
         Row: {
           cacamba_unidade_id: string
           created_at: string
+          destino_final_confirmado_em: string | null
           destino_final_id: string | null
           id: string
           ordem_locacao_id: string
+          peso_kg: number | null
           retirada_solicitada_em: string | null
           status: string
           updated_at: string
+          volume_m3: number | null
         }
         Insert: {
           cacamba_unidade_id: string
           created_at?: string
+          destino_final_confirmado_em?: string | null
           destino_final_id?: string | null
           id?: string
           ordem_locacao_id: string
+          peso_kg?: number | null
           retirada_solicitada_em?: string | null
           status?: string
           updated_at?: string
+          volume_m3?: number | null
         }
         Update: {
           cacamba_unidade_id?: string
           created_at?: string
+          destino_final_confirmado_em?: string | null
           destino_final_id?: string | null
           id?: string
           ordem_locacao_id?: string
+          peso_kg?: number | null
           retirada_solicitada_em?: string | null
           status?: string
           updated_at?: string
+          volume_m3?: number | null
         }
         Relationships: [
           {
@@ -1449,6 +1609,54 @@ export type Database = {
         }
         Relationships: []
       }
+      user_preferences: {
+        Row: {
+          created_at: string
+          notif_email: boolean
+          notif_prazo: boolean
+          notif_push: boolean
+          op_aceite_auto: boolean
+          op_disponibilidade_auto: boolean
+          op_visibilidade_frota: boolean
+          seg_2fa: boolean
+          seg_compartilhar_dados: boolean
+          seg_sessoes_unicas: boolean
+          theme: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          notif_email?: boolean
+          notif_prazo?: boolean
+          notif_push?: boolean
+          op_aceite_auto?: boolean
+          op_disponibilidade_auto?: boolean
+          op_visibilidade_frota?: boolean
+          seg_2fa?: boolean
+          seg_compartilhar_dados?: boolean
+          seg_sessoes_unicas?: boolean
+          theme?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          notif_email?: boolean
+          notif_prazo?: boolean
+          notif_push?: boolean
+          op_aceite_auto?: boolean
+          op_disponibilidade_auto?: boolean
+          op_visibilidade_frota?: boolean
+          seg_2fa?: boolean
+          seg_compartilhar_dados?: boolean
+          seg_sessoes_unicas?: boolean
+          theme?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           ativo: boolean
@@ -1553,6 +1761,7 @@ export type Database = {
         Args: { _pedido_id: string }
         Returns: boolean
       }
+      can_manage_olu_residuos: { Args: { _olu_id: string }; Returns: boolean }
       confirmar_carrinho: {
         Args: { _carrinho_id: string }
         Returns: {
@@ -1572,6 +1781,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      confirmar_destino_final: {
+        Args: { _fotos: string[]; _rota_item_id: string }
+        Returns: undefined
       }
       finalizar_rota: { Args: { _rota_id: string }; Returns: undefined }
       finalizar_rota_item: {
@@ -1614,6 +1827,17 @@ export type Database = {
         Returns: Json
       }
       get_motorista_rotas: { Args: { _motorista?: string }; Returns: Json }
+      get_mtr_retirada_transporte: {
+        Args: { _olu_id: string }
+        Returns: {
+          data_programada: string
+          motorista_id: string
+          motorista_nome: string
+          placa: string
+          veiculo_id: string
+        }[]
+      }
+      get_prefeitura_dashboard: { Args: { _uid?: string }; Returns: Json }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1669,6 +1893,7 @@ export type Database = {
         | "pago"
         | "cancelado"
         | "concluido"
+      status_documento_licenca: "aguardando_validacao" | "aceito" | "negado"
       tipo_documento: "cpf" | "cnpj"
       tipo_pessoa: "fisica" | "juridica"
     }
@@ -1834,6 +2059,7 @@ export const Constants = {
         "cancelado",
         "concluido",
       ],
+      status_documento_licenca: ["aguardando_validacao", "aceito", "negado"],
       tipo_documento: ["cpf", "cnpj"],
       tipo_pessoa: ["fisica", "juridica"],
     },

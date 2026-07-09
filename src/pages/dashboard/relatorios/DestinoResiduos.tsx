@@ -32,7 +32,7 @@ const DestinoResiduos = () => {
   const profileType = useAuthStore((s) => s.activeProfileType());
   const [search, setSearch] = useState("");
 
-  const { data: rows = [] } = useQuery<DestinoResiduoData[]>({
+  const { data: rows = [], isLoading } = useQuery<DestinoResiduoData[]>({
     queryKey: ["relatorio-destino-residuos", userId, profileType],
     enabled: !!userId,
     queryFn: async () => {
@@ -303,6 +303,7 @@ const DestinoResiduos = () => {
       </Card>
 
       <DataTable<DestinoResiduoData>
+        loading={isLoading}
         title="Rastreabilidade de Resíduos"
         data={paginatedData}
         columns={[

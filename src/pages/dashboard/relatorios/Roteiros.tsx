@@ -5,6 +5,19 @@ import { MapPin, Calendar } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useMotoristaRotas } from "@/hooks/useMotoristaRotas";
 
+const parseDataProgramada = (value: string | null | undefined): Date | null => {
+  if (!value) return null;
+  const iso = value.length >= 10 ? value.slice(0, 10) : value;
+  const [y, m, d] = iso.split("-").map(Number);
+  if (!y || !m || !d) return null;
+  return new Date(y, m - 1, d);
+};
+
+const formatDataBR = (value: string | null | undefined): string => {
+  const dt = parseDataProgramada(value);
+  return dt ? dt.toLocaleDateString("pt-BR") : "—";
+};
+
 const Roteiros = () => {
   const { data: rotas = [] } = useMotoristaRotas({ includeFinalizadas: true });
 
@@ -14,9 +27,13 @@ const Roteiros = () => {
   );
 
   const inicioMes = new Date();
+  inicioMes.setHours(0, 0, 0, 0);
   inicioMes.setDate(1);
   const concluidasMes = concluidas.filter(
-    (r) => r.data_programada && new Date(r.data_programada) >= inicioMes
+    (r) => {
+      const dt = parseDataProgramada(r.data_programada);
+      return dt !== null && dt >= inicioMes;
+    }
   );
 
   const mediaPontos =
@@ -28,9 +45,7 @@ const Roteiros = () => {
 
   const roteirosData = concluidas.map((r) => ({
     id: r.id,
-    data: r.data_programada
-      ? new Date(r.data_programada).toLocaleDateString("pt-BR")
-      : "—",
+    data: formatDataBR(r.data_programada),
     pontos: r.itens.length,
     status: "Concluído",
     tempo: "—",

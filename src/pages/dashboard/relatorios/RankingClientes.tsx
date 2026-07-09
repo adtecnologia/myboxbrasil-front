@@ -13,7 +13,7 @@ const brl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", curren
 const RankingClientes = () => {
   const userId = useAuthStore((s) => s.user?.id);
 
-  const { data: rankingData = [] } = useQuery({
+  const { data: rankingData = [], isLoading } = useQuery({
     queryKey: ["relatorio-ranking-clientes", userId],
     enabled: !!userId,
     queryFn: async () => {
@@ -214,6 +214,7 @@ const RankingClientes = () => {
       </div>
 
       <DataTable
+        loading={isLoading}
         title="Ranking Detalhado"
         data={rankingData}
         columns={[

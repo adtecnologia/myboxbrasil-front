@@ -2,6 +2,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
+import { toast } from "sonner";
 
 interface ObraFormData {
   nome: string;
@@ -9,6 +10,7 @@ interface ObraFormData {
   numero: string;
   bairro: string;
   complemento: string;
+  cep: string;
   cidade: string;
   estado: string;
   responsavel: string;
@@ -41,6 +43,43 @@ export const ObraForm = ({ onSave, initialData, submitLabel = "Salvar Obra" }: O
 
   const [telefone, setTelefone] = useState(maskPhone(initialData?.telefone || ""));
 
+  const maskCep = (v: string) => {
+    const d = v.replace(/\D/g, "").slice(0, 8);
+    if (d.length <= 5) return d;
+    return `${d.slice(0, 5)}-${d.slice(5)}`;
+  };
+  const [cep, setCep] = useState(maskCep(initialData?.cep || ""));
+  const [rua, setRua] = useState(initialData?.rua || "");
+  const [bairro, setBairro] = useState(initialData?.bairro || "");
+  const [cidade, setCidade] = useState(initialData?.cidade || "");
+  const [estado, setEstado] = useState(initialData?.estado || "");
+  const [cepLoading, setCepLoading] = useState(false);
+
+  const handleCepChange = async (value: string) => {
+    const masked = maskCep(value);
+    setCep(masked);
+    const digits = masked.replace(/\D/g, "");
+    if (digits.length === 8) {
+      try {
+        setCepLoading(true);
+        const resp = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
+        const data = await resp.json();
+        if (data?.erro) {
+          toast.error("CEP não encontrado");
+          return;
+        }
+        setRua(data.logradouro || "");
+        setBairro(data.bairro || "");
+        setCidade(data.localidade || "");
+        setEstado(data.uf || "");
+      } catch {
+        toast.error("Erro ao buscar CEP");
+      } finally {
+        setCepLoading(false);
+      }
+    }
+  };
+
   return (
     <form onSubmit={(e) => {
       e.preventDefault();
@@ -55,11 +94,28 @@ export const ObraForm = ({ onSave, initialData, submitLabel = "Salvar Obra" }: O
         <Label htmlFor="nome">Nome da Obra</Label>
         <Input id="nome" name="nome" required defaultValue={initialData?.nome} placeholder="Ex: Residencial Solar" />
       </div>
-      
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="cep">CEP</Label>
+          <Input
+            id="cep"
+            name="cep"
+            required
+            value={cep}
+            onChange={(e) => handleCepChange(e.target.value)}
+            inputMode="numeric"
+            maxLength={9}
+            placeholder="00000-000"
+            disabled={cepLoading}
+          />
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="md:col-span-2 space-y-2">
           <Label htmlFor="rua">Rua</Label>
-          <Input id="rua" name="rua" required defaultValue={initialData?.rua} />
+          <Input id="rua" name="rua" required value={rua} onChange={(e) => setRua(e.target.value)} />
         </div>
         <div className="space-y-2">
           <Label htmlFor="numero">Número</Label>
@@ -70,7 +126,7 @@ export const ObraForm = ({ onSave, initialData, submitLabel = "Salvar Obra" }: O
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="bairro">Bairro</Label>
-          <Input id="bairro" name="bairro" required defaultValue={initialData?.bairro} />
+          <Input id="bairro" name="bairro" required value={bairro} onChange={(e) => setBairro(e.target.value)} />
         </div>
         <div className="space-y-2">
           <Label htmlFor="complemento">Complemento</Label>
@@ -81,11 +137,11 @@ export const ObraForm = ({ onSave, initialData, submitLabel = "Salvar Obra" }: O
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="md:col-span-2 space-y-2">
           <Label htmlFor="cidade">Cidade</Label>
-          <Input id="cidade" name="cidade" required defaultValue={initialData?.cidade} />
+          <Input id="cidade" name="cidade" required value={cidade} onChange={(e) => setCidade(e.target.value)} />
         </div>
         <div className="space-y-2">
           <Label htmlFor="estado">Estado (UF)</Label>
-          <Input id="estado" name="estado" required maxLength={2} defaultValue={initialData?.estado} placeholder="SP" />
+          <Input id="estado" name="estado" required maxLength={2} value={estado} onChange={(e) => setEstado(e.target.value.toUpperCase())} placeholder="SP" />
         </div>
       </div>
 

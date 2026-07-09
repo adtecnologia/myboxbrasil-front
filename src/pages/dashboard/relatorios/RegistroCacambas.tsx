@@ -5,9 +5,23 @@ import { ArrowUpCircle, ArrowDownCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useMotoristaRotas } from "@/hooks/useMotoristaRotas";
 
+const getHojeLocalISO = () => {
+  const hoje = new Date();
+  const ano = hoje.getFullYear();
+  const mes = String(hoje.getMonth() + 1).padStart(2, "0");
+  const dia = String(hoje.getDate()).padStart(2, "0");
+  return `${ano}-${mes}-${dia}`;
+};
+
+const formatDataProgramadaBR = (data: string | null) => {
+  if (!data) return "—";
+  const [ano, mes, dia] = String(data).slice(0, 10).split("-");
+  return ano && mes && dia ? `${dia}/${mes}/${ano}` : "—";
+};
+
 const RegistroCacambas = () => {
   const { data: rotas = [] } = useMotoristaRotas({ includeFinalizadas: true });
-  const hoje = new Date().toISOString().slice(0, 10);
+  const hoje = getHojeLocalISO();
 
   const concluidas = useMemo(
     () => rotas.filter((r) => r.status === "concluida"),
@@ -28,9 +42,7 @@ const RegistroCacambas = () => {
   const registroData = concluidas.flatMap((r) =>
     r.itens.map((i) => ({
       id: i.id,
-      data: r.data_programada
-        ? new Date(r.data_programada).toLocaleDateString("pt-BR")
-        : "—",
+      data: formatDataProgramadaBR(r.data_programada),
       tipo: i.tipo?.toLowerCase() === "retirada" ? "Retirada" : "Entrega",
       cacamba: `#${i.sequencia}`,
       local: i.endereco ?? "—",

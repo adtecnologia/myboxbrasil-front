@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { Fragment, useState, useEffect } from "react";
 import { useAuthStore } from "@/stores/useAuthStore";
+import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -40,10 +41,13 @@ interface LicenseDoc {
   id: string;
   name: string;
   file?: string;
+  file_path?: string;
   expiry?: string;
+  status?: "aguardando_validacao" | "aceito" | "negado";
 }
 
 interface CityConfig {
+  id?: string;
   name: string;
   state: string;
   licenses: LicenseDoc[];
@@ -52,23 +56,49 @@ interface CityConfig {
 const Configuracoes = () => {
   const { activeProfileType } = useAuthStore();
   const role = activeProfileType();
+  const session = useAuthStore((s) => s.session);
+  const userId = session?.user?.id ?? null;
 
-  const [selectedCities, setSelectedCities] = useState<CityConfig[]>([
-    { 
-      name: "São José do Rio Preto", state: "SP",
-      licenses: [
-        { id: "l1", name: "Licença de Operação", file: "LO-2024.pdf", expiry: "2025-12-31" },
-        { id: "l2", name: "Alvará Municipal", file: "alvara-srp.pdf", expiry: "2025-10-01" }
-      ]
-    },
-    { 
-      name: "Mirassol", state: "SP",
-      licenses: [
-        { id: "l3", name: "Licença Ambiental", file: "LIC-MIR-088.pdf", expiry: "2025-06-15" }
-      ]
-    }
-  ]);
-  const [selectedWasteTypes, setSelectedWasteTypes] = useState<string[]>(["Classe II A", "Classe II B"]);
+  const [prefs, setPrefs] = useState({
+    notif_email: true,
+    notif_push: true,
+    notif_prazo: true,
+    seg_2fa: false,
+    seg_sessoes_unicas: false,
+    seg_compartilhar_dados: true,
+    op_disponibilidade_auto: true,
+    op_visibilidade_frota: true,
+    op_aceite_auto: false,
+  });
+  const setPref = <K extends keyof typeof prefs>(k: K, v: (typeof prefs)[K]) =>
+    setPrefs((p) => ({ ...p, [k]: v }));
+
+  useEffect(() => {
+    if (!userId) return;
+    (async () => {
+      const { data } = await supabase
+        .from("user_preferences")
+        .select("notif_email, notif_push, notif_prazo, seg_2fa, seg_sessoes_unicas, seg_compartilhar_dados, op_disponibilidade_auto, op_visibilidade_frota, op_aceite_auto")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (data) {
+        setPrefs({
+          notif_email: data.notif_email ?? true,
+          notif_push: data.notif_push ?? true,
+          notif_prazo: data.notif_prazo ?? true,
+          seg_2fa: data.seg_2fa ?? false,
+          seg_sessoes_unicas: data.seg_sessoes_unicas ?? false,
+          seg_compartilhar_dados: data.seg_compartilhar_dados ?? true,
+          op_disponibilidade_auto: data.op_disponibilidade_auto ?? true,
+          op_visibilidade_frota: data.op_visibilidade_frota ?? true,
+          op_aceite_auto: data.op_aceite_auto ?? false,
+        });
+      }
+    })();
+  }, [userId]);
+
+  const [selectedCities, setSelectedCities] = useState<CityConfig[]>([]);
+  const [selectedWasteTypes, setSelectedWasteTypes] = useState<string[]>([]);
   const [wasteSearch, setWasteSearch] = useState("");
   const [citySearch, setCitySearch] = useState("");
   const [selectedState, setSelectedState] = useState<string>("SP");
@@ -76,68 +106,260 @@ const Configuracoes = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pendingLicenseId, setPendingLicenseId] = useState<string | null>(null);
 
-  const statesData: Record<string, string[]> = {
-    SP: ["São José do Rio Preto", "Mirassol", "Bady Bassitt", "Cedral", "Guapiaçu", "Ipiguá", "Jaci", "Neves Paulista", "Nova Aliança", "Onda Verde", "Palestina", "Potirendaba"],
-    MG: ["Uberlândia", "Uberaba", "Araguari", "Ituiutaba", "Patos de Minas"],
-    RJ: ["Rio de Janeiro", "Niterói", "Petrópolis", "Volta Redonda", "Nova Iguaçu"],
-  };
+  const [states, setStates] = useState<string[]>([]);
+  const [citiesInState, setCitiesInState] = useState<string[]>([]);
+  const [loadingCities, setLoadingCities] = useState(false);
 
-  const states = Object.keys(statesData);
-  const citiesInState = statesData[selectedState] || [];
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("https://servicodados.ibge.gov.br/api/v1/localidades/estados?orderBy=sigla");
+        const data: { sigla: string }[] = await res.json();
+        setStates(data.map((s) => s.sigla).sort((a, b) => a.localeCompare(b)));
+      } catch {
+        toast.error("Erro ao carregar estados do IBGE");
+      }
+    })();
+  }, []);
 
-  const wasteTypes = [
-    { id: "c1", label: "Classe I - Perigosos", description: "Resíduos que apresentam inflamabilidade, corrosividade, reatividade ou toxicidade." },
-    { id: "c2", label: "Classe II A - Não Inertes", description: "Resíduos com propriedades de biodegradabilidade, combustibilidade ou solubilidade em água." },
-    { id: "c3", label: "Classe II B - Inertes", description: "Resíduos que não se decompõem ou sofrem qualquer alteração física, química ou biológica." },
-    { id: "c4", label: "Resíduos de Construção Civil (RCC)", description: "Tijolos, blocos cerâmicos, concreto, solos, rochas e madeiras de obras." },
-    { id: "c5", label: "Resíduos Verdes / Podas", description: "Galhos, folhas, grama e materiais vegetais de limpeza de jardins." },
-    { id: "c6", label: "Resíduos Volumosos", description: "Móveis, colchões e outros itens de grande porte não recolhidos pelo lixo comum." }
-  ];
+  useEffect(() => {
+    if (!selectedState) return;
+    setLoadingCities(true);
+    (async () => {
+      try {
+        const res = await fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${selectedState}/municipios`);
+        const data: { nome: string }[] = await res.json();
+        setCitiesInState(data.map((c) => c.nome));
+      } catch {
+        setCitiesInState([]);
+        toast.error("Erro ao carregar cidades do IBGE");
+      } finally {
+        setLoadingCities(false);
+      }
+    })();
+  }, [selectedState]);
 
-  const handleSave = () => {
-    console.log("Saving configurations:", { selectedCities, selectedWasteTypes });
+  const [wasteTypes, setWasteTypes] = useState<{ id: string; label: string; description: string }[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      const { data, error } = await supabase
+        .from("classes_residuo")
+        .select("id, nome, descricao")
+        .order("nome", { ascending: true });
+      if (error) {
+        toast.error("Erro ao carregar tipos de resíduos");
+        return;
+      }
+      setWasteTypes((data ?? []).map((r) => ({
+        id: r.id,
+        label: r.nome,
+        description: r.descricao ?? "",
+      })));
+    })();
+  }, []);
+
+  // Carrega resíduos atendidos pelo locador
+  useEffect(() => {
+    if (!userId || wasteTypes.length === 0) return;
+    (async () => {
+      const { data, error } = await supabase
+        .from("locador_residuos")
+        .select("classe_residuo_id")
+        .eq("user_id", userId);
+      if (error) {
+        toast.error("Erro ao carregar resíduos: " + error.message);
+        return;
+      }
+      const idToLabel = new Map(wasteTypes.map((w) => [w.id, w.label]));
+      setSelectedWasteTypes(
+        (data ?? [])
+          .map((r) => idToLabel.get(r.classe_residuo_id))
+          .filter((l): l is string => !!l),
+      );
+    })();
+  }, [userId, wasteTypes]);
+
+  // Carrega licenças por cidade e documentos do usuário
+  useEffect(() => {
+    if (!userId) return;
+    (async () => {
+      const { data: cidades, error: e1 } = await supabase
+        .from("licenca_cidade")
+        .select("id, estado, cidade")
+        .eq("user_id", userId);
+      if (e1) {
+        toast.error("Erro ao carregar cidades: " + e1.message);
+        return;
+      }
+      const ids = (cidades ?? []).map((c) => c.id);
+      const { data: docs } = ids.length
+        ? await supabase
+            .from("documentos_licenca_cidade")
+            .select("id, licenca_cidade_id, nome, data_vencimento, arquivo_path, status")
+            .in("licenca_cidade_id", ids)
+        : { data: [] as any[] };
+      setSelectedCities(
+        (cidades ?? []).map((c) => ({
+          id: c.id,
+          name: c.cidade,
+          state: c.estado,
+          licenses: (docs ?? [])
+            .filter((d: any) => d.licenca_cidade_id === c.id)
+            .map((d: any) => ({
+              id: d.id,
+              name: d.nome ?? "",
+              expiry: d.data_vencimento ?? undefined,
+              file_path: d.arquivo_path ?? undefined,
+              file: d.arquivo_path ? d.arquivo_path.split("/").pop() : undefined,
+              status: d.status ?? "aguardando_validacao",
+            })),
+        }))
+      );
+    })();
+  }, [userId]);
+
+  const handleSave = async () => {
+    if (userId) {
+      const { error } = await supabase
+        .from("user_preferences")
+        .upsert({ user_id: userId, ...prefs }, { onConflict: "user_id" });
+      if (error) {
+        toast.error("Erro ao salvar preferências");
+        return;
+      }
+
+      // Sincroniza resíduos atendidos
+      const labelToId = new Map(wasteTypes.map((w) => [w.label, w.id]));
+      const selectedIds = selectedWasteTypes
+        .map((l) => labelToId.get(l))
+        .filter((id): id is string => !!id);
+
+      const { data: current, error: e1 } = await supabase
+        .from("locador_residuos")
+        .select("classe_residuo_id")
+        .eq("user_id", userId);
+      if (e1) {
+        toast.error("Erro ao salvar resíduos: " + e1.message);
+        return;
+      }
+      const currentIds = new Set((current ?? []).map((r) => r.classe_residuo_id));
+      const toInsert = selectedIds.filter((id) => !currentIds.has(id));
+      const toDelete = [...currentIds].filter((id) => !selectedIds.includes(id));
+
+      if (toDelete.length) {
+        const { error: eDel } = await supabase
+          .from("locador_residuos")
+          .delete()
+          .eq("user_id", userId)
+          .in("classe_residuo_id", toDelete);
+        if (eDel) {
+          toast.error("Erro ao remover resíduos: " + eDel.message);
+          return;
+        }
+      }
+      if (toInsert.length) {
+        const { error: eIns } = await supabase
+          .from("locador_residuos")
+          .insert(toInsert.map((id) => ({ user_id: userId, classe_residuo_id: id })));
+        if (eIns) {
+          toast.error("Erro ao adicionar resíduos: " + eIns.message);
+          return;
+        }
+      }
+    }
     toast.success("Configurações salvas com sucesso!");
   };
 
-  const toggleCity = (cityName: string) => {
-    setSelectedCities(prev => 
-      prev.some(c => c.name === cityName && c.state === selectedState)
-        ? prev.filter(c => !(c.name === cityName && c.state === selectedState))
-        : [...prev, { name: cityName, state: selectedState, licenses: [] }]
-    );
+  const toggleCity = async (cityName: string) => {
+    if (!userId) return;
+    const existing = selectedCities.find(c => c.name === cityName && c.state === selectedState);
+    if (existing) {
+      const { error } = await supabase.from("licenca_cidade").delete().eq("id", existing.id!);
+      if (error) return toast.error("Erro ao remover: " + error.message);
+      setSelectedCities(prev => prev.filter(c => c.id !== existing.id));
+    } else {
+      const { data, error } = await supabase
+        .from("licenca_cidade")
+        .upsert(
+          { user_id: userId, estado: selectedState, cidade: cityName },
+          { onConflict: "user_id,estado,cidade" }
+        )
+        .select("id")
+        .single();
+      if (error) return toast.error("Erro ao adicionar: " + error.message);
+      setSelectedCities(prev =>
+        prev.some(c => c.id === data.id)
+          ? prev
+          : [...prev, { id: data.id, name: cityName, state: selectedState, licenses: [] }]
+      );
+    }
   };
 
   const allStateSelected = citiesInState.length > 0 && citiesInState.every(name => 
     selectedCities.some(c => c.name === name && c.state === selectedState)
   );
 
-  const toggleAllStateCities = () => {
+  const toggleAllStateCities = async () => {
+    if (!userId) return;
     if (allStateSelected) {
+      const { error } = await supabase
+        .from("licenca_cidade")
+        .delete()
+        .eq("user_id", userId)
+        .eq("estado", selectedState);
+      if (error) return toast.error("Erro ao remover cidades: " + error.message);
       setSelectedCities(prev => prev.filter(c => c.state !== selectedState));
     } else {
-      const toAdd = citiesInState
-        .filter(name => !selectedCities.some(c => c.name === name && c.state === selectedState))
-        .map(name => ({ name, state: selectedState, licenses: [] }));
-      setSelectedCities(prev => [...prev, ...toAdd]);
+      const missing = citiesInState.filter(
+        name => !selectedCities.some(c => c.name === name && c.state === selectedState)
+      );
+      if (missing.length === 0) return;
+      const { data, error } = await supabase
+        .from("licenca_cidade")
+        .upsert(
+          missing.map(name => ({ user_id: userId, estado: selectedState, cidade: name })),
+          { onConflict: "user_id,estado,cidade" }
+        )
+        .select("id, estado, cidade");
+      if (error) return toast.error("Erro ao adicionar cidades: " + error.message);
+      setSelectedCities(prev => {
+        const existingIds = new Set(prev.map(c => c.id));
+        const additions = (data ?? [])
+          .filter(d => !existingIds.has(d.id))
+          .map(d => ({ id: d.id, name: d.cidade, state: d.estado, licenses: [] }));
+        return [...prev, ...additions];
+      });
     }
   };
 
-  const removeCity = (cityName: string, state: string) => {
-    setSelectedCities(prev => prev.filter(c => !(c.name === cityName && c.state === state)));
+  const removeCity = async (cityName: string, state: string) => {
+    const city = selectedCities.find(c => c.name === cityName && c.state === state);
+    if (!city?.id) return;
+    const { error } = await supabase.from("licenca_cidade").delete().eq("id", city.id);
+    if (error) return toast.error("Erro ao remover: " + error.message);
+    setSelectedCities(prev => prev.filter(c => c.id !== city.id));
   };
 
-  const addLicense = (cityName: string, state: string) => {
-    const newLicense = { id: `l${Date.now()}`, name: "" };
-    setSelectedCities(prev => prev.map(c => 
-      c.name === cityName && c.state === state
-        ? { ...c, licenses: [...c.licenses, newLicense] }
-        : c
+  const addLicense = async (cityName: string, state: string) => {
+    if (!userId) return;
+    const city = selectedCities.find(c => c.name === cityName && c.state === state);
+    if (!city?.id) return;
+    const { data, error } = await supabase
+      .from("documentos_licenca_cidade")
+      .insert({ licenca_cidade_id: city.id, user_id: userId, nome: "" })
+      .select("id, status")
+      .single();
+    if (error) return toast.error("Erro ao adicionar documento: " + error.message);
+    const newLicense: LicenseDoc = { id: data.id, name: "", status: data.status };
+    setSelectedCities(prev => prev.map(c =>
+      c.id === city.id ? { ...c, licenses: [...c.licenses, newLicense] } : c
     ));
     setManageCity(prev => prev ? { ...prev, licenses: [...prev.licenses, newLicense] } : prev);
   };
 
-  const updateLicense = (cityName: string, state: string, licenseId: string, field: keyof LicenseDoc, value: string) => {
-    setSelectedCities(prev => prev.map(c => 
+  const updateLicense = async (cityName: string, state: string, licenseId: string, field: keyof LicenseDoc, value: string) => {
+    setSelectedCities(prev => prev.map(c =>
       c.name === cityName && c.state === state
         ? { ...c, licenses: c.licenses.map(l => l.id === licenseId ? { ...l, [field]: value } : l) }
         : c
@@ -146,10 +368,27 @@ const Configuracoes = () => {
       ...prev,
       licenses: prev.licenses.map(l => l.id === licenseId ? { ...l, [field]: value } : l)
     } : prev);
+    const dbField =
+      field === "name" ? "nome" :
+      field === "expiry" ? "data_vencimento" :
+      field === "status" ? "status" : null;
+    if (!dbField) return;
+    const val = value === "" ? null : value;
+    const payload =
+      dbField === "nome" ? { nome: val as string | null } :
+      dbField === "data_vencimento" ? { data_vencimento: val as string | null } :
+      { status: val as "aguardando_validacao" | "aceito" | "negado" };
+    const { error } = await supabase
+      .from("documentos_licenca_cidade")
+      .update(payload)
+      .eq("id", licenseId);
+    if (error) toast.error("Erro ao salvar: " + error.message);
   };
 
-  const removeLicense = (cityName: string, state: string, licenseId: string) => {
-    setSelectedCities(prev => prev.map(c => 
+  const removeLicense = async (cityName: string, state: string, licenseId: string) => {
+    const { error } = await supabase.from("documentos_licenca_cidade").delete().eq("id", licenseId);
+    if (error) return toast.error("Erro ao remover documento: " + error.message);
+    setSelectedCities(prev => prev.map(c =>
       c.name === cityName && c.state === state
         ? { ...c, licenses: c.licenses.filter(l => l.id !== licenseId) }
         : c
@@ -165,13 +404,31 @@ const Configuracoes = () => {
     fileInputRef.current?.click();
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file && pendingLicenseId && manageCity) {
-      updateLicense(manageCity.name, manageCity.state, pendingLicenseId, "file", file.name);
-    }
+    const licId = pendingLicenseId;
     setPendingLicenseId(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
+    if (!file || !licId || !manageCity || !userId) return;
+    const path = `${userId}/licencas/${licId}/${Date.now()}-${file.name}`;
+    const { error: upErr } = await supabase.storage
+      .from("documentos-legais")
+      .upload(path, file, { upsert: true });
+    if (upErr) return toast.error("Erro ao enviar arquivo: " + upErr.message);
+    const { error } = await supabase
+      .from("documentos_licenca_cidade")
+      .update({ arquivo_path: path })
+      .eq("id", licId);
+    if (error) return toast.error("Erro ao salvar arquivo: " + error.message);
+    setSelectedCities(prev => prev.map(c =>
+      c.name === manageCity.name && c.state === manageCity.state
+        ? { ...c, licenses: c.licenses.map(l => l.id === licId ? { ...l, file: file.name, file_path: path } : l) }
+        : c
+    ));
+    setManageCity(prev => prev ? {
+      ...prev,
+      licenses: prev.licenses.map(l => l.id === licId ? { ...l, file: file.name, file_path: path } : l)
+    } : prev);
   };
 
   const toggleWaste = (label: string) => {
@@ -217,21 +474,21 @@ const Configuracoes = () => {
                   title="Notificações via E-mail" 
                   description="Receba atualizações sobre pedidos e documentos por e-mail"
                 >
-                  <Switch defaultChecked />
+                  <Switch checked={prefs.notif_email} onCheckedChange={(v) => setPref("notif_email", v)} />
                 </ConfigField>
                 <Separator />
                 <ConfigField 
                   title="Notificações Push" 
                   description="Receba alertas em tempo real no seu navegador"
                 >
-                  <Switch defaultChecked />
+                  <Switch checked={prefs.notif_push} onCheckedChange={(v) => setPref("notif_push", v)} />
                 </ConfigField>
                 <Separator />
                 <ConfigField 
                   title="Alertas de Prazo" 
                   description="Avisar 24h antes do vencimento de documentos"
                 >
-                  <Switch defaultChecked />
+                  <Switch checked={prefs.notif_prazo} onCheckedChange={(v) => setPref("notif_prazo", v)} />
                 </ConfigField>
               </div>
             </AccordionContent>
@@ -367,28 +624,39 @@ const Configuracoes = () => {
                             <TableRow>
                               <TableHead className="text-xs h-9">Cidade</TableHead>
                               <TableHead className="text-xs h-9 w-16 text-center">UF</TableHead>
-                              <TableHead className="text-xs h-9 w-28 text-center">Documentos</TableHead>
+                              <TableHead className="text-xs h-9 w-32 text-center">Situação</TableHead>
                               <TableHead className="text-xs h-9 w-32 text-right pr-3">Ações</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
                             {selectedCities.map((city) => {
                               const hasDocs = city.licenses.length > 0;
-                              const allComplete = hasDocs && city.licenses.every(l => l.file && l.expiry && l.name);
+                              const statusMeta = (s?: string) => {
+                                switch (s) {
+                                  case "aceito":
+                                    return { label: "Aceito", cls: "bg-emerald-100 text-emerald-700 border-emerald-200" };
+                                  case "negado":
+                                    return { label: "Negado", cls: "bg-red-100 text-red-700 border-red-200" };
+                                  default:
+                                    return { label: "Aguardando validação", cls: "bg-amber-100 text-amber-700 border-amber-200" };
+                                }
+                              };
+                              const cityStatus = !hasDocs
+                                ? { label: "Sem documentos", cls: "bg-muted text-muted-foreground border-border" }
+                                : city.licenses.some((l) => l.status === "negado")
+                                ? { label: "Não aprovada", cls: "bg-red-100 text-red-700 border-red-200" }
+                                : city.licenses.every((l) => l.status === "aceito")
+                                ? { label: "Aprovada", cls: "bg-emerald-100 text-emerald-700 border-emerald-200" }
+                                : { label: "Em análise", cls: "bg-amber-100 text-amber-700 border-amber-200" };
                               return (
-                                <TableRow key={`${city.state}-${city.name}`} className="hover:bg-muted/30">
+                                <Fragment key={`${city.state}-${city.name}`}>
+                                <TableRow className="hover:bg-muted/30">
                                   <TableCell className="text-xs font-medium py-2.5">{city.name}</TableCell>
                                   <TableCell className="text-xs text-center text-muted-foreground py-2.5">{city.state}</TableCell>
                                   <TableCell className="text-center py-2.5">
-                                    {hasDocs ? (
-                                      <Badge variant={allComplete ? "default" : "secondary"} className="text-[10px] h-5 px-1.5">
-                                        {city.licenses.length} {city.licenses.length === 1 ? "doc" : "docs"}
-                                      </Badge>
-                                    ) : (
-                                      <Badge variant="outline" className="text-[10px] h-5 px-1.5 border-destructive/30 text-destructive">
-                                        Pendente
-                                      </Badge>
-                                    )}
+                                     <Badge variant="outline" className={`text-[10px] h-5 px-1.5 whitespace-nowrap ${cityStatus.cls}`}>
+                                      {cityStatus.label}
+                                    </Badge>
                                   </TableCell>
                                   <TableCell className="py-2 pr-3">
                                     <div className="flex items-center justify-end gap-1">
@@ -413,6 +681,30 @@ const Configuracoes = () => {
                                     </div>
                                   </TableCell>
                                 </TableRow>
+                                {hasDocs && city.licenses.map((lic) => {
+                                  const m = statusMeta(lic.status);
+                                  return (
+                                    <TableRow key={`${city.state}-${city.name}-${lic.id}`} className="bg-muted/20 hover:bg-muted/30">
+                                       <TableCell className="py-1.5 text-[11px] text-muted-foreground" colSpan={2}>
+                                        <div className="flex items-center gap-2">
+                                          <FileText className="h-3 w-3 text-primary/70" />
+                                          <span className="truncate max-w-[220px]">{lic.name || "Sem nome"}</span>
+                                          {lic.expiry && (
+                                            <span className="text-[10px] text-muted-foreground/70">
+                                              · vence {new Date(lic.expiry).toLocaleDateString()}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </TableCell>
+                                       <TableCell className="py-1.5 text-right pr-3" colSpan={2}>
+                                         <Badge variant="outline" className={`text-[10px] h-5 px-1.5 ${m.cls}`}>
+                                           {m.label}
+                                         </Badge>
+                                       </TableCell>
+                                    </TableRow>
+                                  );
+                                })}
+                                </Fragment>
                               );
                             })}
                           </TableBody>
@@ -502,21 +794,21 @@ const Configuracoes = () => {
                       title="Disponibilidade Automática" 
                       description="Marcar caçambas como disponíveis logo após a coleta"
                     >
-                      <Switch defaultChecked />
+                      <Switch checked={prefs.op_disponibilidade_auto} onCheckedChange={(v) => setPref("op_disponibilidade_auto", v)} />
                     </ConfigField>
                     <Separator />
                     <ConfigField 
                       title="Visibilidade de Frota" 
                       description="Permitir que locatários vejam a localização aproximada da frota"
                     >
-                      <Switch defaultChecked />
+                      <Switch checked={prefs.op_visibilidade_frota} onCheckedChange={(v) => setPref("op_visibilidade_frota", v)} />
                     </ConfigField>
                     <Separator />
                     <ConfigField 
                       title="Aceite Automático" 
                       description="Aceitar pedidos automaticamente dentro da área de cobertura"
                     >
-                      <Switch />
+                      <Switch checked={prefs.op_aceite_auto} onCheckedChange={(v) => setPref("op_aceite_auto", v)} />
                     </ConfigField>
                   </div>
                 </AccordionContent>
@@ -622,21 +914,21 @@ const Configuracoes = () => {
                   title="Autenticação em Duas Etapas (2FA)" 
                   description="Adicione uma camada extra de segurança à sua conta"
                 >
-                  <Switch />
+                  <Switch checked={prefs.seg_2fa} onCheckedChange={(v) => setPref("seg_2fa", v)} />
                 </ConfigField>
                 <Separator />
                 <ConfigField 
                   title="Sessões Ativas" 
                   description="Deslogar de outros dispositivos ao entrar em um novo"
                 >
-                  <Switch />
+                  <Switch checked={prefs.seg_sessoes_unicas} onCheckedChange={(v) => setPref("seg_sessoes_unicas", v)} />
                 </ConfigField>
                 <Separator />
                 <ConfigField 
                   title="Compartilhamento de Dados" 
                   description="Permitir uso anônimo de dados para melhoria da plataforma"
                 >
-                  <Switch defaultChecked />
+                  <Switch checked={prefs.seg_compartilhar_dados} onCheckedChange={(v) => setPref("seg_compartilhar_dados", v)} />
                 </ConfigField>
               </div>
             </AccordionContent>

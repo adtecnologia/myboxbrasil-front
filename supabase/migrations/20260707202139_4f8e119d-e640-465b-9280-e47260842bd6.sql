@@ -1,0 +1,2 @@
+ALTER TABLE public.entrega_fotos DROP CONSTRAINT IF EXISTS entrega_fotos_tipo_check;
+ALTER TABLE public.entrega_fotos ADD CONSTRAINT entrega_fotos_tipo_check CHECK (tipo IN ('entrega','retirada','destino_final'));

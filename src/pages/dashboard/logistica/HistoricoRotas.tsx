@@ -101,7 +101,7 @@ function posDe(id: string): [number, number] {
   return [lat, lng];
 }
 
-function useHistoricoRotas(): RotaHist[] {
+function useHistoricoRotas() {
   const user = useAuthStore((s) => s.user);
   const activeProfile = useAuthStore(
     (s) => s.activeProfile() ?? s.user?.profiles[0] ?? null
@@ -109,7 +109,7 @@ function useHistoricoRotas(): RotaHist[] {
   const rawTenant = activeProfile?.tenantId;
   const locadorId = rawTenant && rawTenant !== "self" ? rawTenant : user?.id;
 
-  const { data = [] } = useQuery({
+  const { data = [], isLoading } = useQuery({
     queryKey: ["historico-rotas", locadorId],
     enabled: !!locadorId,
     queryFn: async (): Promise<RotaHist[]> => {
@@ -198,11 +198,11 @@ function useHistoricoRotas(): RotaHist[] {
       });
     },
   });
-  return data;
+  return { data, isLoading };
 }
 
 const HistoricoRotas = () => {
-  const historico = useHistoricoRotas();
+  const { data: historico, isLoading } = useHistoricoRotas();
   const [search, setSearch] = useState("");
   const [selectedRoute, setSelectedRoute] = useState<RotaHist | null>(null);
 
@@ -221,6 +221,7 @@ const HistoricoRotas = () => {
       />
 
       <DataTable
+      loading={isLoading}
         title="Rotas Concluídas"
         data={paginatedData}
         searchValue={search}

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Search, Filter, Hand, Camera, MapPin, Map as MapIcon, CalendarCheck, Maximize2, Minimize2, FileText, Plus, X, FileCheck2, QrCode, ArrowRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -22,6 +23,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { printMtr } from "@/lib/mtr";
 
 // Fix default marker icons
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -669,7 +671,7 @@ const EmitirCdfDialog = ({ ordem }: { ordem: Ordem }) => {
   );
 };
 
-const OrdensTable = ({ data, mode, selected, setSelected, onFocusLocatario, isDestinoFinal, tabKey }: { data: Ordem[]; mode: typeof allTabsConfig[number]["mode"]; selected: string[]; setSelected: (v: string[]) => void; onFocusLocatario?: (o: Ordem) => void; isDestinoFinal?: boolean; tabKey?: TabKey }) => {
+const OrdensTable = ({ data, loading, mode, selected, setSelected, onFocusLocatario, isDestinoFinal, tabKey }: { data: Ordem[]; loading?: boolean; mode: typeof allTabsConfig[number]["mode"]; selected: string[]; setSelected: (v: string[]) => void; onFocusLocatario?: (o: Ordem) => void; isDestinoFinal?: boolean; tabKey?: TabKey }) => {
   const activeProfileType = useAuthStore((state) => state.activeProfileType());
   const [search, setSearch] = useState("");
   const filtered = useMemo(() => data.filter(o => `${o.cliente} ${o.codigo} ${o.endereco}`.toLowerCase().includes(search.toLowerCase())), [data, search]);
@@ -686,6 +688,7 @@ const OrdensTable = ({ data, mode, selected, setSelected, onFocusLocatario, isDe
 
   return (
     <DataTable<Ordem>
+      loading={loading}
       title={`${filtered.length} registros`}
       data={paginatedData}
       searchValue={search}
@@ -739,12 +742,12 @@ const OrdensTable = ({ data, mode, selected, setSelected, onFocusLocatario, isDe
           ),
         },
         
-        ...(data === locadas || mode === "view-analise" || mode === "view-cdf" ? [{
+        ...(data === locadas || mode === "view-cdf" ? [{
           header: "Locação",
           accessor: (o: Ordem) => <DriverVehicleCell motorista={o.locacao?.motorista} veiculo={o.locacao?.veiculo} />,
         }] : []),
-        tabKey === "entregas"
-          ? {
+        ...(tabKey === "entregas"
+          ? [{
               header: "Entrega",
               accessor: (o: Ordem) => (
                 <DriverVehicleCell
@@ -754,8 +757,10 @@ const OrdensTable = ({ data, mode, selected, setSelected, onFocusLocatario, isDe
                   status={o.entrega?.status}
                 />
               ),
-            }
-          : {
+            }]
+          : mode === "view-analise"
+          ? []
+          : [{
               header: "Retirada",
               accessor: (o: Ordem) => (
                 <DriverVehicleCell
@@ -765,7 +770,7 @@ const OrdensTable = ({ data, mode, selected, setSelected, onFocusLocatario, isDe
                   status={o.retirada?.status}
                 />
               ),
-            },
+            }]),
       ]}
       actions={(o) => {
         const isLocatario = activeProfileType === "locatario";
@@ -780,16 +785,28 @@ const OrdensTable = ({ data, mode, selected, setSelected, onFocusLocatario, isDe
                 size="icon"
                 className="h-8 w-8 rounded-lg hover:border-primary hover:text-primary shadow-sm"
                 title="Abrir MTR (PDF)"
+                onClick={(e) => { e.stopPropagation(); printMtr(o.id); }}
               >
                 <FileText className="h-4 w-4" />
               </Button>
             )}
-            {!isLocatario && !isDestinoFinal && (mode === "view-analise" || mode === "view-cdf") && (
+            {!isDestinoFinal && mode === "view-analise" && (
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 rounded-lg hover:border-primary hover:text-primary shadow-sm"
+                title="Imprimir MTR"
+                onClick={(e) => { e.stopPropagation(); printMtr(o.id); }}
+              >
+                <FileText className="h-4 w-4" />
+              </Button>
+            )}
+            {!isLocatario && !isDestinoFinal && mode === "view-cdf" && (
               <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg hover:border-primary hover:text-primary shadow-sm">
                 <Hand className="h-4 w-4" />
               </Button>
             )}
-            {!isLocatario && !isDestinoFinal && (mode === "view-analise" || mode === "view-cdf" || (mode === "view" && data === locadas)) && (
+            {!isLocatario && !isDestinoFinal && (mode === "view-cdf" || (mode === "view" && data === locadas)) && (
               <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg hover:border-primary hover:text-primary shadow-sm">
                 <Camera className="h-4 w-4" />
               </Button>
@@ -847,11 +864,11 @@ const OrdensLocacao = () => {
       return allTabsConfig.filter(t => t.key === "locadas" || t.key === "cdf");
     }
     return allTabsConfig.map((t) => {
-      if (t.key === "entregas") return { ...t, data: entregasDB };
-      if (t.key === "locadas") return { ...t, data: locadasDB };
-      if (t.key === "analise") return { ...t, data: analiseDB };
-      if (t.key === "cdf") return { ...t, data: cdfDB };
-      return t;
+      if (t.key === "entregas") return { ...t, data: entregasDB.data, loading: entregasDB.isLoading };
+      if (t.key === "locadas") return { ...t, data: locadasDB.data, loading: locadasDB.isLoading };
+      if (t.key === "analise") return { ...t, data: analiseDB.data, loading: analiseDB.isLoading };
+      if (t.key === "cdf") return { ...t, data: cdfDB.data, loading: cdfDB.isLoading };
+      return { ...t, loading: false };
     });
   }, [isDestinoFinal, isPrefeitura, entregasDB, locadasDB, analiseDB, cdfDB]);
 
@@ -860,6 +877,14 @@ const OrdensLocacao = () => {
   useEffect(() => {
     setTab(filteredTabsConfig[0]?.key || "entregas");
   }, [filteredTabsConfig]);
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    const t = searchParams.get("tab") as TabKey | null;
+    if (t && filteredTabsConfig.some((cfg) => cfg.key === t)) {
+      setTab(t);
+    }
+  }, [searchParams, filteredTabsConfig]);
 
   const [selectedByTab, setSelectedByTab] = useState<Record<TabKey, string[]>>({ entregas: [], locadas: [], analise: [], cdf: [] });
   const mapRefs = useRef<Record<string, L.Map | null>>({});
@@ -915,6 +940,7 @@ const OrdensLocacao = () => {
             </div>
             <OrdensTable
               data={t.data}
+              loading={(t as any).loading}
               mode={t.mode}
               tabKey={t.key}
               selected={selectedByTab[t.key]}
@@ -947,23 +973,24 @@ const STATUS_META: Record<
   cancelada: { label: "Cancelada", variant: "danger" },
 };
 
-function useOrdensFromDB(statuses: string[], mode: "view" | "view-analise" | "view-cdf"): Ordem[] {
+function useOrdensFromDB(statuses: string[], mode: "view" | "view-analise" | "view-cdf") {
   const user = useAuthStore((s) => s.user);
   const activeProfile = useAuthStore(
     (s) => s.activeProfile() ?? s.user?.profiles[0] ?? null
   );
   const profileType = activeProfile?.profileType;
   const isLocador = profileType === "locador";
+  const isAdmin = profileType === "admin";
   const rawTenant = activeProfile?.tenantId;
   const locadorId =
     rawTenant && rawTenant !== "self" ? rawTenant : user?.id;
 
-  const { data = [] } = useQuery({
+  const { data = [], isLoading } = useQuery({
     queryKey: [
       "ordens-db",
       statuses.join(","),
       profileType,
-      isLocador ? locadorId : user?.id,
+      isAdmin ? "all" : isLocador ? locadorId : user?.id,
     ],
     enabled: !!user?.id && !!profileType,
     queryFn: async (): Promise<Ordem[]> => {
@@ -983,9 +1010,11 @@ function useOrdensFromDB(statuses: string[], mode: "view" | "view-analise" | "vi
         )
         .in("status", statuses);
 
-      const { data: rows, error } = isLocador
-        ? await query.eq("ordens_locacao.pedido_fornecedores.locador_id", locadorId!)
-        : await query.eq("ordens_locacao.pedido_fornecedores.pedidos.locatario_id", user!.id);
+      const { data: rows, error } = isAdmin
+        ? await query
+        : isLocador
+          ? await query.eq("ordens_locacao.pedido_fornecedores.locador_id", locadorId!)
+          : await query.eq("ordens_locacao.pedido_fornecedores.pedidos.locatario_id", user!.id);
       if (error) throw error;
 
       const aceitos = (rows ?? []).filter(
@@ -1109,5 +1138,5 @@ function useOrdensFromDB(statuses: string[], mode: "view" | "view-analise" | "vi
     },
   });
 
-  return data;
+  return useMemo(() => ({ data, isLoading }), [data, isLoading]);
 }
