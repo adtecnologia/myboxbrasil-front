@@ -20,13 +20,7 @@ interface Faturamento {
   dataVencimento: string;
 }
 
-const mockFat: Faturamento[] = [
-  { id: "FAT-001", entradaId: "ENT-001", cliente: "Construtora Alpha", valor: 850, status: "Pago", formaPagamento: "PIX", dataVencimento: "2026-04-05" },
-  { id: "FAT-002", entradaId: "ENT-002", cliente: "Demolidora Beta", valor: 520, status: "Pendente", formaPagamento: "Boleto", dataVencimento: "2026-04-10" },
-  { id: "FAT-003", entradaId: "ENT-003", cliente: "Empreiteira Gama", valor: 1200, status: "Pago", formaPagamento: "PIX", dataVencimento: "2026-03-30" },
-  { id: "FAT-004", entradaId: "ENT-004", cliente: "Construtora Alpha", valor: 380, status: "Vencido", formaPagamento: "Boleto", dataVencimento: "2026-03-15" },
-  { id: "FAT-005", entradaId: "ENT-005", cliente: "Demolidora Beta", valor: 950, status: "Pendente", formaPagamento: "Transferência", dataVencimento: "2026-04-15" },
-];
+const mockFat: Faturamento[] = [];
 
 const statusColor: Record<string, string> = {
   Pendente: "bg-yellow-100 text-yellow-700",

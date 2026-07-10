@@ -16,13 +16,14 @@ const typeConfig: Record<string, { icon: React.ElementType; color: string }> = {
   usuario: { icon: Users, color: "text-violet-500" },
 };
 
-const recentNotifications = [
-  { id: "1", title: "Nova ordem de serviço criada", description: "OS #1234 — ABC Construtora", time: "5 min", read: false, type: "operacional" },
-  { id: "2", title: "MTR pendente de assinatura", description: "MTR #5678 aguarda assinatura", time: "15 min", read: false, type: "documento" },
-  { id: "3", title: "Licença ambiental vencendo", description: "Destino XYZ vence em 15 dias", time: "1h", read: false, type: "alerta" },
-  { id: "4", title: "Pagamento recebido", description: "R$ 2.500,00 — Cliente DEF", time: "2h", read: true, type: "financeiro" },
-  { id: "5", title: "Caçamba devolvida com atraso", description: "Caçamba #89 — 2 dias de atraso", time: "6h", read: false, type: "alerta" },
-];
+const recentNotifications: Array<{
+  id: string;
+  title: string;
+  description: string;
+  time: string;
+  read: boolean;
+  type: string;
+}> = [];
 
 export function NotificacoesPopover() {
   const navigate = useNavigate();
@@ -57,6 +58,12 @@ export function NotificacoesPopover() {
         </div>
         <Separator />
         <ScrollArea className="max-h-[320px]">
+          {recentNotifications.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
+              <Bell className="h-8 w-8 mb-2 opacity-30" />
+              <p className="text-xs font-medium">Nenhuma notificação</p>
+            </div>
+          ) : (
           <div className="divide-y divide-border">
             {recentNotifications.map((n) => {
               const config = typeConfig[n.type] || typeConfig.sistema;
@@ -86,6 +93,7 @@ export function NotificacoesPopover() {
               );
             })}
           </div>
+          )}
         </ScrollArea>
         <Separator />
         <div className="p-2">

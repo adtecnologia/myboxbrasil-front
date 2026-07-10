@@ -18,11 +18,7 @@ interface Cliente {
   email: string;
 }
 
-const mockClientes: Cliente[] = [
-  { id: "1", nome: "Construtora Alpha Ltda", documento: "12.345.678/0001-90", telefone: "(17) 3222-1100", email: "contato@alpha.com.br" },
-  { id: "2", nome: "Demolidora Beta ME", documento: "98.765.432/0001-10", telefone: "(17) 3233-4400", email: "beta@demo.com.br" },
-  { id: "3", nome: "Empreiteira Gama SA", documento: "11.222.333/0001-44", telefone: "(17) 3244-5500", email: "gama@emp.com.br" },
-];
+const mockClientes: Cliente[] = [];
 
 const Clientes = () => {
   const [clientes, setClientes] = useState<Cliente[]>(mockClientes);

@@ -17,10 +17,7 @@ interface Transportador {
   estado: string;
 }
 
-const mockTransportadores: Transportador[] = [
-  { id: "1", nome: "RodoCargas Ltda", documento: "12.345.678/0001-90", celular: "(11) 98888-1010", placa: "ABC-1D23", cidade: "São Paulo", estado: "SP" },
-  { id: "2", nome: "Translimpa Resíduos", documento: "98.765.432/0001-11", celular: "(11) 97777-2020", placa: "XYZ-4E56", cidade: "Guarulhos", estado: "SP" },
-];
+const mockTransportadores: Transportador[] = [];
 
 const initials = (n: string) => (n || "").trim().substring(0, 2).toUpperCase() || "TR";
 

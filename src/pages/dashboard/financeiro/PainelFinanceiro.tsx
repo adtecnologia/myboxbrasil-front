@@ -40,27 +40,9 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 
-const dataReceitaMock = [
-  { name: "Jan", receita: 45000, despesa: 32000 },
-  { name: "Fev", receita: 52000, despesa: 34000 },
-  { name: "Mar", receita: 48000, despesa: 31000 },
-  { name: "Abr", receita: 61000, despesa: 38000 },
-  { name: "Mai", receita: 55000, despesa: 35000 },
-  { name: "Jun", receita: 67000, despesa: 41000 },
-];
-
-const dataDistribuicaoMock = [
-  { name: "Locações", value: 65, color: "#10b981" },
-  { name: "Serviços", value: 20, color: "#3b82f6" },
-  { name: "Outros", value: 15, color: "#f59e0b" },
-];
-
-const transacoesRecentesMock = [
-  { id: "TRX-001", cliente: "Construtora Alfa", valor: 1250.00, data: "22/05/2026", status: "Pago", tipo: "Receita" },
-  { id: "TRX-002", fornecedor: "Posto Shell", valor: -850.40, data: "21/05/2026", status: "Pago", tipo: "Despesa" },
-  { id: "TRX-003", cliente: "João da Silva", valor: 450.00, data: "21/05/2026", status: "Pendente", tipo: "Receita" },
-  { id: "TRX-004", fornecedor: "Manutenção Preventiva", valor: -1200.00, data: "20/05/2026", status: "Pago", tipo: "Despesa" },
-];
+const dataReceitaMock: Array<{ name: string; receita: number; despesa: number }> = [];
+const dataDistribuicaoMock: Array<{ name: string; value: number; color: string }> = [];
+const transacoesRecentesMock: any[] = [];
 
 const brl = (v: number) =>
   v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -192,10 +174,10 @@ const PainelFinanceiro = () => {
     : dataDistribuicaoMock;
   const transacoesRecentes: any[] = isLocador && real ? real.transacoes : transacoesRecentesMock;
 
-  const saldoTotal = isLocador && real ? real.saldoTotal : 124530;
-  const receitaMensal = isLocador && real ? real.receitaMes : 67400;
-  const variacao = isLocador && real ? real.variacao : 12;
-  const inadimplencia = isLocador && real ? real.inadimplencia : 4.5;
+  const saldoTotal = isLocador && real ? real.saldoTotal : 0;
+  const receitaMensal = isLocador && real ? real.receitaMes : 0;
+  const variacao = isLocador && real ? real.variacao : 0;
+  const inadimplencia = isLocador && real ? real.inadimplencia : 0;
 
   return (
     <div className="space-y-6">
@@ -254,20 +236,14 @@ const PainelFinanceiro = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Despesas</p>
-                {isLocador ? (
-                  <h3 className="text-2xl font-bold mt-1 text-red-500">{brl(0)}</h3>
-                ) : (
-                  <h3 className="text-2xl font-bold mt-1 text-red-500">R$ 41.200,00</h3>
-                )}
+                <h3 className="text-2xl font-bold mt-1 text-red-500">{brl(0)}</h3>
               </div>
               <div className="bg-red-50 p-3 rounded-xl text-red-600">
                 <TrendingDown className="h-6 w-6" />
               </div>
             </div>
             <div className="mt-4 flex items-center gap-1 text-xs">
-              <span className="text-muted-foreground text-[10px]">
-                {isLocador ? "Sem despesas registradas" : "8% acima do esperado"}
-              </span>
+              <span className="text-muted-foreground text-[10px]">Sem despesas registradas</span>
             </div>
           </CardContent>
         </Card>
@@ -288,9 +264,7 @@ const PainelFinanceiro = () => {
               </div>
             </div>
             <div className="mt-4 flex items-center gap-1 text-xs">
-              <span className="text-muted-foreground text-[10px]">
-                {isLocador ? "% de faturas vencidas" : "-1.2% queda este mês"}
-              </span>
+              <span className="text-muted-foreground text-[10px]">% de faturas vencidas</span>
             </div>
           </CardContent>
         </Card>

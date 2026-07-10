@@ -1,26 +1,26 @@
-import { useState } from "react";
-import { Search, FileText, Download } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { FileText, Printer, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { DataPagination, usePagination } from "@/components/DataPagination";
 import { DataTable } from "@/components/DataTable";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuthStore } from "@/stores/useAuthStore";
+import { printMtr } from "@/lib/mtr";
+import { printCdf } from "@/lib/cdf";
+import { toast } from "sonner";
 
 interface Documento {
   id: string;
   tipo: "MTR" | "CDF" | "NF";
   numero: string;
   dataEmissao: string;
-  entradaId: string;
+  oluId: string;
   cliente: string;
-  status: string;
+  cidade: string;
 }
-
-const mockDocs: Documento[] = [];
 
 const tipoBadge: Record<string, string> = {
   MTR: "bg-blue-100 text-blue-700",
@@ -31,15 +31,104 @@ const tipoBadge: Record<string, string> = {
 const Documentos = () => {
   const [search, setSearch] = useState("");
   const [tipoFilter, setTipoFilter] = useState("todos");
-  const isMobile = useIsMobile();
+  const [docs, setDocs] = useState<Documento[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filtered = mockDocs.filter((d) => {
+  const user = useAuthStore((s) => s.user);
+  const activeProfileType = useAuthStore((s) => s.activeProfileType)();
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+
+    const load = async () => {
+      setLoading(true);
+      try {
+        const cols = "id, numero, data_emissao, ordem_locacao_unidade_id, gerador_nome, obra_cidade, obra_estado, locatario_id, locador_id, destino_final_id";
+        let mtrQ = supabase.from("mtr").select(cols);
+        let cdfQ = supabase.from("cdf").select(cols);
+
+        if (activeProfileType === "locatario") {
+          mtrQ = mtrQ.eq("locatario_id", user.id);
+          cdfQ = cdfQ.eq("locatario_id", user.id);
+        } else if (activeProfileType === "locador") {
+          mtrQ = mtrQ.eq("locador_id", user.id);
+          cdfQ = cdfQ.eq("locador_id", user.id);
+        } else if (activeProfileType === "destino") {
+          mtrQ = mtrQ.eq("destino_final_id", user.id);
+          cdfQ = cdfQ.eq("destino_final_id", user.id);
+        } else if (activeProfileType === "prefeitura") {
+          const { data: prof } = await supabase
+            .from("profiles")
+            .select("cidade, estado")
+            .eq("id", user.id)
+            .maybeSingle();
+          const cidade = prof?.cidade ?? "";
+          const estado = prof?.estado ?? "";
+          mtrQ = mtrQ.ilike("obra_cidade", cidade).ilike("obra_estado", estado);
+          cdfQ = cdfQ.ilike("obra_cidade", cidade).ilike("obra_estado", estado);
+        }
+
+        const [{ data: mtrs, error: mErr }, { data: cdfs, error: cErr }] = await Promise.all([mtrQ, cdfQ]);
+        if (mErr) throw mErr;
+        if (cErr) throw cErr;
+        if (cancelled) return;
+
+        const list: Documento[] = [
+          ...(mtrs ?? []).map((r: any) => ({
+            id: `mtr-${r.id}`,
+            tipo: "MTR" as const,
+            numero: r.numero ?? "—",
+            dataEmissao: r.data_emissao ?? "",
+            oluId: r.ordem_locacao_unidade_id,
+            cliente: r.gerador_nome ?? "—",
+            cidade: [r.obra_cidade, r.obra_estado].filter(Boolean).join("/"),
+          })),
+          ...(cdfs ?? []).map((r: any) => ({
+            id: `cdf-${r.id}`,
+            tipo: "CDF" as const,
+            numero: r.numero ?? "—",
+            dataEmissao: r.data_emissao ?? "",
+            oluId: r.ordem_locacao_unidade_id,
+            cliente: r.gerador_nome ?? "—",
+            cidade: [r.obra_cidade, r.obra_estado].filter(Boolean).join("/"),
+          })),
+        ].sort((a, b) => (b.dataEmissao || "").localeCompare(a.dataEmissao || ""));
+
+        setDocs(list);
+      } catch (e: any) {
+        toast.error("Erro ao carregar documentos: " + (e?.message ?? "desconhecido"));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    load();
+    return () => { cancelled = true; };
+  }, [user, activeProfileType]);
+
+  const formatDate = (v: string) => {
+    if (!v) return "—";
+    const d = new Date(v);
+    return isNaN(d.getTime()) ? v : d.toLocaleDateString("pt-BR");
+  };
+
+  const filtered = docs.filter((d) => {
     const matchSearch = d.numero.toLowerCase().includes(search.toLowerCase()) || d.cliente.toLowerCase().includes(search.toLowerCase());
     const matchTipo = tipoFilter === "todos" || d.tipo === tipoFilter;
     return matchSearch && matchTipo;
   });
 
   const { paginatedData, currentPage, pageSize, setCurrentPage, setPageSize, totalItems } = usePagination(filtered, 10);
+
+  const handlePrint = async (d: Documento) => {
+    try {
+      if (d.tipo === "MTR") await printMtr(d.oluId);
+      else if (d.tipo === "CDF") await printCdf(d.oluId);
+    } catch (e: any) {
+      toast.error("Erro ao imprimir: " + (e?.message ?? "desconhecido"));
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -49,11 +138,16 @@ const Documentos = () => {
       </div>
 
       <div className="grid grid-cols-3 gap-3">
-        <Card><CardContent className="flex items-center gap-3 p-4"><div className="rounded-lg bg-blue-100 p-2"><FileText className="h-5 w-5 text-blue-700" /></div><div><p className="text-xs text-muted-foreground">MTRs</p><p className="text-xl font-bold text-foreground">{mockDocs.filter(d => d.tipo === "MTR").length}</p></div></CardContent></Card>
-        <Card><CardContent className="flex items-center gap-3 p-4"><div className="rounded-lg bg-purple-100 p-2"><FileText className="h-5 w-5 text-purple-700" /></div><div><p className="text-xs text-muted-foreground">CDFs</p><p className="text-xl font-bold text-foreground">{mockDocs.filter(d => d.tipo === "CDF").length}</p></div></CardContent></Card>
-        <Card><CardContent className="flex items-center gap-3 p-4"><div className="rounded-lg bg-orange-100 p-2"><FileText className="h-5 w-5 text-orange-700" /></div><div><p className="text-xs text-muted-foreground">NFs</p><p className="text-xl font-bold text-foreground">{mockDocs.filter(d => d.tipo === "NF").length}</p></div></CardContent></Card>
+        <Card><CardContent className="flex items-center gap-3 p-4"><div className="rounded-lg bg-blue-100 p-2"><FileText className="h-5 w-5 text-blue-700" /></div><div><p className="text-xs text-muted-foreground">MTRs</p><p className="text-xl font-bold text-foreground">{docs.filter(d => d.tipo === "MTR").length}</p></div></CardContent></Card>
+        <Card><CardContent className="flex items-center gap-3 p-4"><div className="rounded-lg bg-purple-100 p-2"><FileText className="h-5 w-5 text-purple-700" /></div><div><p className="text-xs text-muted-foreground">CDFs</p><p className="text-xl font-bold text-foreground">{docs.filter(d => d.tipo === "CDF").length}</p></div></CardContent></Card>
+        <Card><CardContent className="flex items-center gap-3 p-4"><div className="rounded-lg bg-orange-100 p-2"><FileText className="h-5 w-5 text-orange-700" /></div><div><p className="text-xs text-muted-foreground">NFs</p><p className="text-xl font-bold text-foreground">0</p></div></CardContent></Card>
       </div>
 
+      {loading ? (
+        <div className="flex items-center justify-center py-16 text-muted-foreground">
+          <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Carregando documentos...
+        </div>
+      ) : (
       <DataTable<Documento>
         title="Documentos emitidos"
         data={paginatedData}
@@ -84,13 +178,9 @@ const Documentos = () => {
             accessor: (d) => <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${tipoBadge[d.tipo]}`}>{d.tipo}</span>,
           },
           { header: "Número", accessor: "numero", className: "font-medium" },
-          { header: "Data", accessor: "dataEmissao" },
-          { header: "Entrada", accessor: "entradaId" },
-          { header: "Cliente", accessor: "cliente" },
-          {
-            header: "Status",
-            accessor: (d) => <Badge variant={d.status === "Emitido" ? "default" : "secondary"}>{d.status}</Badge>,
-          },
+          { header: "Data", accessor: (d) => formatDate(d.dataEmissao) },
+          { header: "Gerador", accessor: "cliente" },
+          { header: "Cidade/UF", accessor: "cidade" },
         ]}
         renderMobileCard={(d) => (
           <div className="rounded-lg border border-border bg-background p-4 space-y-2">
@@ -99,19 +189,18 @@ const Documentos = () => {
                 <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${tipoBadge[d.tipo]}`}>{d.tipo}</span>
                 <p className="font-medium text-sm text-foreground">{d.numero}</p>
               </div>
-              <Button variant="ghost" size="icon" className="h-8 w-8"><Download className="h-3.5 w-3.5" /></Button>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handlePrint(d)}><Printer className="h-3.5 w-3.5" /></Button>
             </div>
             <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-              <span>{d.dataEmissao}</span>
-              <span>{d.entradaId}</span>
+              <span>{formatDate(d.dataEmissao)}</span>
               <span>{d.cliente}</span>
+              <span>{d.cidade}</span>
             </div>
-            <Badge variant={d.status === "Emitido" ? "default" : "secondary"} className="text-[10px]">{d.status}</Badge>
           </div>
         )}
         actions={(d) => (
-          <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg hover:border-primary hover:text-primary shadow-sm" title="Download">
-            <Download className="h-4 w-4" />
+          <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg hover:border-primary hover:text-primary shadow-sm" title="Imprimir" onClick={() => handlePrint(d)}>
+            <Printer className="h-4 w-4" />
           </Button>
         )}
         pagination={{
@@ -122,6 +211,7 @@ const Documentos = () => {
           onPageSizeChange: setPageSize,
         }}
       />
+      )}
     </div>
   );
 };

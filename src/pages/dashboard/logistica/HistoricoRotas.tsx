@@ -1,8 +1,6 @@
 
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuthStore } from "@/stores/useAuthStore";
+import { useMemo, useState } from "react";
+import { useLocadorRotas } from "@/hooks/useLocadorRotas";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { DataTable } from "@/components/DataTable";
@@ -102,89 +100,33 @@ function posDe(id: string): [number, number] {
 }
 
 function useHistoricoRotas() {
-  const user = useAuthStore((s) => s.user);
-  const activeProfile = useAuthStore(
-    (s) => s.activeProfile() ?? s.user?.profiles[0] ?? null
-  );
-  const rawTenant = activeProfile?.tenantId;
-  const locadorId = rawTenant && rawTenant !== "self" ? rawTenant : user?.id;
+  const { data: rotas = [], isLoading } = useLocadorRotas();
 
-  const { data = [], isLoading } = useQuery({
-    queryKey: ["historico-rotas", locadorId],
-    enabled: !!locadorId,
-    queryFn: async (): Promise<RotaHist[]> => {
-      const { data: rotas, error } = await supabase
-        .from("rotas")
-        .select(
-          `id, motorista_id, data_programada, status,
-           veiculos ( placa, marca, modelo ),
-           rota_itens (
-             id, sequencia, tipo,
-             ordem_locacao_unidades (
-               id,
-               cacamba_unidades ( codigo, cacambas ( modelo ) ),
-               ordens_locacao (
-                 obras ( rua, numero, bairro, cidade, estado ),
-                 pedido_fornecedores ( pedidos ( locatario_id ) )
-               )
-             )
-           )`
-        )
-        .eq("locador_id", locadorId!)
-        .in("status", ["concluida", "cancelada"])
-        .order("data_programada", { ascending: false });
-      if (error) throw error;
-
-      const ids = Array.from(
-        new Set([
-          ...(rotas ?? []).map((r: any) => r.motorista_id).filter(Boolean),
-          ...(rotas ?? []).flatMap((r: any) =>
-            (r.rota_itens ?? [])
-              .map((it: any) => it.ordem_locacao_unidades?.ordens_locacao?.pedido_fornecedores?.pedidos?.locatario_id)
-              .filter(Boolean)
-          ),
-        ])
-      );
-      const nomes = new Map<string, string>();
-      if (ids.length) {
-        const { data: profs } = await supabase
-          .from("profiles")
-          .select("id, nome")
-          .in("id", ids);
-        (profs ?? []).forEach((p: any) => nomes.set(p.id, p.nome));
-      }
-
-      return (rotas ?? []).map((r: any, idx: number): RotaHist => {
-        const v = r.veiculos ?? {};
-        const itens = [...(r.rota_itens ?? [])].sort((a: any, b: any) => a.sequencia - b.sequencia);
-        const itinerario: Ponto[] = itens.map((it: any) => {
-          const ol = it.ordem_locacao_unidades?.ordens_locacao ?? {};
-          const obra = ol.obras ?? {};
-          const locId = ol.pedido_fornecedores?.pedidos?.locatario_id;
-          const cu = it.ordem_locacao_unidades?.cacamba_unidades ?? {};
-          const cliente = (locId && nomes.get(locId)) ?? "Cliente";
+  const data = useMemo((): RotaHist[] => {
+      const visibleRotas = rotas.filter((r) => ["concluida", "cancelada"].includes(r.status));
+      return visibleRotas.map((r, idx): RotaHist => {
+        const v = r.veiculo;
+        const itens = [...(r.itens ?? [])].sort((a: any, b: any) => a.sequencia - b.sequencia);
+        const itinerario: Ponto[] = itens.map((it) => {
+          const cliente = it.cliente ?? "Cliente";
           return {
             id: it.id,
             cliente,
-            endereco: [
-              [obra.rua, obra.numero].filter(Boolean).join(", "),
-              obra.bairro,
-              [obra.cidade, obra.estado].filter(Boolean).join("/"),
-            ].filter(Boolean).join(" - ") || "—",
+            endereco: it.endereco || "—",
             tipo: it.tipo,
             posicao: posDe(it.id),
             realizado: true,
             locatario: it.tipo === "Entrega" ? cliente : undefined,
-            destinoFinal: it.tipo !== "Entrega" ? "—" : undefined,
-            modelo: cu.cacambas?.modelo ?? "—",
-            equipamento: cu.codigo ?? "—",
+            destinoFinal: it.tipo !== "Entrega" ? it.destino_final_nome ?? "—" : undefined,
+            modelo: "—",
+            equipamento: it.codigo_cacamba ?? "—",
           };
         });
         return {
           id: r.id,
           nome: `Rota ${String(idx + 1).padStart(3, "0")}`,
-          motorista: nomes.get(r.motorista_id) ?? "—",
-          veiculo: v.placa ? `${v.placa}${v.marca || v.modelo ? ` (${[v.marca, v.modelo].filter(Boolean).join(" ")})` : ""}` : "—",
+          motorista: r.motorista_nome ?? "—",
+          veiculo: v?.placa ? `${v.placa}${v.marca || v.modelo ? ` (${[v.marca, v.modelo].filter(Boolean).join(" ")})` : ""}` : "—",
           data: r.data_programada
             ? (() => { const [y,m,d] = String(r.data_programada).slice(0,10).split("-"); return `${d}/${m}/${y}`; })()
             : "—",
@@ -196,8 +138,7 @@ function useHistoricoRotas() {
           rotaRealizada: itinerario.map((p) => p.posicao),
         };
       });
-    },
-  });
+  }, [rotas]);
   return { data, isLoading };
 }
 

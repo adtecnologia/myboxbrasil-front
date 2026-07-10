@@ -231,6 +231,26 @@ const DestinoResiduos = () => {
         : { data: [] as { id: string; motorista_id: string | null; destino_final_id: string | null; status: string | null; data_programada: string | null }[] };
       const rotaById = new Map((rotasData ?? []).map((r) => [r.id, r as RotaResumo]));
 
+      // Verificar existência de MTR e CDF por unidade
+      const { data: mtrRows } = oluIds.length
+        ? await supabase
+            .from("mtr")
+            .select("ordem_locacao_unidade_id")
+            .in("ordem_locacao_unidade_id", oluIds)
+        : { data: [] as { ordem_locacao_unidade_id: string | null }[] };
+      const { data: cdfRows } = oluIds.length
+        ? await supabase
+            .from("cdf")
+            .select("ordem_locacao_unidade_id")
+            .in("ordem_locacao_unidade_id", oluIds)
+        : { data: [] as { ordem_locacao_unidade_id: string | null }[] };
+      const mtrOluSet = new Set(
+        (mtrRows ?? []).map((m) => m.ordem_locacao_unidade_id).filter(Boolean) as string[],
+      );
+      const cdfOluSet = new Set(
+        (cdfRows ?? []).map((c) => c.ordem_locacao_unidade_id).filter(Boolean) as string[],
+      );
+
       const locadorIds = Array.from(
         new Set(pfs.map((p) => p.locador_id).filter(Boolean) as string[]),
       );
@@ -380,8 +400,8 @@ const DestinoResiduos = () => {
           destinador: destinoFinalId ? nomeById.get(destinoFinalId) ?? "—" : "—",
           origem: origem || "—",
           destino: destinoFinalId ? nomeById.get(destinoFinalId) ?? "—" : "—",
-          mtrStatus: "Pendente",
-          cdfStatus: firstUnit?.status === "cdf_emitido" ? "Emitido" : "Pendente",
+          mtrStatus: unidades.some((u) => mtrOluSet.has(u.id)) ? "Emitido" : "Pendente",
+          cdfStatus: unidades.some((u) => cdfOluSet.has(u.id)) ? "Emitido" : "Pendente",
           residuos,
         }];
       });

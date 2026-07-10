@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Search, Filter, Hand, Camera, MapPin, Map as MapIcon, CalendarCheck, Maximize2, Minimize2, FileText, Plus, X, FileCheck2, QrCode, ArrowRight } from "lucide-react";
+import { Search, Filter, Hand, Camera, MapPin, Map as MapIcon, CalendarCheck, Maximize2, Minimize2, FileText, Plus, X, FileCheck2, QrCode, ArrowRight, Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
 import { DataPagination, usePagination } from "@/components/DataPagination";
 import { DataTable } from "@/components/DataTable";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
@@ -24,6 +25,7 @@ import { toast } from "sonner";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { printMtr } from "@/lib/mtr";
+import { printCdf } from "@/lib/cdf";
 
 // ============ Fotos da Ordem (locação, retirada, destino final) ============
 type FotoTipo = "retirada" | "entrega" | "destino_final";
@@ -815,15 +817,180 @@ const PedirRetiradaModal = () => {
 
 const EmitirCdfDialog = ({ ordem }: { ordem: Ordem }) => {
   const [open, setOpen] = useState(false);
-  const [rows, setRows] = useState<{ id: string; classe: string; tratamento: string; volume: string }[]>([
-    { id: crypto.randomUUID(), classe: "A1", tratamento: "1", volume: "3" },
-    { id: crypto.randomUUID(), classe: "", tratamento: "", volume: "" },
+  const queryClient = useQueryClient();
+  const [saving, setSaving] = useState(false);
+  const [declaracao, setDeclaracao] = useState("");
+  const [rows, setRows] = useState<{ id: string; classe: string; tratamento: string; peso: string; volume: string }[]>([
+    { id: crypto.randomUUID(), classe: "", tratamento: "", peso: "", volume: "" },
   ]);
+  const [mtrInfo, setMtrInfo] = useState<any | null>(null);
+  const [tratamentos, setTratamentos] = useState<{ id: string; nome: string }[]>([]);
+  const [loadingMtr, setLoadingMtr] = useState(true);
+  const [loadingTrat, setLoadingTrat] = useState(true);
+  const loading = loadingMtr || loadingTrat;
 
-  const addRow = () => setRows((r) => [...r, { id: crypto.randomUUID(), classe: "", tratamento: "", volume: "" }]);
+  useEffect(() => {
+    if (!open) return;
+    setLoadingTrat(true);
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("tecnologias_tratamento")
+        .select("id, nome")
+        .order("nome");
+      if (!cancelled) {
+        setTratamentos((data as any) ?? []);
+        setLoadingTrat(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    setLoadingMtr(true);
+    let cancelled = false;
+    (async () => {
+      const { data: mtr } = await supabase
+        .from("mtr")
+        .select("*, mtr_itens(id, classe_nome, volume_m3, peso_kg)")
+        .eq("ordem_locacao_unidade_id", ordem.id)
+        .order("data_emissao", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (cancelled) return;
+      setMtrInfo(mtr ?? null);
+      const itens = (mtr as any)?.mtr_itens ?? [];
+      if (!itens.length) { setLoadingMtr(false); return; }
+      const validClasses = new Set(["A1","A2","A3","A4","B","C","D"]);
+      const mapClasse = (nome: string | null): string => {
+        if (!nome) return "";
+        const m = String(nome).match(/([A-D])\s*([1-4])?/i);
+        if (!m) return "";
+        const c = `${m[1].toUpperCase()}${m[2] ?? ""}`;
+        return validClasses.has(c) ? c : "";
+      };
+      setRows(
+        itens.map((it: any) => ({
+          id: it.id ?? crypto.randomUUID(),
+          classe: mapClasse(it.classe_nome),
+          tratamento: "",
+          peso: it.peso_kg != null ? String(it.peso_kg) : "",
+          volume: it.volume_m3 != null ? String(it.volume_m3) : "",
+        }))
+      );
+      setLoadingMtr(false);
+    })();
+    return () => { cancelled = true; };
+  }, [open, ordem.id]);
+
+  const addRow = () => setRows((r) => [...r, { id: crypto.randomUUID(), classe: "", tratamento: "", peso: "", volume: "" }]);
   const removeRow = (id: string) => setRows((r) => (r.length > 1 ? r.filter((x) => x.id !== id) : r));
-  const updateRow = (id: string, patch: Partial<{ classe: string; tratamento: string; volume: string }>) =>
+  const updateRow = (id: string, patch: Partial<{ classe: string; tratamento: string; peso: string; volume: string }>) =>
     setRows((r) => r.map((x) => (x.id === id ? { ...x, ...patch } : x)));
+
+  const tratamentoNome = (id: string) => tratamentos.find((t) => t.id === id)?.nome ?? null;
+
+  const handleSalvar = async () => {
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i];
+      if (!r.classe) {
+        toast.error(`Linha ${i + 1}: selecione a classe do resíduo`);
+        return;
+      }
+      if (!r.tratamento) {
+        toast.error(`Linha ${i + 1}: selecione o tratamento`);
+        return;
+      }
+      const hasPeso = r.peso.trim() !== "" && Number(r.peso) > 0;
+      const hasVolume = r.volume.trim() !== "" && Number(r.volume) > 0;
+      if (!hasPeso && !hasVolume) {
+        toast.error(`Linha ${i + 1}: informe o peso (kg) ou o volume (m³)`);
+        return;
+      }
+      if (hasPeso && hasVolume) {
+        toast.error(`Linha ${i + 1}: informe apenas peso (kg) OU volume (m³), não ambos`);
+        return;
+      }
+    }
+    if (!declaracao.trim()) {
+      toast.error("Informe a declaração do CDF");
+      return;
+    }
+    if (!mtrInfo) {
+      toast.error("MTR de origem não encontrado");
+      return;
+    }
+    setSaving(true);
+    try {
+      const { data: userRes } = await supabase.auth.getUser();
+      const uid = userRes.user?.id ?? null;
+      const numero = `CDF-${Date.now().toString().slice(-8)}`;
+      const snap = (k: string) => mtrInfo[k] ?? null;
+      const payload: any = {
+        numero,
+        mtr_id: mtrInfo.id,
+        ordem_locacao_unidade_id: ordem.id,
+        locatario_id: snap("locatario_id"),
+        locador_id: snap("locador_id"),
+        destino_final_id: snap("destino_final_id") ?? uid,
+        motorista_id: snap("motorista_id"),
+        cacamba_unidade_id: snap("cacamba_unidade_id"),
+        veiculo_id: snap("veiculo_id"),
+        mtr_numero: snap("numero"),
+        declaracao: declaracao.trim(),
+      };
+      const snapKeys = [
+        "gerador_nome","gerador_nome_fantasia","gerador_documento","gerador_tipo_documento",
+        "gerador_telefone","gerador_celular","gerador_email","gerador_resp_nome",
+        "obra_logradouro","obra_numero","obra_complemento","obra_bairro","obra_cidade","obra_estado","obra_cep",
+        "destino_nome","destino_nome_fantasia","destino_documento","destino_tipo_documento",
+        "destino_telefone","destino_celular","destino_email","destino_resp_nome",
+        "destino_logradouro","destino_numero","destino_complemento","destino_bairro","destino_cidade","destino_estado","destino_cep",
+        "transportador_nome","transportador_nome_fantasia","transportador_documento","transportador_tipo_documento",
+        "transportador_telefone","transportador_celular","transportador_email","transportador_resp_nome",
+        "transportador_logradouro","transportador_numero","transportador_complemento","transportador_bairro",
+        "transportador_cidade","transportador_estado","transportador_cep",
+        "veiculo_placa","veiculo_marca","veiculo_modelo","cacamba_codigo",
+      ];
+      for (const k of snapKeys) payload[k] = mtrInfo[k] ?? null;
+
+      const { data: cdfInserted, error: cdfErr } = await supabase
+        .from("cdf" as any)
+        .insert(payload)
+        .select("id")
+        .single();
+      if (cdfErr || !cdfInserted) throw cdfErr ?? new Error("Falha ao emitir CDF");
+
+      const itensPayload = rows.map((r) => ({
+        cdf_id: (cdfInserted as any).id,
+        classe_id: r.classe,
+        classe_nome: `Classe ${r.classe}`,
+        tratamento_id: r.tratamento,
+        tratamento_nome: tratamentoNome(r.tratamento),
+        peso_kg: r.peso.trim() !== "" ? Number(r.peso) : null,
+        volume_m3: r.volume.trim() !== "" ? Number(r.volume) : null,
+      }));
+      const { error: itErr } = await supabase.from("cdf_itens" as any).insert(itensPayload);
+      if (itErr) throw itErr;
+
+      const { error: updErr } = await supabase
+        .from("ordem_locacao_unidades")
+        .update({ status: "cdf_emitido" })
+        .eq("id", ordem.id);
+      if (updErr) throw updErr;
+
+      toast.success("CDF emitido com sucesso");
+      queryClient.invalidateQueries();
+      setOpen(false);
+      setDeclaracao("");
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message ?? "Erro ao emitir CDF");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -837,6 +1004,80 @@ const EmitirCdfDialog = ({ ordem }: { ordem: Ordem }) => {
         <DialogHeader>
           <DialogTitle>Tratamento resíduos MTR nº{ordem.pedidoNum}</DialogTitle>
         </DialogHeader>
+        {loading ? (
+          <div className="flex flex-col items-center justify-center gap-3 py-16 text-muted-foreground">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-sm">Carregando dados do MTR…</p>
+          </div>
+        ) : (
+          <>
+        {mtrInfo && (
+          <div className="rounded-lg border border-border bg-muted/30 p-3 text-xs space-y-2">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <div className="text-[10px] uppercase text-muted-foreground font-semibold">Gerador</div>
+                <div className="font-medium text-foreground">{mtrInfo.gerador_nome || "—"}</div>
+                <div className="text-muted-foreground">
+                  {[mtrInfo.obra_logradouro, mtrInfo.obra_numero].filter(Boolean).join(", ")}
+                  {mtrInfo.obra_bairro ? ` - ${mtrInfo.obra_bairro}` : ""}
+                  {mtrInfo.obra_cidade ? ` - ${mtrInfo.obra_cidade}/${mtrInfo.obra_estado ?? ""}` : ""}
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase text-muted-foreground font-semibold">Transportador</div>
+                <div className="font-medium text-foreground">{mtrInfo.transportador_nome || "—"}</div>
+                <div className="text-muted-foreground">
+                  {mtrInfo.motorista_nome ? `${mtrInfo.motorista_nome}` : ""}
+                  {mtrInfo.veiculo_placa ? ` • ${mtrInfo.veiculo_placa}` : ""}
+                </div>
+                <div className="text-muted-foreground">
+                  {mtrInfo.data_transporte ? `Transporte: ${new Date(mtrInfo.data_transporte).toLocaleDateString("pt-BR")}` : ""}
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase text-muted-foreground font-semibold">Destino Final</div>
+                <div className="font-medium text-foreground">{mtrInfo.destino_nome || "—"}</div>
+                <div className="text-muted-foreground">
+                  {mtrInfo.destino_cidade ? `${mtrInfo.destino_cidade}/${mtrInfo.destino_estado ?? ""}` : ""}
+                </div>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-3 pt-1 border-t border-border/60 text-[11px]">
+              <div><span className="text-muted-foreground">MTR nº </span><span className="font-mono font-semibold">{mtrInfo.numero}</span></div>
+              <div><span className="text-muted-foreground">Caçamba </span><span className="font-mono font-semibold">{mtrInfo.cacamba_codigo || "—"}</span></div>
+              <div><span className="text-muted-foreground">Emissão </span><span className="font-semibold">{mtrInfo.data_emissao ? new Date(mtrInfo.data_emissao).toLocaleDateString("pt-BR") : "—"}</span></div>
+            </div>
+            {(mtrInfo.mtr_itens ?? []).length > 0 && (
+              <div className="pt-2 border-t border-border/60">
+                <div className="text-[10px] uppercase text-muted-foreground font-semibold mb-1.5">
+                  Resíduos do MTR (referência)
+                </div>
+                <div className="overflow-hidden rounded-md border border-border">
+                  <table className="w-full text-[11px]">
+                    <thead className="bg-muted/50">
+                      <tr className="text-left">
+                        <th className="px-2 py-1.5 font-semibold text-muted-foreground w-8">#</th>
+                        <th className="px-2 py-1.5 font-semibold text-muted-foreground">Resíduo</th>
+                        <th className="px-2 py-1.5 font-semibold text-muted-foreground text-right w-20">Peso</th>
+                        <th className="px-2 py-1.5 font-semibold text-muted-foreground text-right w-20">Volume</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(mtrInfo.mtr_itens as any[]).map((it, i) => (
+                        <tr key={it.id ?? i} className="border-t border-border/60">
+                          <td className="px-2 py-1.5 text-muted-foreground">{i + 1}</td>
+                          <td className="px-2 py-1.5 font-medium text-foreground">{it.classe_nome}</td>
+                          <td className="px-2 py-1.5 text-right font-mono">{it.peso_kg != null ? `${it.peso_kg} kg` : "—"}</td>
+                          <td className="px-2 py-1.5 text-right font-mono">{it.volume_m3 != null ? `${it.volume_m3} m³` : "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
         <div className="rounded-lg border border-border p-4 space-y-3">
           <div className="flex justify-end">
             <Button onClick={addRow} className="h-9 gap-1.5 bg-primary hover:bg-primary/90 text-xs font-semibold">
@@ -845,8 +1086,17 @@ const EmitirCdfDialog = ({ ordem }: { ordem: Ordem }) => {
             </Button>
           </div>
           <div className="space-y-2">
+            {rows.length > 0 && (
+              <div className="grid grid-cols-[1fr_1fr_100px_100px_44px] gap-3 items-center px-1 pb-1 border-b border-border/60">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Classe</span>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Tratamento</span>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Peso (kg)</span>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Vol. (m³)</span>
+                <span />
+              </div>
+            )}
             {rows.map((row) => (
-              <div key={row.id} className="grid grid-cols-[1fr_1fr_120px_44px] gap-3 items-center">
+              <div key={row.id} className="grid grid-cols-[1fr_1fr_100px_100px_44px] gap-3 items-center">
                 <Select value={row.classe} onValueChange={(v) => updateRow(row.id, { classe: v })}>
                   <SelectTrigger className="h-10">
                     <SelectValue placeholder="Classe resíduo" />
@@ -866,17 +1116,31 @@ const EmitirCdfDialog = ({ ordem }: { ordem: Ordem }) => {
                     <SelectValue placeholder="Tratamento" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="1">1 - Reciclagem Mecânica</SelectItem>
-                    <SelectItem value="2">2 - Reutilização</SelectItem>
-                    <SelectItem value="3">3 - Aterro Classe A</SelectItem>
-                    <SelectItem value="4">4 - Aterro Industrial</SelectItem>
-                    <SelectItem value="5">5 - Coprocessamento</SelectItem>
+                    {tratamentos.length === 0 && (
+                      <div className="px-2 py-1.5 text-xs text-muted-foreground">Nenhum tratamento cadastrado</div>
+                    )}
+                    {tratamentos.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>{t.nome}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 <Input
                   type="number"
-                  placeholder="M³"
+                  min="0"
+                  step="0.01"
+                  placeholder="Peso (kg)"
+                  value={row.peso}
+                  disabled={row.volume.trim() !== ""}
+                  onChange={(e) => updateRow(row.id, { peso: e.target.value })}
+                  className="h-10"
+                />
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="Vol. (m³)"
                   value={row.volume}
+                  disabled={row.peso.trim() !== ""}
                   onChange={(e) => updateRow(row.id, { volume: e.target.value })}
                   className="h-10"
                 />
@@ -892,12 +1156,30 @@ const EmitirCdfDialog = ({ ordem }: { ordem: Ordem }) => {
               </div>
             ))}
           </div>
-          <div className="flex justify-end pt-2">
-            <Button onClick={() => setOpen(false)} className="h-10 bg-primary hover:bg-primary/90 font-semibold">
-              Salvar e emitir CDF
+          <div className="space-y-1.5 pt-2 border-t border-border/60">
+            <Label htmlFor="cdf-declaracao" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Declaração <span className="text-destructive">*</span>
+            </Label>
+            <Textarea
+              id="cdf-declaracao"
+              value={declaracao}
+              onChange={(e) => setDeclaracao(e.target.value)}
+              placeholder="Declaramos que os resíduos descritos foram recebidos e submetidos aos tratamentos indicados, conforme legislação vigente."
+              rows={3}
+              className="text-xs resize-none"
+            />
+          </div>
+          <div className="flex justify-between items-center pt-2">
+            <p className="text-[11px] text-muted-foreground">
+              * Todos os campos são obrigatórios. Informe peso (kg) OU volume (m³) — nunca os dois.
+            </p>
+            <Button onClick={handleSalvar} disabled={saving} className="h-10 bg-primary hover:bg-primary/90 font-semibold">
+              {saving ? "Emitindo…" : "Salvar e emitir CDF"}
             </Button>
           </div>
         </div>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );
@@ -1004,18 +1286,47 @@ const OrdensTable = ({ data, loading, mode, selected, setSelected, onFocusLocata
           ? [
               {
                 header: "MTR",
-                accessor: (_o: Ordem) => (
-                  <span className="inline-block px-2 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-700 border border-amber-200">
-                    Pendente
-                  </span>
+                accessor: (o: Ordem) => (
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8 rounded-lg hover:border-primary hover:text-primary shadow-sm"
+                    title="Abrir MTR (PDF)"
+                    onClick={(e) => { e.stopPropagation(); printMtr(o.id); }}
+                  >
+                    <FileText className="h-4 w-4" />
+                  </Button>
                 ),
               },
               {
                 header: "CDF",
-                accessor: (_o: Ordem) => (
-                  <span className="inline-block px-2 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-700 border border-amber-200">
-                    Pendente
-                  </span>
+                accessor: (o: Ordem) => (
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8 rounded-lg hover:border-primary hover:text-primary shadow-sm"
+                    title="Abrir CDF (PDF)"
+                    onClick={(e) => { e.stopPropagation(); printCdf(o.id); }}
+                  >
+                    <FileCheck2 className="h-4 w-4" />
+                  </Button>
+                ),
+              },
+            ]
+          : mode === "view-analise"
+          ? [
+              {
+                header: "MTR",
+                accessor: (o: Ordem) => (
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8 rounded-lg hover:border-primary hover:text-primary shadow-sm"
+                    title="Abrir MTR (PDF)"
+                    onClick={(e) => { e.stopPropagation(); printMtr(o.id); }}
+                  >
+                    <FileText className="h-4 w-4" />
+                  </Button>
                 ),
               },
             ]
@@ -1043,30 +1354,8 @@ const OrdensTable = ({ data, loading, mode, selected, setSelected, onFocusLocata
         }
         return (
           <div className="flex justify-end items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-            {!isLocatario && isDestinoFinal && mode === "view-analise" && o.statusLabel === "Em análise" && (
+            {!isLocatario && isDestinoFinal && mode === "view-analise" && (o.statusLabel === "Em análise" || o.statusLabel === "Aguardando análise") && (
               <EmitirCdfDialog ordem={o} />
-            )}
-            {!isLocatario && isDestinoFinal && mode === "view-analise" && (
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8 rounded-lg hover:border-primary hover:text-primary shadow-sm"
-                title="Abrir MTR (PDF)"
-                onClick={(e) => { e.stopPropagation(); printMtr(o.id); }}
-              >
-                <FileText className="h-4 w-4" />
-              </Button>
-            )}
-            {!isDestinoFinal && mode === "view-analise" && (
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8 rounded-lg hover:border-primary hover:text-primary shadow-sm"
-                title="Imprimir MTR"
-                onClick={(e) => { e.stopPropagation(); printMtr(o.id); }}
-              >
-                <FileText className="h-4 w-4" />
-              </Button>
             )}
             {!isLocatario && !isDestinoFinal && tabKey === "locadas" && (
               <FotosOrdemDialog ordem={o} />
@@ -1299,6 +1588,47 @@ function useOrdensFromDB(statuses: string[], mode: "view" | "view-analise" | "vi
         if (!prefCidade || !prefEstado) return [];
       }
 
+      let destinoRouteOluIds: string[] = [];
+      if (isDestino) {
+        // 1) Rotas onde o usuário é destino final (não canceladas)
+        const { data: rotas, error: rotasErr } = await supabase
+          .from("rotas")
+          .select("id, status")
+          .eq("destino_final_id", user!.id)
+          .neq("status", "cancelada");
+        if (rotasErr) throw rotasErr;
+        const rotaIds = (rotas ?? []).map((r: any) => r.id);
+
+        // 2) OLUs vinculadas a essas rotas
+        let viaRotaIds: string[] = [];
+        if (rotaIds.length) {
+          const { data: itens, error: itensErr } = await supabase
+            .from("rota_itens")
+            .select("ordem_locacao_unidade_id")
+            .in("rota_id", rotaIds);
+          if (itensErr) throw itensErr;
+          viaRotaIds = (itens ?? [])
+            .map((it: any) => it.ordem_locacao_unidade_id)
+            .filter(Boolean);
+        }
+
+        // 3) OLUs onde o usuário está gravado como destino final direto
+        const { data: diretas, error: diretasErr } = await supabase
+          .from("ordem_locacao_unidades")
+          .select("id")
+          .eq("destino_final_id", user!.id);
+        if (diretasErr) throw diretasErr;
+
+        destinoRouteOluIds = Array.from(
+          new Set([
+            ...viaRotaIds,
+            ...((diretas ?? []).map((r: any) => r.id).filter(Boolean) as string[]),
+          ]),
+        );
+
+        if (!destinoRouteOluIds.length) return [];
+      }
+
       const obrasJoin = isPrefeitura ? "obras!inner" : "obras";
       const query = supabase
         .from("ordem_locacao_unidades")
@@ -1325,7 +1655,7 @@ function useOrdensFromDB(statuses: string[], mode: "view" | "view-analise" | "vi
                 .ilike("ordens_locacao.obras.cidade", prefCidade!)
                 .ilike("ordens_locacao.obras.estado", prefEstado!)
             : isDestino
-              ? await query.eq("destino_final_id", user!.id)
+              ? await query.in("id", destinoRouteOluIds)
               : await query.eq("ordens_locacao.pedido_fornecedores.pedidos.locatario_id", user!.id);
       if (error) throw error;
 
@@ -1335,16 +1665,7 @@ function useOrdensFromDB(statuses: string[], mode: "view" | "view-analise" | "vi
 
       // Destino final: restringir às OLUs que possuem rota (não cancelada)
       if (isDestino && aceitos.length) {
-        const oluIdsAll = aceitos.map((r: any) => r.id);
-        const { data: rItens } = await supabase
-          .from("rota_itens")
-          .select("ordem_locacao_unidade_id, rotas!inner(status)")
-          .in("ordem_locacao_unidade_id", oluIdsAll);
-        const validOluIds = new Set(
-          (rItens ?? [])
-            .filter((it: any) => it.rotas && it.rotas.status !== "cancelada")
-            .map((it: any) => it.ordem_locacao_unidade_id),
-        );
+        const validOluIds = new Set(destinoRouteOluIds);
         aceitos = aceitos.filter((r: any) => validOluIds.has(r.id));
       }
 

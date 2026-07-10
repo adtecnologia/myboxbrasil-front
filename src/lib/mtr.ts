@@ -42,6 +42,99 @@ export async function printMtr(oluId: string) {
   );
 
   try {
+    // 1) Tenta carregar snapshot salvo em `mtr` + `mtr_itens`
+    const { data: mtrSnap } = await supabase
+      .from("mtr")
+      .select("*, mtr_itens(*)")
+      .eq("ordem_locacao_unidade_id", oluId)
+      .order("data_emissao", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    let logoUrl = new URL(myboxLogo, window.location.origin).href;
+    try {
+      const resp = await fetch(logoUrl);
+      const blob = await resp.blob();
+      logoUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } catch {}
+
+    if (mtrSnap) {
+      const m: any = mtrSnap;
+      const gerador = {
+        nome: m.gerador_nome,
+        nome_fantasia: m.gerador_nome_fantasia,
+        documento: m.gerador_documento,
+        tipo_documento: m.gerador_tipo_documento,
+        telefone: m.gerador_telefone,
+        celular: m.gerador_celular,
+        resp_nome: m.gerador_resp_nome,
+        logradouro: m.obra_logradouro,
+        numero: m.obra_numero,
+        complemento: m.obra_complemento,
+        bairro: m.obra_bairro,
+        cidade: m.obra_cidade,
+        estado: m.obra_estado,
+        cep: m.obra_cep,
+      };
+      const transportador = {
+        nome: m.transportador_nome,
+        nome_fantasia: m.transportador_nome_fantasia,
+        documento: m.transportador_documento,
+        tipo_documento: m.transportador_tipo_documento,
+        telefone: m.transportador_telefone,
+        celular: m.transportador_celular,
+        resp_nome: m.transportador_resp_nome,
+        logradouro: m.transportador_logradouro,
+        numero: m.transportador_numero,
+        complemento: m.transportador_complemento,
+        bairro: m.transportador_bairro,
+        cidade: m.transportador_cidade,
+        estado: m.transportador_estado,
+        cep: m.transportador_cep,
+      };
+      const destino = {
+        nome: m.destino_nome,
+        nome_fantasia: m.destino_nome_fantasia,
+        documento: m.destino_documento,
+        tipo_documento: m.destino_tipo_documento,
+        telefone: m.destino_telefone,
+        celular: m.destino_celular,
+        resp_nome: m.destino_resp_nome,
+        logradouro: m.destino_logradouro,
+        numero: m.destino_numero,
+        complemento: m.destino_complemento,
+        bairro: m.destino_bairro,
+        cidade: m.destino_cidade,
+        estado: m.destino_estado,
+        cep: m.destino_cep,
+      };
+      const motorista = m.motorista_nome ? { nome: m.motorista_nome } : null;
+      const residuos = (m.mtr_itens ?? []).map((it: any) => ({
+        nome: it.classe_nome,
+        peso: it.peso_kg,
+        volume: it.volume_m3,
+      }));
+      const html = renderMtrHtml({
+        logoUrl,
+        numeroMtr: m.numero,
+        dataEmissao: fmtDataBR(m.data_emissao),
+        dataTransporte: fmtDataBR(m.data_transporte ?? m.data_emissao),
+        gerador,
+        transportador,
+        destino,
+        motorista,
+        placaVeiculo: m.veiculo_placa ?? "",
+        residuos,
+      });
+      writeAndPrint(win, html);
+      return;
+    }
+
     // Unidade + relacionamentos base
     const { data: olu, error: e1 } = await supabase
       .from("ordem_locacao_unidades")
@@ -130,23 +223,41 @@ export async function printMtr(oluId: string) {
       }));
     }
 
-    let logoUrl = new URL(myboxLogo, window.location.origin).href;
-    // Converte para data URL para garantir que a imagem esteja disponível na nova janela antes da impressão
-    try {
-      const resp = await fetch(logoUrl);
-      const blob = await resp.blob();
-      logoUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
-    } catch {}
     const numeroMtr = `${(pedidoNum ?? "").toString().padStart(6, "0")}-${(codigoCacamba ?? oluId.slice(0, 6)).toString().toUpperCase()}`;
     const dataEmissao = fmtDataBR(new Date().toISOString());
     const dataTransporte = fmtDataBR(dataRetirada ?? (olu as any).updated_at);
+    const html = renderMtrHtml({
+      logoUrl,
+      numeroMtr,
+      dataEmissao,
+      dataTransporte,
+      gerador,
+      transportador: transportadorProfile,
+      destino,
+      motorista,
+      placaVeiculo,
+      residuos,
+    });
+    writeAndPrint(win, html);
+  } catch (err: any) {
+    win.document.body.innerHTML = `<div style="font-family:Arial;padding:24px;color:#b91c1c">Erro ao carregar MTR: ${esc(err?.message ?? err)}</div>`;
+  }
+}
 
-    const bloco = (titulo: string, perfil: any, extras: { data?: string; motorista?: any; placa?: string } = {}) => `
+function renderMtrHtml(ctx: {
+  logoUrl: string;
+  numeroMtr: string;
+  dataEmissao: string;
+  dataTransporte: string;
+  gerador: any;
+  transportador: any;
+  destino: any;
+  motorista: any;
+  placaVeiculo: string;
+  residuos: { nome: string; peso?: number | null; volume?: number | null }[];
+}) {
+  const { logoUrl, numeroMtr, dataEmissao, dataTransporte, gerador, transportador, destino, motorista, placaVeiculo, residuos } = ctx;
+  const bloco = (titulo: string, perfil: any, extras: { data?: string; motorista?: any; placa?: string } = {}) => `
       <div class="section">
         <div class="section-title">${esc(titulo)}</div>
         <div class="grid-2">
@@ -225,7 +336,7 @@ export async function printMtr(oluId: string) {
           .join("")
       : `<tr><td colspan="4" class="c muted">Sem resíduos cadastrados</td></tr>`;
 
-    const html = `<!doctype html>
+    return `<!doctype html>
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8" />
@@ -276,7 +387,7 @@ export async function printMtr(oluId: string) {
   </div>
 
   ${bloco("Identificação do Gerador", gerador)}
-  ${bloco("Identificação do Transportador", transportadorProfile, {
+  ${bloco("Identificação do Transportador", transportador, {
     data: dataTransporte,
     motorista,
     placa: placaVeiculo,
@@ -299,28 +410,24 @@ export async function printMtr(oluId: string) {
   </div>
 </body>
 </html>`;
+}
 
-    win.document.open();
-    win.document.write(html);
-    win.document.close();
-    // Aguarda a logo carregar antes de abrir a caixa de impressão
-    const triggerPrint = () => {
-      try { win.focus(); win.print(); } catch {}
-    };
-    // Aguarda a imagem da logo carregar antes de imprimir
-    const imgs = Array.from(win.document.images) as HTMLImageElement[];
-    const waitImgs = Promise.all(
-      imgs.map((img) =>
-        img.complete
-          ? Promise.resolve()
-          : new Promise<void>((res) => {
-              img.addEventListener("load", () => res());
-              img.addEventListener("error", () => res());
-            })
-      )
-    );
-    waitImgs.then(() => setTimeout(triggerPrint, 200));
-  } catch (err: any) {
-    win.document.body.innerHTML = `<div style="font-family:Arial;padding:24px;color:#b91c1c">Erro ao carregar MTR: ${esc(err?.message ?? err)}</div>`;
-  }
+function writeAndPrint(win: Window, html: string) {
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
+  const triggerPrint = () => {
+    try { win.focus(); win.print(); } catch {}
+  };
+  const imgs = Array.from(win.document.images) as HTMLImageElement[];
+  Promise.all(
+    imgs.map((img) =>
+      img.complete
+        ? Promise.resolve()
+        : new Promise<void>((res) => {
+            img.addEventListener("load", () => res());
+            img.addEventListener("error", () => res());
+          })
+    )
+  ).then(() => setTimeout(triggerPrint, 200));
 }

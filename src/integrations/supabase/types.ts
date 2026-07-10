@@ -268,6 +268,278 @@ export type Database = {
         }
         Relationships: []
       }
+      cdf: {
+        Row: {
+          cacamba_codigo: string | null
+          cacamba_unidade_id: string | null
+          created_at: string
+          data_emissao: string
+          data_recebimento: string | null
+          declaracao: string
+          destino_bairro: string | null
+          destino_celular: string | null
+          destino_cep: string | null
+          destino_cidade: string | null
+          destino_complemento: string | null
+          destino_documento: string | null
+          destino_email: string | null
+          destino_estado: string | null
+          destino_final_id: string | null
+          destino_logradouro: string | null
+          destino_nome: string | null
+          destino_nome_fantasia: string | null
+          destino_numero: string | null
+          destino_resp_nome: string | null
+          destino_telefone: string | null
+          destino_tipo_documento: string | null
+          gerador_celular: string | null
+          gerador_documento: string | null
+          gerador_email: string | null
+          gerador_nome: string | null
+          gerador_nome_fantasia: string | null
+          gerador_resp_nome: string | null
+          gerador_telefone: string | null
+          gerador_tipo_documento: string | null
+          id: string
+          locador_id: string | null
+          locatario_id: string | null
+          motorista_id: string | null
+          mtr_id: string | null
+          mtr_numero: string | null
+          numero: string
+          obra_bairro: string | null
+          obra_cep: string | null
+          obra_cidade: string | null
+          obra_complemento: string | null
+          obra_estado: string | null
+          obra_logradouro: string | null
+          obra_numero: string | null
+          observacoes: string | null
+          ordem_locacao_unidade_id: string
+          transportador_bairro: string | null
+          transportador_celular: string | null
+          transportador_cep: string | null
+          transportador_cidade: string | null
+          transportador_complemento: string | null
+          transportador_documento: string | null
+          transportador_email: string | null
+          transportador_estado: string | null
+          transportador_logradouro: string | null
+          transportador_nome: string | null
+          transportador_nome_fantasia: string | null
+          transportador_numero: string | null
+          transportador_resp_nome: string | null
+          transportador_telefone: string | null
+          transportador_tipo_documento: string | null
+          updated_at: string
+          veiculo_id: string | null
+          veiculo_marca: string | null
+          veiculo_modelo: string | null
+          veiculo_placa: string | null
+        }
+        Insert: {
+          cacamba_codigo?: string | null
+          cacamba_unidade_id?: string | null
+          created_at?: string
+          data_emissao?: string
+          data_recebimento?: string | null
+          declaracao: string
+          destino_bairro?: string | null
+          destino_celular?: string | null
+          destino_cep?: string | null
+          destino_cidade?: string | null
+          destino_complemento?: string | null
+          destino_documento?: string | null
+          destino_email?: string | null
+          destino_estado?: string | null
+          destino_final_id?: string | null
+          destino_logradouro?: string | null
+          destino_nome?: string | null
+          destino_nome_fantasia?: string | null
+          destino_numero?: string | null
+          destino_resp_nome?: string | null
+          destino_telefone?: string | null
+          destino_tipo_documento?: string | null
+          gerador_celular?: string | null
+          gerador_documento?: string | null
+          gerador_email?: string | null
+          gerador_nome?: string | null
+          gerador_nome_fantasia?: string | null
+          gerador_resp_nome?: string | null
+          gerador_telefone?: string | null
+          gerador_tipo_documento?: string | null
+          id?: string
+          locador_id?: string | null
+          locatario_id?: string | null
+          motorista_id?: string | null
+          mtr_id?: string | null
+          mtr_numero?: string | null
+          numero: string
+          obra_bairro?: string | null
+          obra_cep?: string | null
+          obra_cidade?: string | null
+          obra_complemento?: string | null
+          obra_estado?: string | null
+          obra_logradouro?: string | null
+          obra_numero?: string | null
+          observacoes?: string | null
+          ordem_locacao_unidade_id: string
+          transportador_bairro?: string | null
+          transportador_celular?: string | null
+          transportador_cep?: string | null
+          transportador_cidade?: string | null
+          transportador_complemento?: string | null
+          transportador_documento?: string | null
+          transportador_email?: string | null
+          transportador_estado?: string | null
+          transportador_logradouro?: string | null
+          transportador_nome?: string | null
+          transportador_nome_fantasia?: string | null
+          transportador_numero?: string | null
+          transportador_resp_nome?: string | null
+          transportador_telefone?: string | null
+          transportador_tipo_documento?: string | null
+          updated_at?: string
+          veiculo_id?: string | null
+          veiculo_marca?: string | null
+          veiculo_modelo?: string | null
+          veiculo_placa?: string | null
+        }
+        Update: {
+          cacamba_codigo?: string | null
+          cacamba_unidade_id?: string | null
+          created_at?: string
+          data_emissao?: string
+          data_recebimento?: string | null
+          declaracao?: string
+          destino_bairro?: string | null
+          destino_celular?: string | null
+          destino_cep?: string | null
+          destino_cidade?: string | null
+          destino_complemento?: string | null
+          destino_documento?: string | null
+          destino_email?: string | null
+          destino_estado?: string | null
+          destino_final_id?: string | null
+          destino_logradouro?: string | null
+          destino_nome?: string | null
+          destino_nome_fantasia?: string | null
+          destino_numero?: string | null
+          destino_resp_nome?: string | null
+          destino_telefone?: string | null
+          destino_tipo_documento?: string | null
+          gerador_celular?: string | null
+          gerador_documento?: string | null
+          gerador_email?: string | null
+          gerador_nome?: string | null
+          gerador_nome_fantasia?: string | null
+          gerador_resp_nome?: string | null
+          gerador_telefone?: string | null
+          gerador_tipo_documento?: string | null
+          id?: string
+          locador_id?: string | null
+          locatario_id?: string | null
+          motorista_id?: string | null
+          mtr_id?: string | null
+          mtr_numero?: string | null
+          numero?: string
+          obra_bairro?: string | null
+          obra_cep?: string | null
+          obra_cidade?: string | null
+          obra_complemento?: string | null
+          obra_estado?: string | null
+          obra_logradouro?: string | null
+          obra_numero?: string | null
+          observacoes?: string | null
+          ordem_locacao_unidade_id?: string
+          transportador_bairro?: string | null
+          transportador_celular?: string | null
+          transportador_cep?: string | null
+          transportador_cidade?: string | null
+          transportador_complemento?: string | null
+          transportador_documento?: string | null
+          transportador_email?: string | null
+          transportador_estado?: string | null
+          transportador_logradouro?: string | null
+          transportador_nome?: string | null
+          transportador_nome_fantasia?: string | null
+          transportador_numero?: string | null
+          transportador_resp_nome?: string | null
+          transportador_telefone?: string | null
+          transportador_tipo_documento?: string | null
+          updated_at?: string
+          veiculo_id?: string | null
+          veiculo_marca?: string | null
+          veiculo_modelo?: string | null
+          veiculo_placa?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdf_mtr_id_fkey"
+            columns: ["mtr_id"]
+            isOneToOne: false
+            referencedRelation: "mtr"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdf_ordem_locacao_unidade_id_fkey"
+            columns: ["ordem_locacao_unidade_id"]
+            isOneToOne: false
+            referencedRelation: "ordem_locacao_unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cdf_itens: {
+        Row: {
+          cdf_id: string
+          classe_id: string | null
+          classe_nome: string | null
+          created_at: string
+          id: string
+          observacoes: string | null
+          peso_kg: number | null
+          tratamento_id: string | null
+          tratamento_nome: string | null
+          updated_at: string
+          volume_m3: number | null
+        }
+        Insert: {
+          cdf_id: string
+          classe_id?: string | null
+          classe_nome?: string | null
+          created_at?: string
+          id?: string
+          observacoes?: string | null
+          peso_kg?: number | null
+          tratamento_id?: string | null
+          tratamento_nome?: string | null
+          updated_at?: string
+          volume_m3?: number | null
+        }
+        Update: {
+          cdf_id?: string
+          classe_id?: string | null
+          classe_nome?: string | null
+          created_at?: string
+          id?: string
+          observacoes?: string | null
+          peso_kg?: number | null
+          tratamento_id?: string | null
+          tratamento_nome?: string | null
+          updated_at?: string
+          volume_m3?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdf_itens_cdf_id_fkey"
+            columns: ["cdf_id"]
+            isOneToOne: false
+            referencedRelation: "cdf"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cidades_taxas: {
         Row: {
           codigo_ibge: string
@@ -844,6 +1116,282 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      mtr: {
+        Row: {
+          cacamba_codigo: string | null
+          cacamba_unidade_id: string | null
+          created_at: string
+          data_emissao: string
+          data_transporte: string | null
+          destino_bairro: string | null
+          destino_celular: string | null
+          destino_cep: string | null
+          destino_cidade: string | null
+          destino_complemento: string | null
+          destino_documento: string | null
+          destino_email: string | null
+          destino_estado: string | null
+          destino_final_id: string | null
+          destino_logradouro: string | null
+          destino_nome: string | null
+          destino_nome_fantasia: string | null
+          destino_numero: string | null
+          destino_resp_nome: string | null
+          destino_telefone: string | null
+          destino_tipo_documento: string | null
+          emitido_por: string | null
+          gerador_celular: string | null
+          gerador_documento: string | null
+          gerador_email: string | null
+          gerador_nome: string | null
+          gerador_nome_fantasia: string | null
+          gerador_resp_nome: string | null
+          gerador_telefone: string | null
+          gerador_tipo_documento: string | null
+          id: string
+          locador_id: string | null
+          locatario_id: string | null
+          motorista_documento: string | null
+          motorista_id: string | null
+          motorista_nome: string | null
+          numero: string
+          obra_bairro: string | null
+          obra_cep: string | null
+          obra_cidade: string | null
+          obra_complemento: string | null
+          obra_estado: string | null
+          obra_logradouro: string | null
+          obra_numero: string | null
+          observacoes: string | null
+          ordem_locacao_unidade_id: string
+          transportador_bairro: string | null
+          transportador_celular: string | null
+          transportador_cep: string | null
+          transportador_cidade: string | null
+          transportador_complemento: string | null
+          transportador_documento: string | null
+          transportador_email: string | null
+          transportador_estado: string | null
+          transportador_logradouro: string | null
+          transportador_nome: string | null
+          transportador_nome_fantasia: string | null
+          transportador_numero: string | null
+          transportador_resp_nome: string | null
+          transportador_telefone: string | null
+          transportador_tipo_documento: string | null
+          updated_at: string
+          veiculo_id: string | null
+          veiculo_marca: string | null
+          veiculo_modelo: string | null
+          veiculo_placa: string | null
+        }
+        Insert: {
+          cacamba_codigo?: string | null
+          cacamba_unidade_id?: string | null
+          created_at?: string
+          data_emissao?: string
+          data_transporte?: string | null
+          destino_bairro?: string | null
+          destino_celular?: string | null
+          destino_cep?: string | null
+          destino_cidade?: string | null
+          destino_complemento?: string | null
+          destino_documento?: string | null
+          destino_email?: string | null
+          destino_estado?: string | null
+          destino_final_id?: string | null
+          destino_logradouro?: string | null
+          destino_nome?: string | null
+          destino_nome_fantasia?: string | null
+          destino_numero?: string | null
+          destino_resp_nome?: string | null
+          destino_telefone?: string | null
+          destino_tipo_documento?: string | null
+          emitido_por?: string | null
+          gerador_celular?: string | null
+          gerador_documento?: string | null
+          gerador_email?: string | null
+          gerador_nome?: string | null
+          gerador_nome_fantasia?: string | null
+          gerador_resp_nome?: string | null
+          gerador_telefone?: string | null
+          gerador_tipo_documento?: string | null
+          id?: string
+          locador_id?: string | null
+          locatario_id?: string | null
+          motorista_documento?: string | null
+          motorista_id?: string | null
+          motorista_nome?: string | null
+          numero: string
+          obra_bairro?: string | null
+          obra_cep?: string | null
+          obra_cidade?: string | null
+          obra_complemento?: string | null
+          obra_estado?: string | null
+          obra_logradouro?: string | null
+          obra_numero?: string | null
+          observacoes?: string | null
+          ordem_locacao_unidade_id: string
+          transportador_bairro?: string | null
+          transportador_celular?: string | null
+          transportador_cep?: string | null
+          transportador_cidade?: string | null
+          transportador_complemento?: string | null
+          transportador_documento?: string | null
+          transportador_email?: string | null
+          transportador_estado?: string | null
+          transportador_logradouro?: string | null
+          transportador_nome?: string | null
+          transportador_nome_fantasia?: string | null
+          transportador_numero?: string | null
+          transportador_resp_nome?: string | null
+          transportador_telefone?: string | null
+          transportador_tipo_documento?: string | null
+          updated_at?: string
+          veiculo_id?: string | null
+          veiculo_marca?: string | null
+          veiculo_modelo?: string | null
+          veiculo_placa?: string | null
+        }
+        Update: {
+          cacamba_codigo?: string | null
+          cacamba_unidade_id?: string | null
+          created_at?: string
+          data_emissao?: string
+          data_transporte?: string | null
+          destino_bairro?: string | null
+          destino_celular?: string | null
+          destino_cep?: string | null
+          destino_cidade?: string | null
+          destino_complemento?: string | null
+          destino_documento?: string | null
+          destino_email?: string | null
+          destino_estado?: string | null
+          destino_final_id?: string | null
+          destino_logradouro?: string | null
+          destino_nome?: string | null
+          destino_nome_fantasia?: string | null
+          destino_numero?: string | null
+          destino_resp_nome?: string | null
+          destino_telefone?: string | null
+          destino_tipo_documento?: string | null
+          emitido_por?: string | null
+          gerador_celular?: string | null
+          gerador_documento?: string | null
+          gerador_email?: string | null
+          gerador_nome?: string | null
+          gerador_nome_fantasia?: string | null
+          gerador_resp_nome?: string | null
+          gerador_telefone?: string | null
+          gerador_tipo_documento?: string | null
+          id?: string
+          locador_id?: string | null
+          locatario_id?: string | null
+          motorista_documento?: string | null
+          motorista_id?: string | null
+          motorista_nome?: string | null
+          numero?: string
+          obra_bairro?: string | null
+          obra_cep?: string | null
+          obra_cidade?: string | null
+          obra_complemento?: string | null
+          obra_estado?: string | null
+          obra_logradouro?: string | null
+          obra_numero?: string | null
+          observacoes?: string | null
+          ordem_locacao_unidade_id?: string
+          transportador_bairro?: string | null
+          transportador_celular?: string | null
+          transportador_cep?: string | null
+          transportador_cidade?: string | null
+          transportador_complemento?: string | null
+          transportador_documento?: string | null
+          transportador_email?: string | null
+          transportador_estado?: string | null
+          transportador_logradouro?: string | null
+          transportador_nome?: string | null
+          transportador_nome_fantasia?: string | null
+          transportador_numero?: string | null
+          transportador_resp_nome?: string | null
+          transportador_telefone?: string | null
+          transportador_tipo_documento?: string | null
+          updated_at?: string
+          veiculo_id?: string | null
+          veiculo_marca?: string | null
+          veiculo_modelo?: string | null
+          veiculo_placa?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mtr_cacamba_unidade_id_fkey"
+            columns: ["cacamba_unidade_id"]
+            isOneToOne: false
+            referencedRelation: "cacamba_unidades"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mtr_ordem_locacao_unidade_id_fkey"
+            columns: ["ordem_locacao_unidade_id"]
+            isOneToOne: false
+            referencedRelation: "ordem_locacao_unidades"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mtr_veiculo_id_fkey"
+            columns: ["veiculo_id"]
+            isOneToOne: false
+            referencedRelation: "veiculos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mtr_itens: {
+        Row: {
+          classe_id: string | null
+          classe_nome: string
+          created_at: string
+          id: string
+          mtr_id: string
+          observacoes: string | null
+          peso_kg: number | null
+          updated_at: string
+          valor: number | null
+          volume_m3: number | null
+        }
+        Insert: {
+          classe_id?: string | null
+          classe_nome: string
+          created_at?: string
+          id?: string
+          mtr_id: string
+          observacoes?: string | null
+          peso_kg?: number | null
+          updated_at?: string
+          valor?: number | null
+          volume_m3?: number | null
+        }
+        Update: {
+          classe_id?: string | null
+          classe_nome?: string
+          created_at?: string
+          id?: string
+          mtr_id?: string
+          observacoes?: string | null
+          peso_kg?: number | null
+          updated_at?: string
+          valor?: number | null
+          volume_m3?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mtr_itens_mtr_id_fkey"
+            columns: ["mtr_id"]
+            isOneToOne: false
+            referencedRelation: "mtr"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       obras: {
         Row: {
@@ -1871,6 +2419,11 @@ export type Database = {
         Returns: boolean
       }
       can_manage_olu_residuos: { Args: { _olu_id: string }; Returns: boolean }
+      can_manage_rota_item: { Args: { _rota_id: string }; Returns: boolean }
+      can_select_rota_item: {
+        Args: { _olu_id: string; _rota_id: string }
+        Returns: boolean
+      }
       confirmar_carrinho: {
         Args: { _carrinho_id: string }
         Returns: {
@@ -1955,6 +2508,7 @@ export type Database = {
           validado_em: string
         }[]
       }
+      get_locador_rotas: { Args: { _locador?: string }; Returns: Json }
       get_locadores_licenciados_prefeitura: {
         Args: { _uid?: string }
         Returns: {

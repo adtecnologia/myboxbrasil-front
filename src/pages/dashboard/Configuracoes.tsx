@@ -1,4 +1,5 @@
-import { Fragment, useState, useEffect } from "react";
+import { Fragment, useState, useEffect, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/PageHeader";
@@ -516,6 +517,13 @@ const Configuracoes = () => {
     city.toLowerCase().includes(citySearch.toLowerCase())
   );
 
+  const [searchParams] = useSearchParams();
+  const defaultOpenSections = useMemo(() => {
+    const open = searchParams.get("open");
+    if (!open) return ["notifications"];
+    return open.split(",");
+  }, [searchParams]);
+
   return (
     <div className="space-y-6 pb-10">
       <PageHeader 
@@ -530,7 +538,7 @@ const Configuracoes = () => {
         </Button>
       </PageHeader>
         {/* Notificações - Comum a todos */}
-      <Accordion type="multiple" className="space-y-4">
+      <Accordion type="multiple" className="space-y-4" defaultValue={defaultOpenSections}>
         {/* Notificações - Comum a todos */}
         <AccordionItem value="notifications" className="border-none">
           <Card className="border-none shadow-sm overflow-hidden">

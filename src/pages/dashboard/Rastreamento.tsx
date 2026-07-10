@@ -177,17 +177,8 @@ const _mockDriversUnused: Driver[] = [
   { id: "4", nome: "Felipe Costa", status: "online", entregaAtual: "Pedido #1028", posicao: [-20.8050, -49.3700], veiculo: "Volvo FH 540" },
 ];
 
-const mockFiscais: Fiscal[] = [
-  { id: "f1", nome: "Carlos Inspector", status: "online", posicao: [-20.8150, -49.3780], setor: "Centro", ultimaOcorrencia: "Descarte irregular na Rua 15" },
-  { id: "f2", nome: "Ana Fiscal", status: "online", posicao: [-20.8250, -49.3850], setor: "Norte", ultimaOcorrencia: "Fiscalização rotineira" },
-  { id: "f3", nome: "Roberto Mendes", status: "offline", posicao: [-20.8050, -49.3950], setor: "Sul" },
-];
-
-const mockLocacaoPoints: LocacaoPoint[] = [
-  { id: "l1", locatario: "Construtora Silva", locador: "Eco Caçambas", endereco: "Rua das Palmeiras, 450", posicao: [-20.8120, -49.3820], cacamba: "5m³ - #442", dataInicio: "20/05/2026", status: "ativo" },
-  { id: "l2", locatario: "João Almeida", locador: "Disk Entulho", endereco: "Av. Alberto Andaló, 1200", posicao: [-20.8180, -49.3750], cacamba: "7m³ - #128", dataInicio: "18/05/2026", status: "ativo" },
-  { id: "l3", locatario: "Restaurante Central", locador: "Limpa Tudo", endereco: "Rua Bernardino de Campos, 3000", posicao: [-20.8080, -49.3880], cacamba: "5m³ - #551", dataInicio: "21/05/2026", status: "pendente_retirada" },
-];
+const mockFiscais: Fiscal[] = [];
+const mockLocacaoPoints: LocacaoPoint[] = [];
 
 const MapResizer = () => {
   const map = useMap();

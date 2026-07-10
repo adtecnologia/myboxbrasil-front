@@ -1,8 +1,9 @@
 
 import { useState, useEffect, useMemo } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthStore } from "@/stores/useAuthStore";
+import { useLocadorRotas } from "@/hooks/useLocadorRotas";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { DataTable } from "@/components/DataTable";
@@ -148,76 +149,22 @@ const MapFlyTo = ({ target }: { target: { pos: [number, number]; key: string } |
 };
 
 function useRotasAgendadas() {
-  const user = useAuthStore((s) => s.user);
-  const activeProfile = useAuthStore(
-    (s) => s.activeProfile() ?? s.user?.profiles[0] ?? null
-  );
-  const rawTenant = activeProfile?.tenantId;
-  const locadorId = rawTenant && rawTenant !== "self" ? rawTenant : user?.id;
+  const { data: rotas = [], isLoading } = useLocadorRotas();
 
-  const { data = [], isLoading } = useQuery({
-    queryKey: ["rotas-agendadas", locadorId],
-    enabled: !!locadorId,
-    queryFn: async (): Promise<Rota[]> => {
-      const { data: rotas, error } = await supabase
-        .from("rotas")
-        .select(
-          `id, motorista_id, data_programada, status,
-           veiculos ( placa, marca, modelo ),
-           rota_itens (
-             id, sequencia, tipo,
-             ordem_locacao_unidades (
-               id,
-               ordens_locacao (
-                 obras ( rua, numero, bairro, cidade, estado ),
-                 pedido_fornecedores ( pedidos ( locatario_id ) )
-               )
-             )
-           )`
-        )
-        .eq("locador_id", locadorId!)
-        .in("status", ["agendada", "em_andamento", "cancelada"])
-        .order("data_programada", { ascending: true });
-      if (error) throw error;
-
-      const motIds = Array.from(
-        new Set((rotas ?? []).map((r: any) => r.motorista_id).filter(Boolean))
-      );
-      const locIds = Array.from(
-        new Set(
-          (rotas ?? []).flatMap((r: any) =>
-            (r.rota_itens ?? [])
-              .map(
-                (it: any) =>
-                  it.ordem_locacao_unidades?.ordens_locacao
-                    ?.pedido_fornecedores?.pedidos?.locatario_id
-              )
-              .filter(Boolean)
-          )
-        )
-      );
-      const ids = Array.from(new Set([...motIds, ...locIds]));
-      const nomes = new Map<string, string>();
-      if (ids.length) {
-        const { data: profs } = await supabase
-          .from("profiles")
-          .select("id, nome")
-          .in("id", ids);
-        (profs ?? []).forEach((p: any) => nomes.set(p.id, p.nome));
-      }
-
-      return (rotas ?? []).map((r: any, idx: number): Rota => {
-        const v = r.veiculos ?? {};
-        const veiculoLabel = v.placa
+  const data = useMemo((): Rota[] => {
+      const visibleRotas = rotas.filter((r) => ["agendada", "em_andamento", "cancelada"].includes(r.status));
+      return visibleRotas.map((r, idx): Rota => {
+        const v = r.veiculo;
+        const veiculoLabel = v?.placa
           ? `${v.placa}${v.marca || v.modelo ? ` (${[v.marca, v.modelo].filter(Boolean).join(" ")})` : ""}`
           : "—";
-        const itens = [...(r.rota_itens ?? [])].sort(
+        const itens = [...(r.itens ?? [])].sort(
           (a: any, b: any) => a.sequencia - b.sequencia
         );
         return {
           id: r.id,
           nome: `Rota ${String(idx + 1).padStart(3, "0")}`,
-          motorista: nomes.get(r.motorista_id) ?? "—",
+          motorista: r.motorista_nome ?? "—",
           veiculo: veiculoLabel,
           dataProgramada: r.data_programada ?? null,
           data: r.data_programada
@@ -226,31 +173,20 @@ function useRotasAgendadas() {
           status: r.status,
           pontos: itens.length,
           itinerario: itens.map((it: any): Ponto => {
-            const ol = it.ordem_locacao_unidades?.ordens_locacao ?? {};
-            const obra = ol.obras ?? {};
-            const locId = ol.pedido_fornecedores?.pedidos?.locatario_id;
-            const endereco = [
-              [obra.rua, obra.numero].filter(Boolean).join(", "),
-              obra.bairro,
-              [obra.cidade, obra.estado].filter(Boolean).join("/"),
-            ]
-              .filter(Boolean)
-              .join(" - ");
+            const endereco = it.endereco ?? "";
             const fullQuery = [
-              [obra.rua, obra.numero].filter(Boolean).join(", "),
-              obra.bairro,
-              obra.cidade,
-              obra.estado,
+              it.endereco,
+              it.cidade,
+              it.estado,
               "Brasil",
             ].filter(Boolean).join(", ");
             const enderecoQueries = [
               fullQuery,
-              [obra.bairro, obra.cidade, obra.estado, "Brasil"].filter(Boolean).join(", "),
-              [obra.cidade, obra.estado, "Brasil"].filter(Boolean).join(", "),
+              [it.cidade, it.estado, "Brasil"].filter(Boolean).join(", "),
             ].filter((v, i, a) => v && a.indexOf(v) === i);
             return {
               id: it.id,
-              cliente: (locId && nomes.get(locId)) ?? "Cliente",
+              cliente: it.cliente ?? "Cliente",
               endereco: endereco || "—",
               tipo: it.tipo,
               posicao: null,
@@ -259,8 +195,7 @@ function useRotasAgendadas() {
           }),
         };
       }).sort((a, b) => (a.dataProgramada ?? "9999-12-31").localeCompare(b.dataProgramada ?? "9999-12-31"));
-    },
-  });
+  }, [rotas]);
   return { data, isLoading };
 }
 
@@ -345,6 +280,7 @@ const RotasAgendadas = () => {
     onSuccess: () => {
       toast.success("Rota cancelada com sucesso");
       queryClient.invalidateQueries({ queryKey: ["rotas-agendadas"] });
+      queryClient.invalidateQueries({ queryKey: ["locador-rotas"] });
       setRotaToCancel(null);
       setMotivoCancelamento("");
     },

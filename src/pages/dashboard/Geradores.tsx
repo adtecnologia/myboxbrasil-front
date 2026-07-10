@@ -17,10 +17,7 @@ interface Gerador {
   estado: string;
 }
 
-const mockGeradores: Gerador[] = [
-  { id: "1", nome: "Construtora Alvorada", documento: "11.222.333/0001-44", tipoResiduo: "Classe A - Inerte", obra: "Edifício Central Park", cidade: "São Paulo", estado: "SP" },
-  { id: "2", nome: "Demolidora Forte", documento: "55.666.777/0001-88", tipoResiduo: "Classe B - Reciclável", obra: "Reforma Av. Paulista", cidade: "São Paulo", estado: "SP" },
-];
+const mockGeradores: Gerador[] = [];
 
 const initials = (n: string) => (n || "").trim().substring(0, 2).toUpperCase() || "GR";
 

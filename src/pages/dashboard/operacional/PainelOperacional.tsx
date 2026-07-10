@@ -16,6 +16,10 @@ import {
   AlertOctagon,
   Users,
   MapPin as MapPinIcon,
+  FileCheck2,
+  ScrollText,
+  Recycle,
+  Scale,
 } from "lucide-react";
 import { 
   BarChart, 
@@ -60,6 +64,7 @@ const PainelOperacional = () => {
   const isLocador = profileType === "locador";
   const isLocatario = profileType === "locatario";
   const isPrefeitura = profileType === "prefeitura";
+  const isDestino = profileType === "destino";
 
   // ============ LOCATÁRIO VIEW ============
   if (isLocatario) {
@@ -72,6 +77,10 @@ const PainelOperacional = () => {
 
   if (isPrefeitura) {
     return <PrefeituraView />;
+  }
+
+  if (isDestino) {
+    return <DestinoView />;
   }
 
   // ============ ADMIN VIEW (dados reais globais) ============
@@ -954,6 +963,346 @@ const PrefeituraView = () => {
                   <MapPinIcon className="h-5 w-5" />
                 </div>
                 Rastreamento
+              </Link>
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const DestinoView = () => {
+  const userId = useAuthStore((s) => s.user?.id);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["painel-operacional-destino", userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const desde = new Date();
+      desde.setDate(desde.getDate() - 30);
+
+      const [{ data: mtrs }, { data: cdfs }, { data: licencas }] = await Promise.all([
+        supabase
+          .from("mtr")
+          .select(
+            "id, mtr_itens(peso_kg, volume_m3, classe_nome), ordem_locacao_unidades!inner(status, destino_final_confirmado_em)",
+          )
+          .eq("destino_final_id", userId!)
+          .in("ordem_locacao_unidades.status", [
+            "em_transito_destino_final",
+            "aguardando_analise",
+            "cdf_emitido",
+          ]),
+        supabase
+          .from("cdf")
+          .select("id, data_emissao, cdf_itens(peso_kg, volume_m3)")
+          .eq("destino_final_id", userId!)
+          .gte("data_emissao", desde.toISOString()),
+        supabase
+          .from("documentos_licenca_cidade")
+          .select("id, nome, data_vencimento, status")
+          .eq("user_id", userId!),
+      ]);
+
+      return {
+        mtrs: mtrs ?? [],
+        cdfs: cdfs ?? [],
+        licencas: licencas ?? [],
+      };
+    },
+  });
+
+  const stats = useMemo(() => {
+    const mtrs = (data?.mtrs ?? []) as any[];
+    const cdfs = (data?.cdfs ?? []) as any[];
+    const licencas = (data?.licencas ?? []) as any[];
+
+    const aCaminho = mtrs.filter((m) => m.ordem_locacao_unidades?.status === "em_transito_destino_final").length;
+    const aguardandoAnalise = mtrs.filter((m) => m.ordem_locacao_unidades?.status === "aguardando_analise").length;
+
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    const cdfsHoje = cdfs.filter((c) => new Date(c.data_emissao) >= hoje).length;
+
+    let pesoHoje = 0;
+    let volumeHoje = 0;
+    mtrs.forEach((m) => {
+      const dt = m.ordem_locacao_unidades?.destino_final_confirmado_em;
+      if (!dt) return;
+      if (new Date(dt) < hoje) return;
+      (m.mtr_itens ?? []).forEach((it: any) => {
+        pesoHoje += Number(it.peso_kg ?? 0);
+        volumeHoje += Number(it.volume_m3 ?? 0);
+      });
+    });
+
+    const em30 = new Date();
+    em30.setDate(em30.getDate() + 30);
+    const licencasVencendo = licencas.filter((l) => {
+      if (!l.data_vencimento) return false;
+      const v = new Date(l.data_vencimento);
+      return v <= em30;
+    });
+
+    return {
+      aCaminho,
+      aguardandoAnalise,
+      cdfsHoje,
+      pesoHoje: Math.round(pesoHoje),
+      volumeHoje: Math.round(volumeHoje * 100) / 100,
+      licencasVencendo,
+    };
+  }, [data]);
+
+  const entradasSemana = useMemo(() => {
+    const dias = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sab"];
+    const buckets = Array.from({ length: 7 }).map((_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - (6 - i));
+      d.setHours(0, 0, 0, 0);
+      return { name: dias[d.getDay()], ts: d.getTime(), kg: 0, m3: 0 };
+    });
+    (data?.mtrs ?? []).forEach((m: any) => {
+      const dt = m.ordem_locacao_unidades?.destino_final_confirmado_em;
+      if (!dt) return;
+      const day = new Date(dt);
+      day.setHours(0, 0, 0, 0);
+      const b = buckets.find((x) => x.ts === day.getTime());
+      if (!b) return;
+      (m.mtr_itens ?? []).forEach((it: any) => {
+        b.kg += Number(it.peso_kg ?? 0);
+        b.m3 += Number(it.volume_m3 ?? 0);
+      });
+    });
+    return buckets.map(({ name, kg, m3 }) => ({
+      name,
+      kg: Math.round(kg),
+      m3: Math.round(m3 * 100) / 100,
+    }));
+  }, [data]);
+
+  const porClasse = useMemo(() => {
+    const map = new Map<string, { kg: number; m3: number }>();
+    (data?.mtrs ?? []).forEach((m: any) => {
+      (m.mtr_itens ?? []).forEach((it: any) => {
+        const key = it.classe_nome ?? "Sem classe";
+        const prev = map.get(key) ?? { kg: 0, m3: 0 };
+        prev.kg += Number(it.peso_kg ?? 0);
+        prev.m3 += Number(it.volume_m3 ?? 0);
+        map.set(key, prev);
+      });
+    });
+    const totalKg = Array.from(map.values()).reduce((a, b) => a + b.kg, 0) || 1;
+    return Array.from(map.entries())
+      .map(([label, v]) => ({
+        label,
+        kg: Math.round(v.kg),
+        m3: Math.round(v.m3 * 100) / 100,
+        pct: (v.kg / totalKg) * 100,
+      }))
+      .sort((a, b) => b.kg - a.kg);
+  }, [data]);
+
+  if (isLoading) {
+    return (
+      <DashboardSkeleton
+        title="Painel Operacional"
+        subtitle="Recebimento de resíduos, análise e emissão de CDF"
+      />
+    );
+  }
+
+  const classeColors = ["bg-emerald-500", "bg-blue-500", "bg-orange-500", "bg-purple-500", "bg-pink-500", "bg-slate-500"];
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Painel Operacional"
+        subtitle="Recebimento de resíduos, análise e emissão de CDF"
+      />
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-6 text-center space-y-2">
+            <div className="mx-auto w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center text-blue-600">
+              <Truck className="h-6 w-6" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">A Caminho</p>
+              <h3 className="text-3xl font-bold">{stats.aCaminho}</h3>
+            </div>
+            <p className="text-[10px] text-muted-foreground">Cargas em trânsito ao destino</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6 text-center space-y-2">
+            <div className="mx-auto w-12 h-12 bg-orange-50 rounded-full flex items-center justify-center text-orange-600">
+              <Clock className="h-6 w-6" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Aguardando Análise</p>
+              <h3 className="text-3xl font-bold">{stats.aguardandoAnalise}</h3>
+            </div>
+            <p className="text-[10px] text-muted-foreground">Recebidos sem CDF emitido</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6 text-center space-y-2">
+            <div className="mx-auto w-12 h-12 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-600">
+              <FileCheck2 className="h-6 w-6" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">CDFs Emitidos Hoje</p>
+              <h3 className="text-3xl font-bold">{stats.cdfsHoje}</h3>
+            </div>
+            <p className="text-[10px] text-emerald-600 font-medium">Documentos finalizados</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6 text-center space-y-2">
+            <div className="mx-auto w-12 h-12 bg-teal-50 rounded-full flex items-center justify-center text-teal-600">
+              <Recycle className="h-6 w-6" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Recebido Hoje</p>
+              <h3 className="text-xl font-bold leading-tight">
+                {stats.pesoHoje.toLocaleString("pt-BR")} kg
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                {stats.volumeHoje.toLocaleString("pt-BR")} m³
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-base font-bold">Volume Recebido</CardTitle>
+                <CardDescription>Últimos 7 dias — kg e m³</CardDescription>
+              </div>
+              <BarChartIcon className="h-5 w-5 text-muted-foreground" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[300px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={entradasSemana}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
+                  <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
+                  <YAxis yAxisId="kg" fontSize={12} tickLine={false} axisLine={false} />
+                  <YAxis yAxisId="m3" orientation="right" fontSize={12} tickLine={false} axisLine={false} />
+                  <Tooltip />
+                  <Bar yAxisId="kg" dataKey="kg" name="kg" fill="#10b981" radius={[4, 4, 0, 0]} />
+                  <Bar yAxisId="m3" dataKey="m3" name="m³" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base font-bold">Resíduos por Classe</CardTitle>
+            <CardDescription>Distribuição do recebimento por classe</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {porClasse.length === 0 && (
+                <p className="text-xs text-muted-foreground text-center py-6">Sem recebimentos registrados</p>
+              )}
+              {porClasse.map((item, idx) => (
+                <div key={item.label} className="space-y-2">
+                  <div className="flex justify-between text-xs font-medium">
+                    <span>{item.label}</span>
+                    <span className="text-muted-foreground">
+                      {item.kg.toLocaleString("pt-BR")} kg · {item.m3.toLocaleString("pt-BR")} m³
+                    </span>
+                  </div>
+                  <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                    <div
+                      className={`${classeColors[idx % classeColors.length]} h-2 transition-all duration-500`}
+                      style={{ width: `${item.pct}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-base font-bold">Licenças a Vencer</CardTitle>
+                <CardDescription>Documentos com validade nos próximos 30 dias</CardDescription>
+              </div>
+              <Button size="sm" variant="outline" asChild>
+                <Link to="/dashboard/configuracoes?open=locador-docs">Gerenciar</Link>
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {stats.licencasVencendo.length === 0 && (
+                <p className="text-xs text-muted-foreground text-center py-6">
+                  Nenhuma licença próxima do vencimento
+                </p>
+              )}
+              {stats.licencasVencendo.map((l: any) => {
+                const dias = Math.ceil((new Date(l.data_vencimento).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                const vencida = dias < 0;
+                return (
+                  <div key={l.id} className="flex gap-3 items-center p-3 rounded-lg bg-muted/30">
+                    <div className={`h-2 w-2 rounded-full shrink-0 ${vencida ? "bg-red-500" : dias <= 7 ? "bg-orange-500" : "bg-yellow-500"}`} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{l.nome ?? "Licença"}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {vencida ? `Vencida há ${Math.abs(dias)} dia(s)` : `Vence em ${dias} dia(s)`} — {new Date(l.data_vencimento).toLocaleDateString("pt-BR")}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="space-y-4">
+          <h3 className="text-lg font-bold">Ações Rápidas</h3>
+          <div className="grid grid-cols-1 gap-3">
+            <Button className="h-14 justify-start gap-4 px-4 text-base" asChild>
+              <Link to="/dashboard/operacional/entradas">
+                <div className="bg-white/20 p-2 rounded-lg">
+                  <Truck className="h-5 w-5" />
+                </div>
+                Entrada de Resíduos
+              </Link>
+            </Button>
+            <Button variant="outline" className="h-14 justify-start gap-4 px-4 text-base" asChild>
+              <Link to="/dashboard/documentos/listagem">
+                <div className="bg-primary/10 p-2 rounded-lg text-primary">
+                  <ScrollText className="h-5 w-5" />
+                </div>
+                MTR / CDF
+              </Link>
+            </Button>
+            <Button variant="outline" className="h-14 justify-start gap-4 px-4 text-base" asChild>
+              <Link to="/dashboard/pedidos/ordens">
+                <div className="bg-primary/10 p-2 rounded-lg text-primary">
+                  <ClipboardList className="h-5 w-5" />
+                </div>
+                Ordens de Locação
               </Link>
             </Button>
           </div>

@@ -1,81 +1,128 @@
-import { useState } from "react";
-import { Plus, Search, Truck, Calendar, Weight, Ruler } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Plus, Truck, Calendar, Weight, Ruler, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { DataPagination, usePagination } from "@/components/DataPagination";
 import { StatCard } from "@/components/StatCard";
 import { DataTable } from "@/components/DataTable";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuthStore } from "@/stores/useAuthStore";
+import { toast } from "sonner";
 
 const tiposResiduo = ["Classe A", "Classe B", "Classe C", "Classe D"];
 const classesResiduo = ["Inertes", "Recicláveis", "Não recicláveis", "Perigosos"];
 
 interface Entrada {
   id: string;
+  placa: string;
   dataHora: string;
+  dataHoraIso: string | null;
   cliente: string;
   transportador: string;
-  gerador: string;
   tipoResiduo: string;
-  classeResiduo: string;
   volume: number;
   peso: number;
   status: string;
 }
 
-const mockEntradas: Entrada[] = [
-  { id: "ENT-001", dataHora: "2026-03-28 08:30", cliente: "Construtora Alpha", transportador: "Trans Log", gerador: "Obra Av. Brasil", tipoResiduo: "Classe A", classeResiduo: "Inertes", volume: 5, peso: 3200, status: "Processado" },
-  { id: "ENT-002", dataHora: "2026-03-28 10:15", cliente: "Demolidora Beta", transportador: "Rápido Entulho", gerador: "Demolição Centro", tipoResiduo: "Classe B", classeResiduo: "Recicláveis", volume: 3, peso: 1800, status: "Recebido" },
-  { id: "ENT-003", dataHora: "2026-03-27 14:00", cliente: "Empreiteira Gama", transportador: "Trans Log", gerador: "Reforma Shopping", tipoResiduo: "Classe A", classeResiduo: "Inertes", volume: 7, peso: 4500, status: "Destinado" },
-  { id: "ENT-004", dataHora: "2026-03-27 09:45", cliente: "Construtora Alpha", transportador: "EcoTransp", gerador: "Edifício Novo", tipoResiduo: "Classe C", classeResiduo: "Não recicláveis", volume: 2, peso: 950, status: "Em processamento" },
-];
-
 const statusColor: Record<string, string> = {
   "Recebido": "bg-blue-100 text-blue-700",
-  "Em processamento": "bg-yellow-100 text-yellow-700",
-  "Processado": "bg-primary/10 text-primary",
   "Destinado": "bg-green-100 text-green-700",
 };
 
 const Operacional = () => {
-  const [entradas, setEntradas] = useState<Entrada[]>(mockEntradas);
+  const user = useAuthStore((s) => s.user);
+  const [entradas, setEntradas] = useState<Entrada[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const isMobile = useIsMobile();
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const { data: mtrs, error } = await supabase
+          .from("mtr")
+          .select(
+            "id, veiculo_placa, gerador_nome, transportador_nome, ordem_locacao_unidade_id, mtr_itens(classe_nome, peso_kg, volume_m3), ordem_locacao_unidades!inner(status, destino_final_confirmado_em)",
+          )
+          .eq("destino_final_id", user.id)
+          .in("ordem_locacao_unidades.status", ["aguardando_analise", "cdf_emitido"]);
+        if (error) throw error;
+
+        if (cancelled) return;
+        setEntradas(
+          (mtrs ?? [])
+            .map((m: any) => {
+              const olu = m.ordem_locacao_unidades;
+              const itens = m.mtr_itens ?? [];
+              const peso = itens.reduce((a: number, i: any) => a + Number(i.peso_kg ?? 0), 0);
+              const volume = itens.reduce((a: number, i: any) => a + Number(i.volume_m3 ?? 0), 0);
+              const tipos = Array.from(new Set(itens.map((i: any) => i.classe_nome).filter(Boolean))) as string[];
+              const dt = olu?.destino_final_confirmado_em ?? null;
+              return {
+                id: m.id,
+                placa: m.veiculo_placa ?? "—",
+                dataHora: dt ? new Date(dt).toLocaleString("pt-BR") : "—",
+                dataHoraIso: dt,
+                cliente: m.gerador_nome ?? "—",
+                transportador: m.transportador_nome ?? "—",
+                tipoResiduo: tipos.length ? tipos.join(", ") : "—",
+                volume: Math.round(volume * 100) / 100,
+                peso: Math.round(peso),
+                status: olu?.status === "cdf_emitido" ? "Destinado" : "Recebido",
+              };
+            })
+            .sort((a: any, b: any) => (b.dataHoraIso ?? "").localeCompare(a.dataHoraIso ?? "")),
+        );
+      } catch (e: any) {
+        toast.error("Erro ao carregar entradas: " + (e?.message ?? "desconhecido"));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   const filtered = entradas.filter(
     (e) =>
       e.cliente.toLowerCase().includes(search.toLowerCase()) ||
       e.transportador.toLowerCase().includes(search.toLowerCase()) ||
-      e.id.toLowerCase().includes(search.toLowerCase())
+      e.placa.toLowerCase().includes(search.toLowerCase()),
   );
 
   const { paginatedData, currentPage, pageSize, setCurrentPage, setPageSize, totalItems } = usePagination(filtered, 10);
 
   const handleAdd = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const form = new FormData(e.currentTarget);
-    const nova: Entrada = {
-      id: `ENT-${String(entradas.length + 1).padStart(3, "0")}`,
-      dataHora: new Date().toISOString().slice(0, 16).replace("T", " "),
-      cliente: form.get("cliente") as string,
-      transportador: form.get("transportador") as string,
-      gerador: form.get("gerador") as string,
-      tipoResiduo: form.get("tipoResiduo") as string,
-      classeResiduo: form.get("classeResiduo") as string,
-      volume: Number(form.get("volume")),
-      peso: Number(form.get("peso")),
-      status: "Recebido",
-    };
-    setEntradas([nova, ...entradas]);
     setDialogOpen(false);
+    toast.info("Registro manual será integrado à emissão de MTR.");
   };
+
+  const stats = useMemo(() => {
+    const hoje = new Date().toDateString();
+    const mesAtual = new Date().getMonth();
+    const anoAtual = new Date().getFullYear();
+    let entradasHoje = 0;
+    let volumeTotal = 0;
+    let pesoTotal = 0;
+    let mes = 0;
+    entradas.forEach((e) => {
+      const d = (e as any).dataHoraIso ? new Date((e as any).dataHoraIso) : null;
+      if (d && d.toDateString() === hoje) entradasHoje += 1;
+      if (d && d.getMonth() === mesAtual && d.getFullYear() === anoAtual) mes += 1;
+      volumeTotal += e.volume;
+      pesoTotal += e.peso;
+    });
+    return { entradasHoje, volumeTotal, pesoTotal, mes };
+  }, [entradas]);
 
   return (
     <div className="space-y-6">
@@ -120,20 +167,24 @@ const Operacional = () => {
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatCard label="Entradas hoje" value={2} icon={Truck} />
-        <StatCard label="Volume total" value="17 m³" icon={Ruler} />
-        <StatCard label="Peso total" value="10.450 kg" icon={Weight} />
-        <StatCard label="Este mês" value={86} icon={Calendar} />
+        <StatCard label="Entradas hoje" value={stats.entradasHoje} icon={Truck} />
+        <StatCard label="Volume total" value={`${stats.volumeTotal.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} m³`} icon={Ruler} />
+        <StatCard label="Peso total" value={`${stats.pesoTotal.toLocaleString("pt-BR")} kg`} icon={Weight} />
+        <StatCard label="Este mês" value={stats.mes} icon={Calendar} />
       </div>
 
-      {/* Search + Table/Cards */}
+      {loading ? (
+        <div className="flex items-center justify-center py-16 text-muted-foreground">
+          <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Carregando entradas...
+        </div>
+      ) : (
       <DataTable<Entrada>
         title="Entradas recentes"
         data={paginatedData}
         searchValue={search}
         onSearchChange={setSearch}
         columns={[
-          { header: "ID", accessor: "id", className: "font-medium" },
+          { header: "Placa", accessor: "placa", className: "font-medium" },
           { header: "Data/Hora", accessor: "dataHora", className: "text-sm" },
           { header: "Cliente", accessor: "cliente" },
           { header: "Transportador", accessor: "transportador" },
@@ -154,7 +205,7 @@ const Operacional = () => {
             <div className="flex items-start justify-between">
               <div>
                 <p className="font-medium text-sm text-foreground">{e.cliente}</p>
-                <p className="text-xs text-muted-foreground">{e.id} · {e.dataHora}</p>
+                <p className="text-xs text-muted-foreground">{e.placa} · {e.dataHora}</p>
               </div>
               <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${statusColor[e.status] || ""}`}>{e.status}</span>
             </div>
@@ -176,6 +227,7 @@ const Operacional = () => {
           onPageSizeChange: setPageSize,
         }}
       />
+      )}
     </div>
   );
 };

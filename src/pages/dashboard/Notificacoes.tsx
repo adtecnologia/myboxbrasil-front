@@ -46,18 +46,7 @@ const typeConfig: Record<Notification["type"], { icon: React.ElementType; color:
   usuario: { icon: Users, color: "text-violet-500", label: "Usuário" },
 };
 
-const mockNotifications: Notification[] = [
-  { id: "1", title: "Nova ordem de serviço criada", description: "OS #1234 foi criada para o cliente ABC Construtora.", time: "Há 5 minutos", read: false, type: "operacional" },
-  { id: "2", title: "MTR pendente de assinatura", description: "O MTR #5678 aguarda assinatura do transportador.", time: "Há 15 minutos", read: false, type: "documento" },
-  { id: "3", title: "Licença ambiental vencendo", description: "A licença do destino final XYZ vence em 15 dias.", time: "Há 1 hora", read: false, type: "alerta" },
-  { id: "4", title: "Pagamento recebido", description: "Pagamento de R$ 2.500,00 do cliente DEF confirmado.", time: "Há 2 horas", read: true, type: "financeiro" },
-  { id: "5", title: "Novo transportador cadastrado", description: "Transportes GHI foi adicionado ao sistema.", time: "Há 3 horas", read: true, type: "usuario" },
-  { id: "6", title: "Atualização do sistema", description: "Versão 2.1.0 disponível com melhorias de performance.", time: "Há 5 horas", read: true, type: "sistema" },
-  { id: "7", title: "Caçamba devolvida com atraso", description: "Caçamba #89 devolvida 2 dias após o prazo.", time: "Há 6 horas", read: false, type: "alerta" },
-  { id: "8", title: "CDF emitido", description: "Certificado de Destinação Final #901 emitido com sucesso.", time: "Há 8 horas", read: true, type: "documento" },
-  { id: "9", title: "Fatura gerada", description: "Fatura #456 no valor de R$ 8.200,00 gerada.", time: "Ontem", read: true, type: "financeiro" },
-  { id: "10", title: "Coleta finalizada", description: "Coleta da OS #1230 finalizada pelo motorista.", time: "Ontem", read: true, type: "operacional" },
-];
+const mockNotifications: Notification[] = [];
 
 const Notificacoes = () => {
   const [notifications, setNotifications] = useState<Notification[]>(mockNotifications);

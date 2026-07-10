@@ -92,7 +92,6 @@ import PainelAtivos from "./pages/dashboard/ativos/PainelAtivos.tsx";
 import OcorrenciasAtivos from "./pages/dashboard/ativos/OcorrenciasAtivos.tsx";
 import ManutencoesAtivos from "./pages/dashboard/ativos/ManutencoesAtivos.tsx";
 import PainelDocumentos from "./pages/dashboard/documentos/PainelDocumentos.tsx";
-import MinhasLicencas from "./pages/dashboard/documentos/MinhasLicencas.tsx";
 import PainelObras from "./pages/dashboard/obras/PainelObras.tsx";
 import PainelUsuarios from "./pages/dashboard/usuarios/PainelUsuarios.tsx";
 
@@ -143,7 +142,6 @@ const App = () => (
             <Route path="documentos">
               <Route index element={<PainelDocumentos />} />
               <Route path="listagem" element={<Documentos />} />
-              <Route path="licencas" element={<MinhasLicencas />} />
             </Route>
             <Route path="financeiro" element={<PainelFinanceiro />} />
             <Route path="financeiro/cobrancas" element={<Financeiro />} />

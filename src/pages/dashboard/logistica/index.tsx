@@ -1,9 +1,8 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useMotoristaRotas } from "@/hooks/useMotoristaRotas";
+import { useLocadorRotas } from "@/hooks/useLocadorRotas";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -40,33 +39,12 @@ import { DashboardSkeleton } from "@/components/DashboardSkeleton";
 
 const PainelLogistico = () => {
   const navigate = useNavigate();
-  const userId = useAuthStore((s) => s.user?.id);
   const activeRole = useAuthStore((s) => s.activeProfileType?.() ?? null);
   const isMotorista = activeRole === "motorista";
   const isLocador = activeRole === "locador";
   const { data: rotasMotorista = [], isLoading: loadingMot } = useMotoristaRotas({ includeFinalizadas: true });
 
-  const { data: rotasLocador = [], isLoading: loadingLoc } = useQuery({
-    queryKey: ["painel-logistico-locador", userId],
-    enabled: !!userId && isLocador,
-    queryFn: async () => {
-      const { data: rotas } = await supabase
-        .from("rotas")
-        .select("id, data_programada, status, veiculo:veiculo_id(placa)")
-        .eq("locador_id", userId!);
-      const ids = (rotas ?? []).map((r) => r.id);
-      const { data: itens } = ids.length
-        ? await supabase.from("rota_itens").select("rota_id, tipo").in("rota_id", ids)
-        : { data: [] as { rota_id: string; tipo: string }[] };
-      return (rotas ?? []).map((r) => ({
-        id: r.id,
-        data_programada: r.data_programada,
-        status: r.status,
-        veiculo: (r as { veiculo: { placa: string | null } | null }).veiculo,
-        itens: (itens ?? []).filter((it) => it.rota_id === r.id),
-      }));
-    },
-  });
+  const { data: rotasLocador = [], isLoading: loadingLoc } = useLocadorRotas();
 
   const rotasFonte = (
     isMotorista

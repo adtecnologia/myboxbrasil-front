@@ -25,6 +25,7 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  Legend,
 } from "recharts";
 
 const months = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
@@ -44,13 +45,27 @@ const DestinoFinalDashboard = () => {
         .select("id, status, destino_final_confirmado_em, updated_at")
         .eq("destino_final_id", userId!);
 
-      const oluIds = (olus ?? []).map((o) => o.id);
-      const { data: residuos } = oluIds.length
-        ? await supabase
-            .from("ordem_locacao_unidade_residuos")
-            .select("ordem_locacao_unidade_id, peso_kg, volume_m3")
-            .in("ordem_locacao_unidade_id", oluIds)
-        : { data: [] as Array<{ ordem_locacao_unidade_id: string; peso_kg: number | null; volume_m3: number | null }> };
+      // Resíduos tratados = soma dos itens dos CDFs emitidos por este destino
+      const { data: cdfsData } = await supabase
+        .from("cdf")
+        .select("id, ordem_locacao_unidade_id, data_emissao, cdf_itens(peso_kg, volume_m3)")
+        .eq("destino_final_id", userId!);
+      const residuos: Array<{
+        ordem_locacao_unidade_id: string;
+        peso_kg: number | null;
+        volume_m3: number | null;
+        data_emissao: string | null;
+      }> = [];
+      (cdfsData ?? []).forEach((c: any) => {
+        (c.cdf_itens ?? []).forEach((it: any) => {
+          residuos.push({
+            ordem_locacao_unidade_id: c.ordem_locacao_unidade_id,
+            peso_kg: it.peso_kg,
+            volume_m3: it.volume_m3,
+            data_emissao: c.data_emissao,
+          });
+        });
+      });
 
       const { data: licencas } = await supabase
         .from("licenca_cidade")
@@ -68,7 +83,7 @@ const DestinoFinalDashboard = () => {
 
       return {
         olus: olus ?? [],
-        residuos: residuos ?? [],
+        residuos,
         licencas: licencas ?? [],
         licencaDocs: licencaDocs ?? [],
       };
@@ -87,17 +102,26 @@ const DestinoFinalDashboard = () => {
     const emitidasNoMes = olus.filter(
       (o) => o.status === "cdf_emitido" && inSelectedMonth(o.destino_final_confirmado_em ?? o.updated_at),
     );
-    const emitidasIds = new Set(emitidasNoMes.map((o) => o.id));
     const cdfEmitidos = emitidasNoMes.length;
     const cdfAguardando = olus.filter((o) => o.status === "aguardando_analise").length;
     const mtrACaminho = olus.filter((o) => o.status === "em_transito_analise").length;
     const residuosTratados = residuos
-      .filter((r) => emitidasIds.has(r.ordem_locacao_unidade_id))
-      .reduce((acc, r) => acc + Number(r.peso_kg ?? 0), 0);
+      .filter((r) => inSelectedMonth(r.data_emissao))
+      .reduce(
+        (acc, r) => ({
+          kg: acc.kg + Number(r.peso_kg ?? 0),
+          m3: acc.m3 + Number(r.volume_m3 ?? 0),
+        }),
+        { kg: 0, m3: 0 },
+      );
     return [
       { label: "CDF emitidos", value: cdfEmitidos, icon: FileCheck },
       { label: "CDF aguardando emissão", value: cdfAguardando, icon: FileClock },
-      { label: "Resíduos tratados (kg)", value: Math.round(residuosTratados), icon: Recycle },
+      {
+        label: "Resíduos tratados",
+        value: `${Math.round(residuosTratados.kg).toLocaleString("pt-BR")} kg · ${residuosTratados.m3.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} m³`,
+        icon: Recycle,
+      },
       { label: "MTR a caminho", value: mtrACaminho, icon: Truck },
     ];
   }, [data, month, year]);
@@ -117,24 +141,20 @@ const DestinoFinalDashboard = () => {
   }, [data, year]);
 
   const residuosMes = useMemo(() => {
-    const olus = data?.olus ?? [];
     const residuos = data?.residuos ?? [];
-    const oluMonth = new Map<string, number>();
-    olus.forEach((o) => {
-      if (o.status !== "cdf_emitido") return;
-      const iso = o.destino_final_confirmado_em ?? o.updated_at;
-      if (!iso) return;
-      const d = new Date(iso);
-      if (d.getFullYear() !== year) return;
-      oluMonth.set(o.id, d.getMonth());
-    });
-    const buckets = months.map((m) => ({ name: m.slice(0, 3), value: 0 }));
+    const buckets = months.map((m) => ({ name: m.slice(0, 3), kg: 0, m3: 0 }));
     residuos.forEach((r) => {
-      const m = oluMonth.get(r.ordem_locacao_unidade_id);
-      if (m === undefined) return;
-      buckets[m].value += Number(r.peso_kg ?? 0);
+      if (!r.data_emissao) return;
+      const d = new Date(r.data_emissao);
+      if (d.getFullYear() !== year) return;
+      buckets[d.getMonth()].kg += Number(r.peso_kg ?? 0);
+      buckets[d.getMonth()].m3 += Number(r.volume_m3 ?? 0);
     });
-    return buckets.map((b) => ({ ...b, value: Math.round(b.value) }));
+    return buckets.map((b) => ({
+      ...b,
+      kg: Math.round(b.kg),
+      m3: Math.round(b.m3 * 100) / 100,
+    }));
   }, [data, year]);
 
   const licencasCidades = useMemo(() => {
@@ -202,7 +222,7 @@ const DestinoFinalDashboard = () => {
                   <stat.icon className="h-4 w-4 text-primary" />
                 </div>
               </div>
-              <p className="text-2xl font-bold tracking-tight text-foreground">{stat.value}</p>
+              <p className="text-lg sm:text-xl font-bold tracking-tight text-foreground break-words">{stat.value}</p>
               <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mt-1 leading-tight">{stat.label}</p>
             </CardContent>
           </Card>
@@ -238,15 +258,16 @@ const DestinoFinalDashboard = () => {
 
         <Card className="border-none shadow-sm">
           <CardHeader className="pb-4">
-            <CardTitle className="text-lg">Resíduos tratados por mês (kg)</CardTitle>
-            <CardDescription className="text-sm">Peso total de resíduos processados no período</CardDescription>
+            <CardTitle className="text-lg">Resíduos tratados por mês</CardTitle>
+            <CardDescription className="text-sm">Peso (kg) e volume (m³) processados no período</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={residuosMes}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.1} stroke="hsl(var(--muted-foreground))" />
                 <XAxis dataKey="name" tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} dy={10} />
-                <YAxis tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} width={30} />
+                <YAxis yAxisId="kg" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} width={40} />
+                <YAxis yAxisId="m3" orientation="right" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} width={40} />
                 <Tooltip
                   contentStyle={{
                     backgroundColor: "hsl(var(--card))",
@@ -255,7 +276,9 @@ const DestinoFinalDashboard = () => {
                     boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)"
                   }}
                 />
-                <Bar dataKey="value" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                <Legend wrapperStyle={{ fontSize: 12 }} />
+                <Bar yAxisId="kg" dataKey="kg" name="Peso (kg)" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                <Bar yAxisId="m3" dataKey="m3" name="Volume (m³)" fill="hsl(155, 45%, 55%)" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
