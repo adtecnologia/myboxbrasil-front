@@ -44,6 +44,7 @@ interface LicenseDoc {
   file_path?: string;
   expiry?: string;
   status?: "aguardando_validacao" | "aceito" | "negado";
+  motivo_recusa?: string | null;
 }
 
 interface CityConfig {
@@ -51,6 +52,8 @@ interface CityConfig {
   name: string;
   state: string;
   licenses: LicenseDoc[];
+  status_prefeitura?: string | null;
+  motivo_prefeitura?: string | null;
 }
 
 const Configuracoes = () => {
@@ -72,6 +75,32 @@ const Configuracoes = () => {
   });
   const setPref = <K extends keyof typeof prefs>(k: K, v: (typeof prefs)[K]) =>
     setPrefs((p) => ({ ...p, [k]: v }));
+
+  const [adminSettings, setAdminSettings] = useState({
+    aprovacao_automatica: false,
+    logs_auditoria: true,
+    manutencao_sistema: false,
+  });
+  const setAdmin = <K extends keyof typeof adminSettings>(k: K, v: (typeof adminSettings)[K]) =>
+    setAdminSettings((p) => ({ ...p, [k]: v }));
+
+  useEffect(() => {
+    if (role !== "admin") return;
+    (async () => {
+      const { data } = await supabase
+        .from("system_settings")
+        .select("aprovacao_automatica, logs_auditoria, manutencao_sistema")
+        .eq("singleton", true)
+        .maybeSingle();
+      if (data) {
+        setAdminSettings({
+          aprovacao_automatica: data.aprovacao_automatica ?? false,
+          logs_auditoria: data.logs_auditoria ?? true,
+          manutencao_sistema: data.manutencao_sistema ?? false,
+        });
+      }
+    })();
+  }, [role]);
 
   useEffect(() => {
     if (!userId) return;
@@ -186,7 +215,7 @@ const Configuracoes = () => {
     (async () => {
       const { data: cidades, error: e1 } = await supabase
         .from("licenca_cidade")
-        .select("id, estado, cidade")
+        .select("id, estado, cidade, status_prefeitura, motivo_prefeitura")
         .eq("user_id", userId);
       if (e1) {
         toast.error("Erro ao carregar cidades: " + e1.message);
@@ -196,7 +225,7 @@ const Configuracoes = () => {
       const { data: docs } = ids.length
         ? await supabase
             .from("documentos_licenca_cidade")
-            .select("id, licenca_cidade_id, nome, data_vencimento, arquivo_path, status")
+            .select("id, licenca_cidade_id, nome, data_vencimento, arquivo_path, status, motivo_recusa")
             .in("licenca_cidade_id", ids)
         : { data: [] as any[] };
       setSelectedCities(
@@ -204,6 +233,8 @@ const Configuracoes = () => {
           id: c.id,
           name: c.cidade,
           state: c.estado,
+          status_prefeitura: (c as { status_prefeitura?: string | null }).status_prefeitura ?? null,
+          motivo_prefeitura: (c as { motivo_prefeitura?: string | null }).motivo_prefeitura ?? null,
           licenses: (docs ?? [])
             .filter((d: any) => d.licenca_cidade_id === c.id)
             .map((d: any) => ({
@@ -213,6 +244,7 @@ const Configuracoes = () => {
               file_path: d.arquivo_path ?? undefined,
               file: d.arquivo_path ? d.arquivo_path.split("/").pop() : undefined,
               status: d.status ?? "aguardando_validacao",
+              motivo_recusa: d.motivo_recusa ?? null,
             })),
         }))
       );
@@ -268,6 +300,18 @@ const Configuracoes = () => {
         }
       }
     }
+
+    if (role === "admin") {
+      const { error: eAdmin } = await supabase
+        .from("system_settings")
+        .update(adminSettings)
+        .eq("singleton", true);
+      if (eAdmin) {
+        toast.error("Erro ao salvar administração: " + eAdmin.message);
+        return;
+      }
+    }
+
     toast.success("Configurações salvas com sucesso!");
   };
 
@@ -341,6 +385,28 @@ const Configuracoes = () => {
     setSelectedCities(prev => prev.filter(c => c.id !== city.id));
   };
 
+  const resetCityStatus = async (cityId: string) => {
+    const { error } = await supabase
+      .from("licenca_cidade")
+      .update({
+        status_prefeitura: "aguardando_validacao",
+        motivo_prefeitura: null,
+        validado_em: null,
+        validado_por: null,
+      })
+      .eq("id", cityId);
+    if (error) {
+      toast.error("Erro ao atualizar status: " + error.message);
+      return;
+    }
+    setSelectedCities(prev => prev.map(c =>
+      c.id === cityId ? { ...c, status_prefeitura: "aguardando_validacao", motivo_prefeitura: null } : c
+    ));
+    setManageCity(prev => prev && prev.id === cityId
+      ? { ...prev, status_prefeitura: "aguardando_validacao", motivo_prefeitura: null }
+      : prev);
+  };
+
   const addLicense = async (cityName: string, state: string) => {
     if (!userId) return;
     const city = selectedCities.find(c => c.name === cityName && c.state === state);
@@ -356,17 +422,19 @@ const Configuracoes = () => {
       c.id === city.id ? { ...c, licenses: [...c.licenses, newLicense] } : c
     ));
     setManageCity(prev => prev ? { ...prev, licenses: [...prev.licenses, newLicense] } : prev);
+    await resetCityStatus(city.id);
   };
 
   const updateLicense = async (cityName: string, state: string, licenseId: string, field: keyof LicenseDoc, value: string) => {
+    const city = selectedCities.find(c => c.name === cityName && c.state === state);
     setSelectedCities(prev => prev.map(c =>
       c.name === cityName && c.state === state
-        ? { ...c, licenses: c.licenses.map(l => l.id === licenseId ? { ...l, [field]: value } : l) }
+        ? { ...c, licenses: c.licenses.map(l => l.id === licenseId ? { ...l, [field]: value, status: "aguardando_validacao", motivo_recusa: null } : l) }
         : c
     ));
     setManageCity(prev => prev && prev.name === cityName ? {
       ...prev,
-      licenses: prev.licenses.map(l => l.id === licenseId ? { ...l, [field]: value } : l)
+      licenses: prev.licenses.map(l => l.id === licenseId ? { ...l, [field]: value, status: "aguardando_validacao", motivo_recusa: null } : l)
     } : prev);
     const dbField =
       field === "name" ? "nome" :
@@ -375,17 +443,21 @@ const Configuracoes = () => {
     if (!dbField) return;
     const val = value === "" ? null : value;
     const payload =
-      dbField === "nome" ? { nome: val as string | null } :
-      dbField === "data_vencimento" ? { data_vencimento: val as string | null } :
-      { status: val as "aguardando_validacao" | "aceito" | "negado" };
+      dbField === "nome"
+        ? { nome: val as string | null, status: "aguardando_validacao" as const, motivo_recusa: null }
+        : dbField === "data_vencimento"
+        ? { data_vencimento: val as string | null, status: "aguardando_validacao" as const, motivo_recusa: null }
+        : { status: val as "aguardando_validacao" | "aceito" | "negado" };
     const { error } = await supabase
       .from("documentos_licenca_cidade")
       .update(payload)
       .eq("id", licenseId);
     if (error) toast.error("Erro ao salvar: " + error.message);
+    if (city?.id && dbField !== "status") await resetCityStatus(city.id);
   };
 
   const removeLicense = async (cityName: string, state: string, licenseId: string) => {
+    const city = selectedCities.find(c => c.name === cityName && c.state === state);
     const { error } = await supabase.from("documentos_licenca_cidade").delete().eq("id", licenseId);
     if (error) return toast.error("Erro ao remover documento: " + error.message);
     setSelectedCities(prev => prev.map(c =>
@@ -397,6 +469,7 @@ const Configuracoes = () => {
       ...prev,
       licenses: prev.licenses.filter(l => l.id !== licenseId)
     } : prev);
+    if (city?.id) await resetCityStatus(city.id);
   };
 
   const triggerFileUpload = (licenseId: string) => {
@@ -417,18 +490,20 @@ const Configuracoes = () => {
     if (upErr) return toast.error("Erro ao enviar arquivo: " + upErr.message);
     const { error } = await supabase
       .from("documentos_licenca_cidade")
-      .update({ arquivo_path: path })
+      .update({ arquivo_path: path, status: "aguardando_validacao", motivo_recusa: null })
       .eq("id", licId);
     if (error) return toast.error("Erro ao salvar arquivo: " + error.message);
     setSelectedCities(prev => prev.map(c =>
       c.name === manageCity.name && c.state === manageCity.state
-        ? { ...c, licenses: c.licenses.map(l => l.id === licId ? { ...l, file: file.name, file_path: path } : l) }
+        ? { ...c, licenses: c.licenses.map(l => l.id === licId ? { ...l, file: file.name, file_path: path, status: "aguardando_validacao", motivo_recusa: null } : l) }
         : c
     ));
     setManageCity(prev => prev ? {
       ...prev,
-      licenses: prev.licenses.map(l => l.id === licId ? { ...l, file: file.name, file_path: path } : l)
+      licenses: prev.licenses.map(l => l.id === licId ? { ...l, file: file.name, file_path: path, status: "aguardando_validacao", motivo_recusa: null } : l)
     } : prev);
+    const cityId = manageCity.id;
+    if (cityId) await resetCityStatus(cityId);
   };
 
   const toggleWaste = (label: string) => {
@@ -514,21 +589,21 @@ const Configuracoes = () => {
                     title="Aprovação Automática" 
                     description="Aprovar novos cadastros de usuários automaticamente"
                   >
-                    <Switch />
+                    <Switch checked={adminSettings.aprovacao_automatica} onCheckedChange={(v) => setAdmin("aprovacao_automatica", v)} />
                   </ConfigField>
                   <Separator />
                   <ConfigField 
                     title="Logs de Auditoria" 
                     description="Manter registro detalhado de todas as ações dos usuários"
                   >
-                    <Switch defaultChecked />
+                    <Switch checked={adminSettings.logs_auditoria} onCheckedChange={(v) => setAdmin("logs_auditoria", v)} />
                   </ConfigField>
                   <Separator />
                   <ConfigField 
                     title="Manutenção do Sistema" 
                     description="Ativar modo de manutenção (apenas admins podem logar)"
                   >
-                    <Switch />
+                    <Switch checked={adminSettings.manutencao_sistema} onCheckedChange={(v) => setAdmin("manutencao_sistema", v)} />
                   </ConfigField>
                 </div>
               </AccordionContent>
@@ -641,13 +716,13 @@ const Configuracoes = () => {
                                     return { label: "Aguardando validação", cls: "bg-amber-100 text-amber-700 border-amber-200" };
                                 }
                               };
-                              const cityStatus = !hasDocs
-                                ? { label: "Sem documentos", cls: "bg-muted text-muted-foreground border-border" }
-                                : city.licenses.some((l) => l.status === "negado")
-                                ? { label: "Não aprovada", cls: "bg-red-100 text-red-700 border-red-200" }
-                                : city.licenses.every((l) => l.status === "aceito")
+                              const cityStatus = city.status_prefeitura === "validado"
                                 ? { label: "Aprovada", cls: "bg-emerald-100 text-emerald-700 border-emerald-200" }
-                                : { label: "Em análise", cls: "bg-amber-100 text-amber-700 border-amber-200" };
+                                : city.status_prefeitura === "rejeitado"
+                                ? { label: "Não aprovada", cls: "bg-red-100 text-red-700 border-red-200" }
+                                : !hasDocs
+                                ? { label: "Sem documentos", cls: "bg-muted text-muted-foreground border-border" }
+                                : { label: "Aguardando validação", cls: "bg-amber-100 text-amber-700 border-amber-200" };
                               return (
                                 <Fragment key={`${city.state}-${city.name}`}>
                                 <TableRow className="hover:bg-muted/30">
@@ -947,16 +1022,35 @@ const Configuracoes = () => {
       <Dialog open={!!manageCity} onOpenChange={(open) => !open && setManageCity(null)}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <MapPin className="h-4 w-4 text-primary" />
+            <DialogTitle>
               Licenças - {manageCity?.name} / {manageCity?.state}
             </DialogTitle>
-            <DialogDescription>
-              Adicione todos os documentos exigidos para operar nesta cidade.
-            </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+          <div className="p-6 space-y-3 max-h-[60vh] overflow-y-auto">
+            <p className="text-sm text-muted-foreground">
+              Adicione todos os documentos exigidos para operar nesta cidade.
+            </p>
+            {manageCity?.status_prefeitura === "validado" && manageCity?.motivo_prefeitura && (
+              <div className="rounded-md border border-emerald-200 bg-emerald-50 dark:bg-emerald-500/10 dark:border-emerald-500/30 p-3">
+                <p className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">
+                  Locador aprovado pela prefeitura
+                </p>
+                <p className="text-xs text-emerald-800 dark:text-emerald-300 mt-1 whitespace-pre-wrap">
+                  {manageCity.motivo_prefeitura}
+                </p>
+              </div>
+            )}
+            {manageCity?.status_prefeitura === "rejeitado" && manageCity?.motivo_prefeitura && (
+              <div className="rounded-md border border-red-200 bg-red-50 dark:bg-red-500/10 dark:border-red-500/30 p-3">
+                <p className="text-[11px] font-semibold text-red-700 dark:text-red-400 uppercase tracking-wide">
+                  Locador rejeitado pela prefeitura
+                </p>
+                <p className="text-xs text-red-800 dark:text-red-300 mt-1 whitespace-pre-wrap">
+                  {manageCity.motivo_prefeitura}
+                </p>
+              </div>
+            )}
             {manageCity?.licenses.length === 0 && (
               <div className="text-center py-8 border-2 border-dashed border-border rounded-lg bg-muted/20">
                 <FileText className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
@@ -966,7 +1060,18 @@ const Configuracoes = () => {
             {manageCity?.licenses.map((lic, idx) => (
               <div key={lic.id} className="border border-border rounded-lg p-4 space-y-3 bg-muted/20">
                 <div className="flex items-center justify-between">
-                  <Badge variant="secondary" className="text-[10px]">Documento #{idx + 1}</Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="text-[10px]">Documento #{idx + 1}</Badge>
+                    {lic.status === "aceito" && (
+                      <Badge variant="outline" className="text-[10px] h-5 px-1.5 bg-emerald-100 text-emerald-700 border-emerald-200">Aceito</Badge>
+                    )}
+                    {lic.status === "negado" && (
+                      <Badge variant="outline" className="text-[10px] h-5 px-1.5 bg-red-100 text-red-700 border-red-200">Negado</Badge>
+                    )}
+                    {(!lic.status || lic.status === "aguardando_validacao") && (
+                      <Badge variant="outline" className="text-[10px] h-5 px-1.5 bg-amber-100 text-amber-700 border-amber-200">Aguardando validação</Badge>
+                    )}
+                  </div>
                   <Button
                     type="button"
                     variant="ghost"
@@ -977,6 +1082,25 @@ const Configuracoes = () => {
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </div>
+
+                {lic.motivo_recusa && (lic.status === "aceito" || lic.status === "negado") && (
+                  <div className={`rounded-md border p-2.5 ${
+                    lic.status === "aceito"
+                      ? "border-emerald-200 bg-emerald-50 dark:bg-emerald-500/10 dark:border-emerald-500/30"
+                      : "border-red-200 bg-red-50 dark:bg-red-500/10 dark:border-red-500/30"
+                  }`}>
+                    <p className={`text-[10px] font-semibold uppercase tracking-wide ${
+                      lic.status === "aceito" ? "text-emerald-700 dark:text-emerald-400" : "text-red-700 dark:text-red-400"
+                    }`}>
+                      {lic.status === "aceito" ? "Observação da validação" : "Motivo da recusa"}
+                    </p>
+                    <p className={`text-xs mt-1 whitespace-pre-wrap ${
+                      lic.status === "aceito" ? "text-emerald-800 dark:text-emerald-300" : "text-red-800 dark:text-red-300"
+                    }`}>
+                      {lic.motivo_recusa}
+                    </p>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div className="space-y-1.5">

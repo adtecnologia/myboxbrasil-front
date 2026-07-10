@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthStore } from "@/stores/useAuthStore";
@@ -44,6 +44,7 @@ import {
 } from "@/components/ui/dialog";
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from "react-leaflet";
 import L from "leaflet";
+import { useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 
 // Fix default marker icons
@@ -86,7 +87,8 @@ type Ponto = {
   cliente: string;
   endereco: string;
   tipo: string;
-  posicao: [number, number];
+  posicao: [number, number] | null;
+  enderecoQueries: string[];
 };
 
 type Rota = {
@@ -101,13 +103,49 @@ type Rota = {
   itinerario: Ponto[];
 };
 
-function posDe(id: string): [number, number] {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
-  const lat = -23.55 + ((h % 1000) / 1000) * 0.1 - 0.05;
-  const lng = -46.64 + (((h >> 10) % 1000) / 1000) * 0.1 - 0.05;
-  return [lat, lng];
+// Nominatim geocoder com cache em memória
+const geocodeCache = new Map<string, [number, number] | null>();
+async function geocodeAddress(query: string): Promise<[number, number] | null> {
+  const key = query.trim().toLowerCase();
+  if (!key) return null;
+  if (geocodeCache.has(key)) return geocodeCache.get(key) ?? null;
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`,
+      { headers: { Accept: "application/json" } },
+    );
+    const data = await res.json();
+    if (Array.isArray(data) && data[0]) {
+      const pos: [number, number] = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+      geocodeCache.set(key, pos);
+      return pos;
+    }
+  } catch {}
+  geocodeCache.set(key, null);
+  return null;
 }
+
+const MapAutoFit = ({ center, positions }: { center: [number, number]; positions: [number, number][] }) => {
+  const map = useMap();
+  useEffect(() => {
+    if (!map) return;
+    if (positions.length === 1) map.setView(positions[0], 14);
+    else if (positions.length > 1) {
+      const bounds = L.latLngBounds(positions.map(p => L.latLng(p[0], p[1])));
+      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
+    } else map.setView(center, 12);
+  }, [map, center, positions]);
+  return null;
+};
+
+const MapFlyTo = ({ target }: { target: { pos: [number, number]; key: string } | null }) => {
+  const map = useMap();
+  useEffect(() => {
+    if (!map || !target) return;
+    map.flyTo(target.pos, 17, { duration: 0.8 });
+  }, [map, target]);
+  return null;
+};
 
 function useRotasAgendadas() {
   const user = useAuthStore((s) => s.user);
@@ -198,12 +236,25 @@ function useRotasAgendadas() {
             ]
               .filter(Boolean)
               .join(" - ");
+            const fullQuery = [
+              [obra.rua, obra.numero].filter(Boolean).join(", "),
+              obra.bairro,
+              obra.cidade,
+              obra.estado,
+              "Brasil",
+            ].filter(Boolean).join(", ");
+            const enderecoQueries = [
+              fullQuery,
+              [obra.bairro, obra.cidade, obra.estado, "Brasil"].filter(Boolean).join(", "),
+              [obra.cidade, obra.estado, "Brasil"].filter(Boolean).join(", "),
+            ].filter((v, i, a) => v && a.indexOf(v) === i);
             return {
               id: it.id,
               cliente: (locId && nomes.get(locId)) ?? "Cliente",
               endereco: endereco || "—",
               tipo: it.tipo,
-              posicao: posDe(it.id),
+              posicao: null,
+              enderecoQueries,
             };
           }),
         };
@@ -220,6 +271,68 @@ const RotasAgendadas = () => {
   const [rotaToCancel, setRotaToCancel] = useState<Rota | null>(null);
   const [motivoCancelamento, setMotivoCancelamento] = useState("");
   const queryClient = useQueryClient();
+  const user = useAuthStore((s) => s.user);
+  const activeProfile = useAuthStore(
+    (s) => s.activeProfile() ?? s.user?.profiles[0] ?? null,
+  );
+  const rawTenant = activeProfile?.tenantId;
+  const locadorId = rawTenant && rawTenant !== "self" ? rawTenant : user?.id;
+  const [mapCenter, setMapCenter] = useState<[number, number]>([-15.7801, -47.9292]);
+  const [geocodedPos, setGeocodedPos] = useState<Record<string, [number, number]>>({});
+  const [focusedItem, setFocusedItem] = useState<{ pos: [number, number]; key: string } | null>(null);
+
+  // Reset foco ao trocar de rota
+  useEffect(() => {
+    setFocusedItem(null);
+  }, [selectedRoute?.id]);
+
+  // Centro do mapa = endereço do locador logado
+  useEffect(() => {
+    if (!locadorId) return;
+    (async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("logradouro, numero, bairro, cidade, estado")
+        .eq("id", locadorId)
+        .maybeSingle();
+      if (!data) return;
+      const q = [
+        [data.logradouro, data.numero].filter(Boolean).join(", "),
+        data.bairro,
+        data.cidade,
+        data.estado,
+        "Brasil",
+      ].filter(Boolean).join(", ");
+      if (!q) return;
+      const pos = await geocodeAddress(q);
+      if (pos) setMapCenter(pos);
+    })();
+  }, [locadorId]);
+
+  // Geocodifica pontos da rota selecionada
+  useEffect(() => {
+    if (!selectedRoute) return;
+    selectedRoute.itinerario.forEach((p) => {
+      if (geocodedPos[p.id]) return;
+      (async () => {
+        for (const q of p.enderecoQueries) {
+          if (!q) continue;
+          const pos = await geocodeAddress(q);
+          if (pos) {
+            setGeocodedPos((prev) => (prev[p.id] ? prev : { ...prev, [p.id]: pos }));
+            return;
+          }
+        }
+      })();
+    });
+  }, [selectedRoute, geocodedPos]);
+
+  const routePositions = useMemo(() => {
+    if (!selectedRoute) return [] as [number, number][];
+    return selectedRoute.itinerario
+      .map((p) => geocodedPos[p.id])
+      .filter(Boolean) as [number, number][];
+  }, [selectedRoute, geocodedPos]);
 
   const cancelMutation = useMutation({
     mutationFn: async ({ id, motivo }: { id: string; motivo: string }) => {
@@ -383,23 +496,19 @@ const RotasAgendadas = () => {
 
       <Dialog open={!!selectedRoute} onOpenChange={(open) => !open && setSelectedRoute(null)}>
         <DialogContent className="sm:max-w-[900px] p-0 overflow-hidden flex flex-col h-[90vh]">
-          <DialogHeader className="p-6 pb-2 border-b">
-            <div className="flex items-center justify-between">
-              <div>
-                <DialogTitle className="text-xl font-bold flex items-center gap-2">
-                  <Navigation className="h-5 w-5 text-primary" />
-                  Roteiro da Rota: {selectedRoute?.nome}
-                </DialogTitle>
-                <DialogDescription>
-                  {selectedRoute?.data} • {selectedRoute?.motorista} • {selectedRoute?.veiculo}
-                </DialogDescription>
-              </div>
-            </div>
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              <Navigation className="h-5 w-5" />
+              Roteiro da Rota: {selectedRoute?.nome}
+            </DialogTitle>
           </DialogHeader>
 
           <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
             {/* Itinerary List */}
             <div className="w-full md:w-80 border-r overflow-y-auto p-4 space-y-4 bg-muted/20">
+              <p className="text-xs text-muted-foreground">
+                {selectedRoute?.data} • {selectedRoute?.motorista} • {selectedRoute?.veiculo}
+              </p>
               <div className="flex items-center gap-2 mb-4">
                 <Badge className="bg-primary/10 text-primary border-0 font-bold">{selectedRoute?.itinerario.length} Pontos</Badge>
                 <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Sequência da Rota</span>
@@ -414,7 +523,19 @@ const RotasAgendadas = () => {
                     <div className="absolute left-0 top-1 h-6 w-6 rounded-full bg-primary text-white flex items-center justify-center text-[10px] font-bold border-2 border-white shadow-sm">
                       {idx + 1}
                     </div>
-                    <div className="bg-white p-3 rounded-lg border shadow-sm group hover:border-primary transition-colors cursor-default">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const pos = geocodedPos[item.id];
+                        if (pos) setFocusedItem({ pos, key: `${item.id}-${Date.now()}` });
+                      }}
+                      disabled={!geocodedPos[item.id]}
+                      className={`w-full text-left bg-white p-3 rounded-lg border shadow-sm transition-colors ${
+                        focusedItem && geocodedPos[item.id] && focusedItem.pos === geocodedPos[item.id]
+                          ? "border-primary ring-2 ring-primary/30"
+                          : "hover:border-primary"
+                      } ${!geocodedPos[item.id] ? "opacity-60 cursor-not-allowed" : "cursor-pointer"}`}
+                    >
                       <div className="flex items-center justify-between mb-1">
                         <h4 className="font-bold text-xs truncate">{item.cliente}</h4>
                         <Badge variant="outline" className={`text-[9px] px-1 h-4 ${item.tipo === "Entrega" ? "text-blue-500 border-blue-200" : "text-orange-500 border-orange-200"}`}>
@@ -425,7 +546,7 @@ const RotasAgendadas = () => {
                         <MapPin className="h-3 w-3 mt-0.5 shrink-0" />
                         <span className="line-clamp-2">{item.endereco}</span>
                       </p>
-                    </div>
+                    </button>
                   </div>
                 ))}
               </div>
@@ -452,34 +573,42 @@ const RotasAgendadas = () => {
 
             {/* Map */}
             <div className="flex-1 relative min-h-[300px]">
-              {selectedRoute && selectedRoute.itinerario.length > 0 && (
+              {selectedRoute && (
                 <MapContainer 
-                  center={selectedRoute.itinerario[0].posicao} 
-                  zoom={13} 
+                  center={mapCenter}
+                  zoom={12}
                   className="h-full w-full"
                 >
                   <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                  {selectedRoute.itinerario.map((item, idx) => (
-                    <Marker 
-                      key={item.id} 
-                      position={item.posicao} 
-                      icon={createSequenceIcon(idx + 1)}
-                    >
-                      <Popup>
-                        <div className="p-1">
-                          <p className="font-bold text-sm">{item.cliente}</p>
-                          <p className="text-xs text-muted-foreground">{item.endereco}</p>
-                        </div>
-                      </Popup>
-                    </Marker>
-                  ))}
-                  <Polyline 
-                    positions={selectedRoute.itinerario.map(i => i.posicao)} 
-                    color="#3b82f6" 
-                    weight={4} 
-                    opacity={0.6} 
-                    dashArray="10, 10" 
-                  />
+                  <MapAutoFit center={mapCenter} positions={routePositions} />
+                  <MapFlyTo target={focusedItem} />
+                  {selectedRoute.itinerario.map((item, idx) => {
+                    const pos = geocodedPos[item.id];
+                    if (!pos) return null;
+                    return (
+                      <Marker
+                        key={item.id}
+                        position={pos}
+                        icon={createSequenceIcon(idx + 1)}
+                      >
+                        <Popup>
+                          <div className="p-1">
+                            <p className="font-bold text-sm">{item.cliente}</p>
+                            <p className="text-xs text-muted-foreground">{item.endereco}</p>
+                          </div>
+                        </Popup>
+                      </Marker>
+                    );
+                  })}
+                  {routePositions.length > 1 && (
+                    <Polyline
+                      positions={routePositions}
+                      color="#3b82f6"
+                      weight={4}
+                      opacity={0.6}
+                      dashArray="10, 10"
+                    />
+                  )}
                 </MapContainer>
               )}
             </div>

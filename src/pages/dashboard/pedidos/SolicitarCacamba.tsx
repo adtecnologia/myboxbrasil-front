@@ -16,7 +16,8 @@ import {
   Globe,
   Home,
   Search,
-  Minus
+  Minus,
+  CalendarDays
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -57,10 +58,12 @@ const SolicitarCacamba = () => {
   
   const [obras, setObras] = useState<{ id: string; nome: string; endereco: string }[]>([]);
   const [modelosCacamba, setModelosCacamba] = useState<{ id: string; label: string; modelo: string; description: string; preco: number; popular: boolean }[]>([]);
+  const [disponiveisPorModelo, setDisponiveisPorModelo] = useState<Record<string, number>>({});
   const [residuos, setResiduos] = useState<{ id: string; label: string; icon: string }[]>([]);
   const [locadores, setLocadores] = useState<{ id: string; nome: string; rating: number; reviews: number; logo: string }[]>([]);
   const [categories, setCategories] = useState<{ id: string; label: string; icon: string; nome: string }[]>([]);
-  const [cacambasDisponiveis, setCacambasDisponiveis] = useState<{ id: string; nome: string; locador: string; locador_id: string; modelo: string; tipo_locacao: string; status: string; price: string; precoNumber: number; residuos: string[] }[]>([]);
+  const [cacambasDisponiveis, setCacambasDisponiveis] = useState<{ id: string; nome: string; locador: string; locador_id: string; modelo: string; tipo_locacao: string; status: string; price: string; precoNumber: number; residuos: string[]; dias_externo: number; dias_interno: number }[]>([]);
+  const [loadingCacambas, setLoadingCacambas] = useState(false);
   const [equipamentosDisponiveis, setEquipamentosDisponiveis] = useState<{ id: string; nome: string; locador: string; locador_id: string; tipo_equipamento: string; status: string; price: string }[]>([]);
 
   const initialsFrom = (n: string) => n.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase();
@@ -96,6 +99,41 @@ const SolicitarCacamba = () => {
         preco: Number(m.preco_minimo) || 0,
         popular: false,
       })));
+    })();
+  }, []);
+
+  // Compute available units per modelo (disponivel=true, sem manutenção e sem OLU ativa)
+  useEffect(() => {
+    (async () => {
+      const ATIVOS = [
+        "entrega_pendente",
+        "em_transito_locacao",
+        "locada",
+        "aguardando_retirada",
+        "em_transito_retirada",
+        "em_transito_analise",
+        "aguardando_analise",
+      ];
+      const [{ data: unidades }, { data: olus }] = await Promise.all([
+        supabase
+          .from("cacamba_unidades")
+          .select("id, cacamba_id, disponivel, manutencao, cacambas!inner(modelo)")
+          .eq("disponivel", true)
+          .eq("manutencao", false),
+        supabase
+          .from("ordem_locacao_unidades")
+          .select("cacamba_unidade_id, status")
+          .in("status", ATIVOS),
+      ]);
+      const ocupadas = new Set((olus ?? []).map((o: any) => o.cacamba_unidade_id));
+      const counts: Record<string, number> = {};
+      (unidades ?? []).forEach((u: any) => {
+        if (ocupadas.has(u.id)) return;
+        const modeloId = u.cacambas?.modelo;
+        if (!modeloId) return;
+        counts[modeloId] = (counts[modeloId] ?? 0) + 1;
+      });
+      setDisponiveisPorModelo(counts);
     })();
   }, []);
 
@@ -159,9 +197,10 @@ const SolicitarCacamba = () => {
   useEffect(() => {
     if (equipmentType !== "cacamba" || step < 7) return;
     (async () => {
+      setLoadingCacambas(true);
       const { data, error } = await supabase
         .from("cacambas")
-        .select("id, locador_id, modelo, tipo_locacao, preco_externo, preco_interno");
+        .select("id, locador_id, modelo, tipo_locacao, preco_externo, preco_interno, dias_externo, dias_interno");
       if (error) {
         toast.error("Erro ao carregar caçambas: " + error.message);
       }
@@ -186,8 +225,11 @@ const SolicitarCacamba = () => {
           price: fmtBRL(preco),
           precoNumber: preco,
           residuos: [],
+          dias_externo: Number(c.dias_externo) || 0,
+          dias_interno: Number(c.dias_interno) || 0,
         };
       }));
+      setLoadingCacambas(false);
     })();
   }, [step, equipmentType, selectedModelo, selectedLocador, locacaoType, selectedResiduos, modelosCacamba]);
 
@@ -348,6 +390,20 @@ const SolicitarCacamba = () => {
                           <Globe className="h-5 w-5 text-primary shrink-0" />
                           <span className="text-sm font-medium">Locação: <span className="capitalize">{locacaoType || "Padrão"}</span></span>
                         </div>
+                        <div className="flex items-center gap-3">
+                          <CalendarDays className="h-5 w-5 text-primary shrink-0" />
+                          <span className="text-sm font-medium">
+                            Prazo de locação:{" "}
+                            <span className="font-bold">
+                              {(() => {
+                                const dias = locacaoType === "externa"
+                                  ? selectedProduct.dias_externo
+                                  : selectedProduct.dias_interno;
+                                return dias > 0 ? `${dias} ${dias === 1 ? "dia" : "dias"}` : "Não informado";
+                              })()}
+                            </span>
+                          </span>
+                        </div>
                         <div className="flex items-start gap-3">
                           <CheckCircle2 className="h-5 w-5 text-primary shrink-0 mt-0.5" />
                           <div className="text-sm">
@@ -453,6 +509,12 @@ const SolicitarCacamba = () => {
                           obra_id: selectedObra || null,
                           quantidade: quantity,
                           preco_unitario: priceNumber,
+                          tipo_locacao: isCacamba ? (locacaoType || null) : null,
+                          dias_locacao: isCacamba
+                            ? (locacaoType === "externa"
+                                ? Number(selectedProduct.dias_externo) || null
+                                : Number(selectedProduct.dias_interno) || null)
+                            : null,
                         });
                       if (itemErr) {
                         toast.error("Erro ao adicionar item: " + itemErr.message);
@@ -705,14 +767,21 @@ const SolicitarCacamba = () => {
               />
 
               <div className="grid gap-6">
-                {modelosCacamba.map(m => (
+                {modelosCacamba.map(m => {
+                  const disp = disponiveisPorModelo[m.id] ?? 0;
+                  const indisponivel = disp === 0;
+                  return (
                   <Card 
                     key={m.id}
                     className={cn(
-                      "cursor-pointer transition-all hover:border-primary border-2 rounded-2xl group",
+                      "transition-all border-2 rounded-2xl group",
+                      indisponivel
+                        ? "opacity-60 cursor-not-allowed border-border"
+                        : "cursor-pointer hover:border-primary",
                       selectedModelo === m.id ? "border-primary bg-primary/5 ring-4 ring-primary/10" : "border-border"
                     )}
                     onClick={() => {
+                        if (indisponivel) return;
                         setSelectedModelo(m.id);
                         nextStep();
                     }}
@@ -728,6 +797,9 @@ const SolicitarCacamba = () => {
                             {m.popular && <span className="bg-primary/10 text-primary text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider border border-primary/20">Mais pedido</span>}
                           </div>
                           <p className="text-muted-foreground font-medium">{m.description}</p>
+                          <p className={cn("text-xs font-bold mt-1", indisponivel ? "text-destructive" : "text-primary")}>
+                            {indisponivel ? "Nenhum disponível" : `${disp} ${disp === 1 ? "disponível" : "disponíveis"}`}
+                          </p>
                         </div>
                       </div>
                       <div className="text-right">
@@ -736,7 +808,8 @@ const SolicitarCacamba = () => {
                       </div>
                     </CardContent>
                   </Card>
-                ))}
+                  );
+                })}
                 
                 <div className="flex flex-col gap-4 mt-6">
                   <Button variant="ghost" className="h-14 rounded-xl text-muted-foreground hover:text-primary" onClick={nextStep}>
@@ -994,12 +1067,29 @@ const SolicitarCacamba = () => {
                 subtitle="Selecione o equipamento ideal para finalizar seu pedido."
               />
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {cacambasDisponiveis.length === 0 && (
+                {loadingCacambas && (
+                  <>
+                    {[0, 1, 2].map(i => (
+                      <Card key={i} className="border-2 rounded-3xl overflow-hidden animate-pulse">
+                        <div className="h-40 bg-muted" />
+                        <CardContent className="p-6 space-y-4">
+                          <div className="h-5 w-2/3 bg-muted rounded" />
+                          <div className="h-4 w-1/2 bg-muted rounded" />
+                          <div className="flex justify-between pt-2">
+                            <div className="h-7 w-24 bg-muted rounded" />
+                            <div className="h-9 w-24 bg-muted rounded-xl" />
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </>
+                )}
+                {!loadingCacambas && cacambasDisponiveis.length === 0 && (
                   <div className="col-span-full text-center py-12 bg-muted/30 rounded-3xl border-2 border-dashed">
                     <p className="text-muted-foreground font-medium">Nenhuma caçamba disponível com os filtros selecionados.</p>
                   </div>
                 )}
-                {cacambasDisponiveis.map(e => (
+                {!loadingCacambas && cacambasDisponiveis.map(e => (
                   <Card key={e.id} className="group border-2 rounded-3xl overflow-hidden hover:shadow-2xl transition-all hover:border-primary/40">
                     <div className="h-40 bg-muted flex items-center justify-center relative">
                         <Trash2 className="h-16 w-16 text-muted-foreground/30 group-hover:scale-110 transition-transform duration-500" />

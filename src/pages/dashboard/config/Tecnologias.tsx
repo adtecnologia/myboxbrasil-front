@@ -76,14 +76,16 @@ const TecnologiasTratamento = () => {
             <DialogHeader>
               <DialogTitle>{editingTech ? "Editar Tecnologia" : "Cadastrar Tecnologia"}</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSave} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="nome">Tratamento (Nome)</Label>
-                <Input id="nome" name="nome" defaultValue={editingTech?.nome} required placeholder="Ex: Incineração" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="descricao">Descrição</Label>
-                <Textarea id="descricao" name="descricao" defaultValue={editingTech?.descricao} required placeholder="Descreva o processo..." />
+            <form onSubmit={handleSave}>
+              <div className="space-y-4 p-6">
+                <div className="space-y-2">
+                  <Label htmlFor="nome">Tratamento (Nome)</Label>
+                  <Input id="nome" name="nome" defaultValue={editingTech?.nome} required placeholder="Ex: Incineração" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="descricao">Descrição</Label>
+                  <Textarea id="descricao" name="descricao" defaultValue={editingTech?.descricao} required placeholder="Descreva o processo..." />
+                </div>
               </div>
               <DialogFooter>
                 <Button type="submit">{editingTech ? "Salvar Alterações" : "Cadastrar"}</Button>

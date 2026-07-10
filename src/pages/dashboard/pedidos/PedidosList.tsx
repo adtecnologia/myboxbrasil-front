@@ -11,7 +11,7 @@ import { StatCard } from "@/components/StatCard";
 import { DataTable } from "@/components/DataTable";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthStore } from "@/stores/useAuthStore";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -392,15 +392,12 @@ const PedidosList = () => {
 
       <Dialog open={!!mapaPedido} onOpenChange={(o) => !o && setMapaPedido(null)}>
         <DialogContent className="max-w-4xl p-0 overflow-hidden">
-          <DialogHeader className="px-5 pt-5">
+          <DialogHeader>
             <DialogTitle>
               Localização — Pedido nº {mapaPedido?.pedidoNumero}/{mapaPedido?.pfNumero}
             </DialogTitle>
-            {mapaPedido?.endereco && (
-              <p className="text-sm text-muted-foreground mt-1">{mapaPedido.endereco}</p>
-            )}
           </DialogHeader>
-          <div className="p-4">
+          <div className="p-6">
             <div className="w-full h-[500px] rounded-md overflow-hidden bg-muted">
               {mapaPedido && (
                 <MapContainer center={[-20.8113, -49.3758]} zoom={14} style={{ height: "100%", width: "100%" }}>
@@ -416,6 +413,11 @@ const PedidosList = () => {
               )}
             </div>
           </div>
+          {mapaPedido?.endereco && (
+            <DialogFooter>
+              <p className="text-sm text-muted-foreground w-full">{mapaPedido.endereco}</p>
+            </DialogFooter>
+          )}
         </DialogContent>
       </Dialog>
     </div>

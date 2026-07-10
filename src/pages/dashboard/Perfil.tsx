@@ -19,6 +19,9 @@ import { useAuthStore } from "@/stores/useAuthStore";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCPF, formatCNPJ, formatCelular, formatTelefone, formatCEP } from "@/lib/auth-utils";
+import Cropper, { type Area } from "react-easy-crop";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Slider } from "@/components/ui/slider";
 
 const normalizeCityName = (value: string) =>
   value
@@ -26,6 +29,24 @@ const normalizeCityName = (value: string) =>
     .replace(/[\u0300-\u036f]/g, "")
     .trim()
     .toLowerCase();
+
+async function getCroppedBlob(src: string, area: { x: number; y: number; width: number; height: number }): Promise<Blob | null> {
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = reject;
+    image.src = src;
+  });
+  const size = Math.min(area.width, area.height);
+  const out = Math.min(size, 512);
+  const canvas = document.createElement("canvas");
+  canvas.width = out;
+  canvas.height = out;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  ctx.drawImage(img, area.x, area.y, area.width, area.height, 0, 0, out, out);
+  return await new Promise((resolve) => canvas.toBlob((b) => resolve(b), "image/jpeg", 0.92));
+}
 
 const Field = ({
   label,
@@ -51,12 +72,17 @@ const Perfil = () => {
   const { user, activeProfile, logout, refreshUser } = useAuthStore();
   const profile = activeProfile();
   const isPrefeitura = profile?.profileType === "prefeitura";
+  const isAdmin = profile?.profileType === "admin";
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [avatarPath, setAvatarPath] = useState<string | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
   const [form, setForm] = useState({
     tipo_pessoa: "juridica" as "fisica" | "juridica",
     nome: "",
@@ -320,12 +346,28 @@ const Perfil = () => {
       toast.error("Imagem muito grande (máx. 5MB).");
       return;
     }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setCropSrc(reader.result as string);
+      setCrop({ x: 0, y: 0 });
+      setZoom(1);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleConfirmCrop = async () => {
+    if (!cropSrc || !croppedAreaPixels || !user?.id) return;
     setUploadingAvatar(true);
-    const ext = file.name.split(".").pop() || "png";
-    const path = `${user.id}/avatar-${Date.now()}.${ext}`;
+    const blob = await getCroppedBlob(cropSrc, croppedAreaPixels);
+    if (!blob) {
+      setUploadingAvatar(false);
+      toast.error("Erro ao processar imagem.");
+      return;
+    }
+    const path = `${user.id}/avatar-${Date.now()}.jpg`;
     const { error: upErr } = await supabase.storage
       .from("avatars")
-      .upload(path, file, { upsert: true, contentType: file.type });
+      .upload(path, blob, { upsert: true, contentType: "image/jpeg" });
     if (upErr) {
       setUploadingAvatar(false);
       toast.error("Erro ao enviar foto: " + upErr.message);
@@ -349,11 +391,13 @@ const Perfil = () => {
     setAvatarPath(path);
     setAvatarUrl(signed?.signedUrl ?? null);
     setUploadingAvatar(false);
+    setCropSrc(null);
     toast.success("Foto atualizada!");
     await refreshUser();
   };
 
   return (
+    <>
     <div className="space-y-6 pb-10">
       <PageHeader title="Meu Perfil" subtitle="Gerencie suas informações pessoais e preferências">
         <Button
@@ -492,22 +536,24 @@ const Perfil = () => {
           </Card>
 
           {/* Card deletar conta */}
-          <Card className="border-none shadow-sm border-l-4 border-l-destructive/60">
-            <CardContent className="p-6">
-              <h4 className="text-sm font-bold text-foreground mb-3">Deletar minha conta</h4>
-              <p className="text-xs text-muted-foreground mb-4">
-                Esta ação é permanente e não poderá ser desfeita.
-              </p>
-              <Button
-                variant="outline"
-                className="w-full text-destructive border-destructive/30 hover:bg-destructive/10 gap-2"
-                onClick={handleDelete}
-              >
-                <Trash2 className="h-4 w-4" />
-                Quero deletar minha conta
-              </Button>
-            </CardContent>
-          </Card>
+          {!isAdmin && (
+            <Card className="border-none shadow-sm border-l-4 border-l-destructive/60">
+              <CardContent className="p-6">
+                <h4 className="text-sm font-bold text-foreground mb-3">Deletar minha conta</h4>
+                <p className="text-xs text-muted-foreground mb-4">
+                  Esta ação é permanente e não poderá ser desfeita.
+                </p>
+                <Button
+                  variant="outline"
+                  className="w-full text-destructive border-destructive/30 hover:bg-destructive/10 gap-2"
+                  onClick={handleDelete}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Quero deletar minha conta
+                </Button>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* ===== Coluna direita ===== */}
@@ -740,6 +786,42 @@ const Perfil = () => {
         </Card>
       </div>
     </div>
+
+      <Dialog open={!!cropSrc} onOpenChange={(o) => !o && !uploadingAvatar && setCropSrc(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Ajustar foto</DialogTitle>
+          </DialogHeader>
+          <div className="p-6 space-y-4">
+            <div className="relative w-full h-72 bg-muted rounded-lg overflow-hidden">
+              {cropSrc && (
+                <Cropper
+                  image={cropSrc}
+                  crop={crop}
+                  zoom={zoom}
+                  aspect={1}
+                  cropShape="round"
+                  showGrid={false}
+                  onCropChange={setCrop}
+                  onZoomChange={setZoom}
+                  onCropComplete={(_, area) => setCroppedAreaPixels(area)}
+                />
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs">Zoom</Label>
+              <Slider value={[zoom]} min={1} max={3} step={0.01} onValueChange={(v) => setZoom(v[0])} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCropSrc(null)} disabled={uploadingAvatar}>Cancelar</Button>
+            <Button onClick={handleConfirmCrop} disabled={uploadingAvatar}>
+              {uploadingAvatar ? "Enviando..." : "Confirmar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 

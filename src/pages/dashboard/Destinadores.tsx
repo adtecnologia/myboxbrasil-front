@@ -18,55 +18,93 @@ import {
 import { useQueryClient, useMutation, useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { usePagination } from "@/components/DataPagination";
 import { DataTable } from "@/components/DataTable";
-import { useEntities, type EntityProfile } from "@/hooks/useEntities";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCPF, formatCNPJ, formatCelular, formatCEP, onlyDigits } from "@/lib/auth-utils";
 import { toast } from "sonner";
-import { useAuthStore } from "@/stores/useAuthStore";
 
 const initials = (n: string) => (n || "").trim().substring(0, 2).toUpperCase() || "DF";
 
+interface Destinador {
+  id: string;
+  nome: string;
+  documento: string;
+  telefone: string;
+  email: string;
+  status: "ativo" | "inativo";
+  avatar_url?: string | null;
+  cidade?: string | null;
+  estado?: string | null;
+}
+
 const Destinadores = () => {
-  const { rows: destinadores, update, loading } = useEntities("destino");
   const [search, setSearch] = useState("");
   const [detailId, setDetailId] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
-  const activeProfileType = useAuthStore((s) => s.activeProfileType());
-  const isAdmin = activeProfileType === "admin";
+
+  const { data: destinadores = [], isLoading } = useQuery({
+    queryKey: ["destinadores", "v2"],
+    queryFn: async (): Promise<Destinador[]> => {
+      const { data: roles, error } = await supabase
+        .from("user_roles")
+        .select("user_id, ativo")
+        .eq("role", "destino");
+      if (error) throw error;
+      const ativoMap = new Map<string, boolean>();
+      (roles ?? []).forEach((r) => {
+        ativoMap.set(r.user_id, (ativoMap.get(r.user_id) ?? false) || !!r.ativo);
+      });
+      const ids = Array.from(ativoMap.keys());
+      if (ids.length === 0) return [];
+      const { data: profiles, error: pErr } = await supabase
+        .from("profiles")
+        .select("id, nome, nome_fantasia, documento, celular, telefone, email, ativo, avatar_url, cidade, estado")
+        .in("id", ids);
+      if (pErr) throw pErr;
+      return (profiles ?? []).map((p) => ({
+        id: p.id,
+        nome: p.nome ?? "",
+        documento: p.documento ?? "",
+        telefone: p.celular ?? p.telefone ?? "",
+        email: p.email ?? "",
+        status: ativoMap.get(p.id) ? "ativo" : "inativo",
+        avatar_url: (p as any).avatar_url ?? null,
+        cidade: (p as any).cidade ?? null,
+        estado: (p as any).estado ?? null,
+      }));
+    },
+  });
 
   const filtered = destinadores.filter((d) =>
     d.nome.toLowerCase().includes(search.toLowerCase()) ||
-    (d.documento ?? "").includes(search)
+    d.documento.includes(search)
   );
 
   const { paginatedData, currentPage, pageSize, setCurrentPage, setPageSize, totalItems } = usePagination(filtered, 10);
 
+  const formatDoc = (v: string) =>
+    onlyDigits(v).length > 11 ? formatCNPJ(v) : formatCPF(v);
+
   const toggleAcesso = useMutation({
-    mutationFn: async (d: EntityProfile) => {
-      const novo = !d.ativo;
+    mutationFn: async (d: Destinador) => {
+      const novo = d.status !== "ativo";
       const { error } = await supabase
         .from("user_roles")
         .update({ ativo: novo })
         .eq("user_id", d.id)
         .eq("role", "destino");
       if (error) throw error;
-      const { error: pErr } = await supabase
-        .from("profiles")
-        .update({ ativo: novo })
-        .eq("id", d.id);
-      if (pErr) throw pErr;
       return novo;
     },
     onSuccess: (novo) => {
       toast.success(novo ? "Acesso ativado" : "Acesso desativado");
-      queryClient.invalidateQueries();
+      queryClient.invalidateQueries({ queryKey: ["destinadores"] });
     },
     onError: (e: any) => toast.error(e.message ?? "Erro ao atualizar acesso"),
   });
@@ -80,10 +118,10 @@ const Destinadores = () => {
         </div>
       </div>
 
-      <DataTable<EntityProfile>
+      <DataTable<Destinador>
         title={`${destinadores.length} destinadores cadastrados`}
         data={paginatedData}
-        loading={loading}
+        loading={isLoading}
         searchValue={search}
         onSearchChange={setSearch}
         columns={[
@@ -97,15 +135,7 @@ const Destinadores = () => {
             ),
           },
           { header: "Nome", accessor: "nome", className: "font-medium" },
-          {
-            header: "Documento",
-            accessor: (d) =>
-              d.documento
-                ? onlyDigits(d.documento).length > 11
-                  ? formatCNPJ(d.documento)
-                  : formatCPF(d.documento)
-                : "—",
-          },
+          { header: "Documento", accessor: (d) => (d.documento ? formatDoc(d.documento) : "—") },
           {
             header: "Cidade",
             accessor: (d) =>
@@ -119,12 +149,12 @@ const Destinadores = () => {
               <Badge
                 variant="outline"
                 className={
-                  d.ativo
+                  d.status === "ativo"
                     ? "bg-green-500/10 text-green-600 border-green-500/20 hover:bg-green-500/20 capitalize"
                     : "bg-rose-500/10 text-rose-600 border-rose-500/20 hover:bg-rose-500/20 capitalize"
                 }
               >
-                {d.ativo ? "ativo" : "inativo"}
+                {d.status}
               </Badge>
             ),
           },
@@ -132,8 +162,8 @@ const Destinadores = () => {
             header: "Contato",
             accessor: (d) => (
               <div className="text-xs space-y-1">
-                <p className="flex items-center gap-1"><Phone className="h-3 w-3 text-muted-foreground" /> {d.celular ?? d.telefone ?? "—"}</p>
-                <p className="flex items-center gap-1"><Mail className="h-3 w-3 text-muted-foreground" /> {d.email ?? "—"}</p>
+                <p className="flex items-center gap-1"><Phone className="h-3 w-3 text-muted-foreground" /> {d.telefone ? formatCelular(d.telefone) : "—"}</p>
+                <p className="flex items-center gap-1"><Mail className="h-3 w-3 text-muted-foreground" /> {d.email || "—"}</p>
               </div>
             ),
           },
@@ -149,9 +179,9 @@ const Destinadores = () => {
                 <div>
                   <div className="flex items-center gap-2">
                     <p className="font-medium text-sm text-foreground">{d.nome}</p>
-                    <Badge variant="outline" className="text-[10px] h-4 px-1 uppercase">{d.ativo ? "ativo" : "inativo"}</Badge>
+                    <Badge variant="outline" className="text-[10px] h-4 px-1 uppercase">{d.status}</Badge>
                   </div>
-                  <p className="text-xs text-muted-foreground">{d.documento ?? "—"}</p>
+                  <p className="text-xs text-muted-foreground">{d.documento ? formatDoc(d.documento) : "—"}</p>
                 </div>
               </div>
               <Button
@@ -162,7 +192,7 @@ const Destinadores = () => {
                 disabled={toggleAcesso.isPending}
               >
                 <Power className="h-3.5 w-3.5" />
-                {d.ativo ? "Desativar" : "Ativar"}
+                {d.status === "ativo" ? "Desativar" : "Ativar"}
               </Button>
             </div>
             <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
@@ -170,7 +200,7 @@ const Destinadores = () => {
             </div>
           </div>
         )}
-        actions={isAdmin ? undefined : (d) => (
+        actions={(d) => (
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
@@ -185,13 +215,13 @@ const Destinadores = () => {
             <Button
               variant="outline"
               size="sm"
-              className={`h-8 gap-1 rounded-lg shadow-sm ${d.ativo ? "text-destructive hover:border-destructive" : "text-primary hover:border-primary"}`}
+              className={`h-8 gap-1 rounded-lg shadow-sm ${d.status === "ativo" ? "text-destructive hover:border-destructive" : "text-primary hover:border-primary"}`}
               onClick={() => toggleAcesso.mutate(d)}
               disabled={toggleAcesso.isPending}
-              title={d.ativo ? "Desativar acesso" : "Ativar acesso"}
+              title={d.status === "ativo" ? "Desativar acesso" : "Ativar acesso"}
             >
               <Power className="h-4 w-4" />
-              {d.ativo ? "Desativar" : "Ativar"}
+              {d.status === "ativo" ? "Desativar" : "Ativar"}
             </Button>
           </div>
         )}
@@ -277,13 +307,10 @@ function DestinadorDetailsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Building2 className="h-5 w-5 text-primary" />
-            Detalhes do Destinador
-          </DialogTitle>
-          <DialogDescription>Informações cadastrais do destino final.</DialogDescription>
+          <DialogTitle>Detalhes do Destinador</DialogTitle>
         </DialogHeader>
 
+        <div className="p-6">
         {isLoading || !data ? (
           <div className="space-y-4">
             <Skeleton className="h-24 w-full" />
@@ -343,6 +370,7 @@ function DestinadorDetailsDialog({
             </div>
           </div>
         )}
+        </div>
       </DialogContent>
     </Dialog>
   );

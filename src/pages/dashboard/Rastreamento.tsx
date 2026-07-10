@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Maximize2, Minimize2, User, Power, Truck, Search, MapPin, Navigation, ShieldCheck, Box, Info } from "lucide-react";
+import { Maximize2, Minimize2, User, Power, Truck, Search, MapPin, Navigation, ShieldCheck, Box, Info, Check } from "lucide-react";
 import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -101,11 +101,13 @@ const createBoxIcon = () => {
 
 interface RoutePoint {
   id: string;
-  tipo: "entrega" | "retirada";
+  tipo: "entrega" | "retirada" | string;
   endereco: string;
-  posicao: [number, number];
+  posicao: [number, number] | null;
+  enderecoQueries: string[];
   status: "pendente" | "concluido";
   equipamento: string;
+  cliente?: string;
 }
 
 interface Driver {
@@ -138,19 +140,37 @@ interface LocacaoPoint {
   status: "ativo" | "pendente_retirada";
 }
 
-const mockDrivers: Driver[] = [
+// Geocoder simples (Nominatim) com cache em memória
+const geocodeCache = new Map<string, [number, number] | null>();
+async function geocodeAddress(q: string): Promise<[number, number] | null> {
+  const key = q.trim().toLowerCase();
+  if (!key) return null;
+  if (geocodeCache.has(key)) return geocodeCache.get(key)!;
+  try {
+    const r = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(q)}`,
+      { headers: { "Accept-Language": "pt-BR" } }
+    );
+    const j = await r.json();
+    if (Array.isArray(j) && j.length) {
+      const pos: [number, number] = [parseFloat(j[0].lat), parseFloat(j[0].lon)];
+      geocodeCache.set(key, pos);
+      return pos;
+    }
+  } catch {}
+  geocodeCache.set(key, null);
+  return null;
+}
+
+const _mockDriversUnused: Driver[] = [
   { 
     id: "1", 
     nome: "João Silva", 
     status: "online", 
     entregaAtual: "Rota de 3 pontos", 
-    posicao: [-20.8113, -49.3758], 
+    posicao: [-15.7801, -47.9292], 
     veiculo: "Mercedes-Benz Axor",
-    roteiro: [
-      { id: "r1", tipo: "entrega", endereco: "Rua A, 123", posicao: [-20.8113, -49.3758], status: "pendente", equipamento: "Caçamba 5m³" },
-      { id: "r2", tipo: "retirada", endereco: "Av B, 456", posicao: [-20.8150, -49.3850], status: "pendente", equipamento: "Caçamba 7m³" },
-      { id: "r3", tipo: "entrega", endereco: "Rua C, 789", posicao: [-20.8200, -49.3950], status: "pendente", equipamento: "Container 10m³" }
-    ]
+    roteiro: []
   },
   { id: "2", nome: "Ricardo Santos", status: "online", entregaAtual: "Pedido #1025", posicao: [-20.8200, -49.3800], veiculo: "VW Constellation" },
   { id: "3", nome: "Marcos Oliveira", status: "offline", entregaAtual: null, posicao: [-20.8150, -49.3900], veiculo: "Scania R450" },
@@ -188,6 +208,7 @@ const Rastreamento = () => {
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
   const [selectedFiscal, setSelectedFiscal] = useState<Fiscal | null>(null);
   const [selectedPoint, setSelectedPoint] = useState<LocacaoPoint | null>(null);
+  const [routeGeo, setRouteGeo] = useState<Record<string, [number, number]>>({});
   const wrapperRef = useRef<HTMLDivElement>(null);
   
   const activeProfileType = useAuthStore((state) => state.activeProfileType());
@@ -219,27 +240,89 @@ const Rastreamento = () => {
         .in("id", ids);
       const { data: rotasAtivas } = await supabase
         .from("rotas")
-        .select("motorista_id, id, veiculo:veiculo_id(placa, marca, modelo), rota_itens(id)")
+        .select(
+          `motorista_id, id,
+           veiculo:veiculo_id(placa, marca, modelo),
+           rota_itens (
+             id, sequencia, tipo,
+             ordem_locacao_unidades (
+               id, status,
+               ordens_locacao (
+                 obras ( rua, numero, bairro, cidade, estado ),
+                 pedido_fornecedores ( pedidos ( locatario_id ) )
+               )
+             )
+           )`
+        )
         .in("motorista_id", ids)
         .eq("status", "em_andamento");
       const rotaByMotorista = new Map<string, any>();
       (rotasAtivas ?? []).forEach((r: any) => {
         if (r.motorista_id) rotaByMotorista.set(r.motorista_id, r);
       });
+      // Buscar nomes dos locatários dos itens da rota
+      const locIds = Array.from(new Set((rotasAtivas ?? []).flatMap((r: any) =>
+        (r.rota_itens ?? []).map((it: any) =>
+          it.ordem_locacao_unidades?.ordens_locacao?.pedido_fornecedores?.pedidos?.locatario_id
+        ).filter(Boolean)
+      )));
+      const locNomes = new Map<string, string>();
+      if (locIds.length) {
+        const { data: locProfs } = await supabase.from("profiles").select("id, nome").in("id", locIds);
+        (locProfs ?? []).forEach((p: any) => locNomes.set(p.id, p.nome));
+      }
       return (profs ?? []).map((p: any, idx: number): Driver => {
         // dispersão determinística em torno do centro
         let h = 0;
         for (let i = 0; i < p.id.length; i++) h = (h * 31 + p.id.charCodeAt(i)) | 0;
-        const lat = -20.8113 + (((h % 1000) / 1000) * 0.04 - 0.02);
-        const lng = -49.3758 + ((((h >> 10) % 1000) / 1000) * 0.04 - 0.02);
+        const lat = -15.7801 + (((h % 1000) / 1000) * 0.04 - 0.02);
+        const lng = -47.9292 + ((((h >> 10) % 1000) / 1000) * 0.04 - 0.02);
         const rotaAtiva = rotaByMotorista.get(p.id);
-        const paradas = rotaAtiva?.rota_itens?.length ?? 0;
+        const itens = [...(rotaAtiva?.rota_itens ?? [])].sort(
+          (a: any, b: any) => (a.sequencia ?? 0) - (b.sequencia ?? 0)
+        );
+        const paradas = itens.length;
         const veic = rotaAtiva?.veiculo;
         const veicLabel = veic
           ? [veic.marca, veic.modelo, veic.placa ? `(${veic.placa})` : null]
               .filter(Boolean)
               .join(" ")
           : "—";
+        const roteiro: RoutePoint[] = itens.map((it: any): RoutePoint => {
+          const ol = it.ordem_locacao_unidades?.ordens_locacao ?? {};
+          const obra = ol.obras ?? {};
+          const locId = ol.pedido_fornecedores?.pedidos?.locatario_id;
+          const oluStatus = it.ordem_locacao_unidades?.status ?? "";
+          const tipoItem = it.tipo === "retirada" ? "retirada" : "entrega";
+          const concluido =
+            tipoItem === "entrega"
+              ? ["locada", "aguardando_retirada", "em_transito_retirada", "em_transito_analise", "aguardando_analise", "finalizada"].includes(oluStatus)
+              : ["em_transito_analise", "aguardando_analise", "finalizada"].includes(oluStatus);
+          const endereco = [
+            [obra.rua, obra.numero].filter(Boolean).join(", "),
+            obra.bairro,
+            [obra.cidade, obra.estado].filter(Boolean).join("/"),
+          ].filter(Boolean).join(" - ");
+          const fullQuery = [
+            [obra.rua, obra.numero].filter(Boolean).join(", "),
+            obra.bairro, obra.cidade, obra.estado, "Brasil",
+          ].filter(Boolean).join(", ");
+          const enderecoQueries = [
+            fullQuery,
+            [obra.bairro, obra.cidade, obra.estado, "Brasil"].filter(Boolean).join(", "),
+            [obra.cidade, obra.estado, "Brasil"].filter(Boolean).join(", "),
+          ].filter((v, i, a) => v && a.indexOf(v) === i);
+          return {
+            id: it.id,
+            tipo: tipoItem,
+            endereco: endereco || "—",
+            posicao: null,
+            enderecoQueries,
+            status: concluido ? "concluido" : "pendente",
+            equipamento: "",
+            cliente: (locId && locNomes.get(locId)) || "Cliente",
+          };
+        });
         return {
           id: p.id,
           nome: p.nome ?? "Motorista",
@@ -249,6 +332,7 @@ const Rastreamento = () => {
             : null,
           posicao: [lat, lng],
           veiculo: veicLabel,
+          roteiro,
         };
       });
     },
@@ -267,13 +351,13 @@ const Rastreamento = () => {
     else wrapperRef.current.requestFullscreen();
   };
 
-  const center: [number, number] = [-20.8113, -49.3758];
+  const center: [number, number] = [-15.7801, -47.9292];
 
   const handleDriverClick = (driver: Driver) => {
     setSelectedDriver(driver);
     setSelectedFiscal(null);
     setSelectedPoint(null);
-    if (mapInstance) {
+    if (mapInstance && (!driver.roteiro || driver.roteiro.length === 0)) {
       mapInstance.setView(driver.posicao, 16, { animate: true, duration: 1 });
     }
   };
@@ -295,6 +379,42 @@ const Rastreamento = () => {
       mapInstance.setView(point.posicao, 17, { animate: true, duration: 1 });
     }
   };
+
+  // Geocodifica pontos do roteiro do motorista selecionado
+  useEffect(() => {
+    if (!selectedDriver?.roteiro?.length) return;
+    let cancelled = false;
+    (async () => {
+      for (const p of selectedDriver.roteiro!) {
+        if (routeGeo[p.id]) continue;
+        for (const q of p.enderecoQueries) {
+          const pos = await geocodeAddress(q);
+          if (cancelled) return;
+          if (pos) {
+            setRouteGeo((prev) => (prev[p.id] ? prev : { ...prev, [p.id]: pos }));
+            break;
+          }
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [selectedDriver?.id]);
+
+  // Ajusta o mapa para caber o roteiro
+  useEffect(() => {
+    if (!mapInstance || !selectedDriver?.roteiro?.length) return;
+    const pts = selectedDriver.roteiro
+      .map((p) => routeGeo[p.id])
+      .filter(Boolean) as [number, number][];
+    const all = [selectedDriver.posicao, ...pts];
+    if (all.length === 1) {
+      mapInstance.setView(all[0], 15, { animate: true });
+    } else if (all.length > 1) {
+      mapInstance.fitBounds(L.latLngBounds(all.map((p) => L.latLng(p[0], p[1]))), {
+        padding: [60, 60], maxZoom: 15, animate: true,
+      });
+    }
+  }, [mapInstance, selectedDriver, routeGeo]);
 
   const filteredDrivers = mockDrivers.filter(d => 
     d.nome.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -461,20 +581,29 @@ const Rastreamento = () => {
                               {driver.roteiro.map((p, idx) => (
                                 <div 
                                   key={p.id} 
-                                  className="text-[10px] relative hover:bg-primary/5 p-1 rounded transition-colors"
+                                  className={`text-[10px] relative hover:bg-primary/5 p-1 rounded transition-colors ${p.status === 'concluido' ? 'opacity-60' : ''}`}
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    if (mapInstance) mapInstance.setView(p.posicao, 17, { animate: true, duration: 1 });
+                                    const pos = routeGeo[p.id];
+                                    if (mapInstance && pos) mapInstance.flyTo(pos, 17, { duration: 0.8 });
                                   }}
                                 >
                                   <div className="flex items-center gap-2">
-                                    <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] text-white ${p.tipo === 'entrega' ? 'bg-blue-500' : 'bg-orange-500'}`}>
-                                      {idx + 1}
+                                    <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] text-white ${p.status === 'concluido' ? 'bg-emerald-500' : p.tipo === 'entrega' ? 'bg-blue-500' : 'bg-orange-500'}`}>
+                                      {p.status === 'concluido' ? <Check className="h-2.5 w-2.5" /> : idx + 1}
                                     </span>
-                                    <span className="font-semibold uppercase">{p.tipo}</span>
+                                    <span className={`font-semibold uppercase ${p.status === 'concluido' ? 'line-through' : ''}`}>{p.tipo}</span>
+                                    {p.status === 'concluido' && (
+                                      <span className="text-[9px] font-semibold text-emerald-600">Concluído</span>
+                                    )}
+                                    {!routeGeo[p.id] && (
+                                      <span className="text-[9px] text-muted-foreground italic">localizando…</span>
+                                    )}
                                   </div>
-                                  <p className="text-muted-foreground ml-6 truncate">{p.endereco}</p>
-                                  <p className="text-primary/70 ml-6 text-[9px]">{p.equipamento}</p>
+                                  <p className="text-muted-foreground ml-6 break-words">{p.endereco}</p>
+                                  {p.cliente && (
+                                    <p className="text-primary/70 ml-6 text-[9px]">{p.cliente}</p>
+                                  )}
                                 </div>
                               ))}
                             </div>
@@ -512,17 +641,30 @@ const Rastreamento = () => {
             <>
               {selectedDriver?.roteiro && (
                 <>
-                  <Polyline 
-                    positions={[selectedDriver.posicao, ...selectedDriver.roteiro.map(p => p.posicao)]} 
-                    color="#3b82f6" 
-                    dashArray="5, 10"
-                    weight={3}
-                    opacity={0.6}
-                  />
-                  {selectedDriver.roteiro.map((p, idx) => (
+                  {(() => {
+                    const pts = [
+                      selectedDriver.posicao,
+                      ...selectedDriver.roteiro
+                        .map((p) => routeGeo[p.id])
+                        .filter(Boolean) as [number, number][],
+                    ];
+                    return pts.length > 1 ? (
+                      <Polyline
+                        positions={pts}
+                        color="#3b82f6"
+                        dashArray="5, 10"
+                        weight={3}
+                        opacity={0.6}
+                      />
+                    ) : null;
+                  })()}
+                  {selectedDriver.roteiro.map((p, idx) => {
+                    const pos = routeGeo[p.id];
+                    if (!pos) return null;
+                    return (
                     <Marker 
                       key={p.id} 
-                      position={p.posicao}
+                      position={pos}
                       icon={L.divIcon({
                         className: 'custom-route-marker',
                         html: `<div style="background: ${p.tipo === 'entrega' ? '#3b82f6' : '#f97316'}; color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">${idx + 1}</div>`,
@@ -532,12 +674,13 @@ const Rastreamento = () => {
                     >
                       <Popup>
                         <div className="p-1">
-                          <p className="font-bold text-xs uppercase text-primary mb-1">{p.tipo}: {p.equipamento}</p>
+                          <p className="font-bold text-xs uppercase text-primary mb-1">{p.tipo}{p.cliente ? `: ${p.cliente}` : ""}</p>
                           <p className="text-[10px]">{p.endereco}</p>
                         </div>
                       </Popup>
                     </Marker>
-                  ))}
+                    );
+                  })}
                 </>
               )}
               {mockDrivers.map(driver => (

@@ -425,12 +425,12 @@ const Retiradas = () => {
       )}
 
       <Dialog open={isStartModalOpen} onOpenChange={setIsStartModalOpen}>
-        <DialogContent className="sm:max-w-[450px]">
+        <DialogContent className="sm:max-w-[450px] max-h-[90vh] overflow-y-auto p-0">
           <DialogHeader>
             <DialogTitle>Carregamento de Rota</DialogTitle>
-            <DialogDescription>Valide o QR Code de todas as caçambas antes de iniciar a rota.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-6 py-4">
+          <div className="space-y-6 p-6">
+            <DialogDescription className="text-muted-foreground">Valide o QR Code de todas as caçambas antes de iniciar a rota.</DialogDescription>
             <div className="space-y-3">
               <label className="text-sm font-medium">Itens no Veículo ({validatedQrs.length}/{startingRoute?.items.length || 0})</label>
               <div className="grid grid-cols-1 gap-2 max-h-[200px] overflow-y-auto pr-1">
@@ -459,7 +459,7 @@ const Retiradas = () => {
               <Button onClick={handleValidateQr}>Validar</Button>
             </div>
           </div>
-          <DialogFooter className="gap-2">
+          <DialogFooter className="gap-2 px-6 pb-6">
             <Button variant="outline" onClick={() => setIsStartModalOpen(false)} className="flex-1">Cancelar</Button>
             <Button onClick={handleStartRoute} disabled={validatedQrs.length !== (startingRoute?.items.length || 0)} className="flex-1">Iniciar Rota</Button>
           </DialogFooter>
@@ -468,11 +468,11 @@ const Retiradas = () => {
 
       <Dialog open={isConfirmModalOpen} onOpenChange={setIsConfirmModalOpen}>
         <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden">
-          <DialogHeader className="p-6 pb-0">
+          <DialogHeader>
             <DialogTitle>Confirmar Retirada: {selectedItem?.id}</DialogTitle>
-            <DialogDescription>Validação obrigatória no local do cliente.</DialogDescription>
           </DialogHeader>
-          <div className="p-6 pt-4 space-y-6">
+          <div className="p-6 space-y-6">
+            <DialogDescription className="text-muted-foreground">Validação obrigatória no local do cliente.</DialogDescription>
             <div className="bg-muted/50 rounded-xl p-4 border space-y-3">
               <div className="flex items-center gap-2 text-primary font-bold text-sm">
                 <Info className="h-4 w-4" /> Dados da Locação

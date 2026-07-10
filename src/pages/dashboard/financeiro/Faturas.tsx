@@ -9,6 +9,7 @@ import { usePagination } from "@/components/DataPagination";
 import { useState, useMemo, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 import myboxLogo from "@/assets/mybox-logo.png";
 
 type FaturaRow = {
@@ -305,31 +306,57 @@ const Faturas = () => {
         <Card className="border-none shadow-sm">
           <CardContent className="p-6">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Abertas</p>
-            <p className="text-2xl font-bold mt-1">{brl(kpis.totalAbertas)}</p>
-            <p className="text-[10px] text-amber-600 mt-1 font-medium">
-              {kpis.qtdAbertas} {kpis.qtdAbertas === 1 ? "fatura pendente" : "faturas pendentes"}
-            </p>
+            {loading ? (
+              <>
+                <Skeleton className="h-7 w-32 mt-1" />
+                <Skeleton className="h-3 w-24 mt-2" />
+              </>
+            ) : (
+              <>
+                <p className="text-2xl font-bold mt-1">{brl(kpis.totalAbertas)}</p>
+                <p className="text-[10px] text-amber-600 mt-1 font-medium">
+                  {kpis.qtdAbertas} {kpis.qtdAbertas === 1 ? "fatura pendente" : "faturas pendentes"}
+                </p>
+              </>
+            )}
           </CardContent>
         </Card>
         <Card className="border-none shadow-sm">
           <CardContent className="p-6">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">A Vencer</p>
-            <p className="text-2xl font-bold mt-1 text-foreground">{brl(kpis.totalAVencer)}</p>
-            <p className="text-[10px] text-primary mt-1 font-medium">
-              {kpis.proxVenc ? `Próximo venc: ${kpis.proxVenc.slice(0, 5)}` : "Sem vencimentos"}
-            </p>
+            {loading ? (
+              <>
+                <Skeleton className="h-7 w-32 mt-1" />
+                <Skeleton className="h-3 w-24 mt-2" />
+              </>
+            ) : (
+              <>
+                <p className="text-2xl font-bold mt-1 text-foreground">{brl(kpis.totalAVencer)}</p>
+                <p className="text-[10px] text-primary mt-1 font-medium">
+                  {kpis.proxVenc ? `Próximo venc: ${kpis.proxVenc.slice(0, 5)}` : "Sem vencimentos"}
+                </p>
+              </>
+            )}
           </CardContent>
         </Card>
         <Card className="border-none shadow-sm">
           <CardContent className="p-6">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Pago (Mês)</p>
-            <p className="text-2xl font-bold mt-1 text-emerald-600">{brl(kpis.pagoMes)}</p>
+            {loading ? (
+              <Skeleton className="h-7 w-32 mt-1" />
+            ) : (
+              <p className="text-2xl font-bold mt-1 text-emerald-600">{brl(kpis.pagoMes)}</p>
+            )}
           </CardContent>
         </Card>
         <Card className="border-none shadow-sm bg-muted/50">
           <CardContent className="p-6">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Locadores com Acordo</p>
-            <p className="text-2xl font-bold mt-1">{String(kpis.locadoresAcordo).padStart(2, "0")}</p>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Locatários com Acordo</p>
+            {loading ? (
+              <Skeleton className="h-7 w-16 mt-1" />
+            ) : (
+              <p className="text-2xl font-bold mt-1">{String(kpis.locadoresAcordo).padStart(2, "0")}</p>
+            )}
           </CardContent>
         </Card>
       </div>

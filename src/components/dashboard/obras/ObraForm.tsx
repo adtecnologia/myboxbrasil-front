@@ -1,7 +1,9 @@
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 
 interface ObraFormData {
@@ -24,6 +26,9 @@ interface ObraFormProps {
   initialData?: any;
   submitLabel?: string;
 }
+
+const normalizeCityName = (v: string) =>
+  v.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
 
 export const ObraForm = ({ onSave, initialData, submitLabel = "Salvar Obra" }: ObraFormProps) => {
   const formatDateForInput = (dateStr: string) => {
@@ -54,6 +59,55 @@ export const ObraForm = ({ onSave, initialData, submitLabel = "Salvar Obra" }: O
   const [cidade, setCidade] = useState(initialData?.cidade || "");
   const [estado, setEstado] = useState(initialData?.estado || "");
   const [cepLoading, setCepLoading] = useState(false);
+  const [estados, setEstados] = useState<{ sigla: string; nome: string }[]>([]);
+  const [municipios, setMunicipios] = useState<string[]>([]);
+  const [loadingMunicipios, setLoadingMunicipios] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const resp = await fetch(
+          "https://servicodados.ibge.gov.br/api/v1/localidades/estados?orderBy=nome"
+        );
+        const data = await resp.json();
+        setEstados(data.map((e: any) => ({ sigla: e.sigla, nome: e.nome })));
+      } catch {
+        // silencioso
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (!estado) {
+      setMunicipios([]);
+      return;
+    }
+    (async () => {
+      try {
+        setLoadingMunicipios(true);
+        const resp = await fetch(
+          `https://servicodados.ibge.gov.br/api/v1/localidades/estados/${estado}/municipios`
+        );
+        const data = await resp.json();
+        setMunicipios(data.map((m: any) => m.nome));
+      } catch {
+        setMunicipios([]);
+      } finally {
+        setLoadingMunicipios(false);
+      }
+    })();
+  }, [estado]);
+
+  const cidadeOficial = useMemo(() => {
+    if (!cidade) return "";
+    return (
+      municipios.find((m) => normalizeCityName(m) === normalizeCityName(cidade)) || cidade
+    );
+  }, [cidade, municipios]);
+
+  useEffect(() => {
+    if (cidadeOficial && cidadeOficial !== cidade) setCidade(cidadeOficial);
+  }, [cidadeOficial]);
 
   const handleCepChange = async (value: string) => {
     const masked = maskCep(value);
@@ -70,8 +124,8 @@ export const ObraForm = ({ onSave, initialData, submitLabel = "Salvar Obra" }: O
         }
         setRua(data.logradouro || "");
         setBairro(data.bairro || "");
-        setCidade(data.localidade || "");
         setEstado(data.uf || "");
+        setCidade(data.localidade || "");
       } catch {
         toast.error("Erro ao buscar CEP");
       } finally {
@@ -89,13 +143,13 @@ export const ObraForm = ({ onSave, initialData, submitLabel = "Salvar Obra" }: O
         data[key] = value;
       });
       onSave(data as ObraFormData);
-    }} className="space-y-4 py-4">
-      <div className="space-y-2">
-        <Label htmlFor="nome">Nome da Obra</Label>
-        <Input id="nome" name="nome" required defaultValue={initialData?.nome} placeholder="Ex: Residencial Solar" />
-      </div>
-
+    }}>
+      <div className="space-y-4 p-6">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="md:col-span-2 space-y-2">
+          <Label htmlFor="nome">Nome da Obra</Label>
+          <Input id="nome" name="nome" required defaultValue={initialData?.nome} placeholder="Ex: Residencial Solar" />
+        </div>
         <div className="space-y-2">
           <Label htmlFor="cep">CEP</Label>
           <Input
@@ -135,13 +189,41 @@ export const ObraForm = ({ onSave, initialData, submitLabel = "Salvar Obra" }: O
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="md:col-span-2 space-y-2">
-          <Label htmlFor="cidade">Cidade</Label>
-          <Input id="cidade" name="cidade" required value={cidade} onChange={(e) => setCidade(e.target.value)} />
-        </div>
         <div className="space-y-2">
           <Label htmlFor="estado">Estado (UF)</Label>
-          <Input id="estado" name="estado" required maxLength={2} value={estado} onChange={(e) => setEstado(e.target.value.toUpperCase())} placeholder="SP" />
+          <input type="hidden" name="estado" value={estado} />
+          <Select value={estado} onValueChange={(v) => { setEstado(v); setCidade(""); }}>
+            <SelectTrigger id="estado">
+              <SelectValue placeholder="UF" />
+            </SelectTrigger>
+            <SelectContent>
+              {estados.map((e) => (
+                <SelectItem key={e.sigla} value={e.sigla}>{e.sigla} — {e.nome}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="md:col-span-2 space-y-2">
+          <Label htmlFor="cidade">Cidade</Label>
+          <input type="hidden" name="cidade" value={cidade} />
+          <Select
+            key={`cidade-${estado}-${municipios.length}`}
+            value={cidade}
+            onValueChange={setCidade}
+            disabled={!estado || loadingMunicipios}
+          >
+            <SelectTrigger id="cidade">
+              <SelectValue placeholder={!estado ? "Selecione o estado" : loadingMunicipios ? "Carregando..." : "Selecione a cidade"} />
+            </SelectTrigger>
+            <SelectContent>
+              {cidade && !municipios.includes(cidade) && (
+                <SelectItem value={cidade}>{cidade}</SelectItem>
+              )}
+              {municipios.map((m) => (
+                <SelectItem key={m} value={m}>{m}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
@@ -175,10 +257,13 @@ export const ObraForm = ({ onSave, initialData, submitLabel = "Salvar Obra" }: O
           <Input id="dataFinalEstimada" name="dataFinalEstimada" type="date" required defaultValue={formatDateForInput(initialData?.dataFinalEstimada || "")} />
         </div>
       </div>
+      </div>
 
-      <Button type="submit" className="w-full mt-4">
-        {submitLabel}
-      </Button>
+      <DialogFooter>
+        <Button type="submit" className="w-full sm:w-auto">
+          {submitLabel}
+        </Button>
+      </DialogFooter>
     </form>
   );
 };

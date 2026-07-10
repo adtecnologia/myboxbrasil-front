@@ -1,6 +1,6 @@
 
-import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useMemo, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { PageHeader } from "@/components/PageHeader";
@@ -32,6 +32,7 @@ import {
 import { toast } from "sonner";
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from "react-leaflet";
 import L from "leaflet";
+import { useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import {
   DndContext,
@@ -86,6 +87,50 @@ const createSequenceIcon = (sequence: number) => {
   });
 };
 
+// Nominatim geocoder com cache em memória (sessão)
+const geocodeCache = new Map<string, [number, number] | null>();
+async function geocodeAddress(query: string): Promise<[number, number] | null> {
+  const key = query.trim().toLowerCase();
+  if (!key) return null;
+  if (geocodeCache.has(key)) return geocodeCache.get(key) ?? null;
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`,
+      { headers: { Accept: "application/json" } },
+    );
+    const data = await res.json();
+    if (Array.isArray(data) && data[0]) {
+      const pos: [number, number] = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+      geocodeCache.set(key, pos);
+      return pos;
+    }
+  } catch {}
+  geocodeCache.set(key, null);
+  return null;
+}
+
+const MapAutoFit = ({
+  center,
+  positions,
+}: {
+  center: [number, number];
+  positions: [number, number][];
+}) => {
+  const map = useMap();
+  useEffect(() => {
+    if (!map) return;
+    if (positions.length === 1) {
+      map.setView(positions[0], 14);
+    } else if (positions.length > 1) {
+      const bounds = L.latLngBounds(positions.map(p => L.latLng(p[0], p[1])));
+      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
+    } else {
+      map.setView(center, 12);
+    }
+  }, [map, center, positions]);
+  return null;
+};
+
 type Pendente = {
   id: string;
   cliente: string;
@@ -93,7 +138,9 @@ type Pendente = {
   tipo: "Entrega" | "Retirada";
   modelo: string;
   data: string;
-  posicao: [number, number];
+  posicao: [number, number] | null;
+  enderecoQuery: string;
+  enderecoQueries: string[];
 };
 
 type Motorista = { id: string; nome: string };
@@ -252,11 +299,21 @@ function usePendentesEntrega(): Pendente[] {
               .filter(Boolean)
               .join(" - ")
           : "—";
-        // pseudo-posicionamento determinístico ao redor de SJRP
-        const h = r.id.split("").reduce((a: number, c: string) => (a * 31 + c.charCodeAt(0)) | 0, 0);
-        const center: [number, number] = [-20.8113, -49.3758];
-        const dLat = ((Math.abs(h) % 1000) / 1000 - 0.5) * 0.06;
-        const dLng = (((Math.abs(h) >> 10) % 1000) / 1000 - 0.5) * 0.06;
+        const enderecoQuery = [
+          [obra.rua, obra.numero].filter(Boolean).join(", "),
+          obra.bairro,
+          obra.cidade,
+          obra.estado,
+          "Brasil",
+        ]
+          .filter(Boolean)
+          .join(", ");
+        const cidadeEstado = [obra.cidade, obra.estado].filter(Boolean).join(", ");
+        const enderecoQueries = [
+          enderecoQuery,
+          [obra.bairro, obra.cidade, obra.estado, "Brasil"].filter(Boolean).join(", "),
+          [cidadeEstado, "Brasil"].filter(Boolean).join(", "),
+        ].filter((v, i, a) => v && a.indexOf(v) === i);
         return {
           id: r.id,
           cliente: nomes.get(ped.locatario_id) ?? "—",
@@ -264,7 +321,9 @@ function usePendentesEntrega(): Pendente[] {
           tipo: r.status === "aguardando_retirada" ? "Retirada" : "Entrega",
           modelo: cac.modelo ?? ol.equipment_type ?? "—",
           data: r.created_at ? new Date(r.created_at).toLocaleDateString("pt-BR") : "",
-          posicao: [center[0] + dLat, center[1] + dLng],
+          posicao: null,
+          enderecoQuery,
+          enderecoQueries,
         };
       });
     },
@@ -337,7 +396,56 @@ const AgendarRota = () => {
   const veiculos = useVeiculosAtivos();
   const destinos = useDestinosFinais();
   const locadorId = useLocadorId();
+  const queryClient = useQueryClient();
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [mapCenter, setMapCenter] = useState<[number, number]>([-15.7801, -47.9292]);
+  const [geocodedPos, setGeocodedPos] = useState<Record<string, [number, number]>>({});
+
+  // Centro do mapa = endereço do locador logado
+  useEffect(() => {
+    if (!locadorId) return;
+    (async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("logradouro, numero, bairro, cidade, estado")
+        .eq("id", locadorId)
+        .maybeSingle();
+      if (!data) return;
+      const q = [
+        [data.logradouro, data.numero].filter(Boolean).join(", "),
+        data.bairro,
+        data.cidade,
+        data.estado,
+        "Brasil",
+      ]
+        .filter(Boolean)
+        .join(", ");
+      if (!q) return;
+      const pos = await geocodeAddress(q);
+      if (pos) setMapCenter(pos);
+    })();
+  }, [locadorId]);
+
+  // Geocodifica os itens selecionados
+  useEffect(() => {
+    const pendMap = new Map(pendentes.map(p => [p.id, p]));
+    selectedIds.forEach((id) => {
+      const p = pendMap.get(id);
+      if (!p || geocodedPos[id]) return;
+      const queries = p.enderecoQueries?.length ? p.enderecoQueries : [p.enderecoQuery];
+      (async () => {
+        for (const q of queries) {
+          if (!q) continue;
+          const pos = await geocodeAddress(q);
+          if (pos) {
+            setGeocodedPos((prev) => (prev[id] ? prev : { ...prev, [id]: pos }));
+            return;
+          }
+        }
+      })();
+    });
+  }, [selectedIds, pendentes, geocodedPos]);
+
   const [search, setSearch] = useState("");
   const [motoristaId, setMotoristaId] = useState<string>("");
   const [veiculoId, setVeiculoId] = useState<string>("");
@@ -353,8 +461,16 @@ const AgendarRota = () => {
   );
 
   const selectedItems = useMemo(() => {
-    return selectedIds.map(id => pendentes.find(i => i.id === id)!).filter(Boolean);
-  }, [selectedIds, pendentes]);
+    return selectedIds
+      .map(id => pendentes.find(i => i.id === id)!)
+      .filter(Boolean)
+      .map(p => ({ ...p, posicao: geocodedPos[p.id] ?? p.posicao }));
+  }, [selectedIds, pendentes, geocodedPos]);
+
+  const mappedPositions = useMemo(
+    () => selectedItems.map(i => i.posicao).filter(Boolean) as [number, number][],
+    [selectedItems],
+  );
 
   const toggleItem = (id: string) => {
     setSelectedIds(prev => 
@@ -435,6 +551,7 @@ const AgendarRota = () => {
       setVeiculoId("");
       setDataProgramada("");
       setDestinoId("");
+      await queryClient.invalidateQueries({ queryKey: ["agendar-rota-pendentes", locadorId] });
     } catch (err: any) {
       toast.error(err.message ?? "Erro ao salvar rota");
     } finally {
@@ -562,12 +679,13 @@ const AgendarRota = () => {
               {/* Mini Mapa */}
               <div className="h-full relative bg-muted">
                 <MapContainer 
-                  center={[-20.8113, -49.3758]} 
+                  center={mapCenter}
                   zoom={12} 
                   className="h-full w-full"
                 >
                   <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                  {selectedItems.map((item, idx) => (
+                  <MapAutoFit center={mapCenter} positions={mappedPositions} />
+                  {selectedItems.map((item, idx) => item.posicao ? (
                     <Marker 
                       key={item.id} 
                       position={item.posicao} 
@@ -580,10 +698,10 @@ const AgendarRota = () => {
                         </div>
                       </Popup>
                     </Marker>
-                  ))}
-                  {selectedItems.length > 1 && (
+                  ) : null)}
+                  {mappedPositions.length > 1 && (
                     <Polyline 
-                      positions={selectedItems.map(i => i.posicao)} 
+                      positions={mappedPositions}
                       color="#3b82f6" 
                       weight={3} 
                       opacity={0.6} 

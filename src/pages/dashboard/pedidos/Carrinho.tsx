@@ -12,6 +12,8 @@ export interface CartItem {
   obraEndereco?: string;
   equipmentType: "cacamba" | "outros";
   locador?: string;
+  tipoLocacao?: string | null;
+  diasLocacao?: number | null;
 }
 import { 
   Trash2, 
@@ -33,7 +35,9 @@ import {
   QrCode,
   CreditCard as CreditCardIcon,
   Copy,
-  CheckCircle
+  CheckCircle,
+  CalendarDays,
+  Globe
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -69,7 +73,7 @@ const Carrinho = () => {
     setCarrinhoId(cart.id);
     const { data: rows, error: rowsErr } = await supabase
       .from("carrinho_itens")
-      .select("id, equipment_type, cacamba_id, equipamento_id, locador_id, obra_id, quantidade, preco_unitario")
+      .select("id, equipment_type, cacamba_id, equipamento_id, locador_id, obra_id, quantidade, preco_unitario, tipo_locacao, dias_locacao")
       .eq("carrinho_id", cart.id);
     if (rowsErr) {
       toast.error("Erro ao carregar itens: " + rowsErr.message);
@@ -115,6 +119,8 @@ const Carrinho = () => {
         obraEndereco: obrasEndMap[r.obra_id] ?? "",
         equipmentType: r.equipment_type === "cacamba" ? "cacamba" : "outros",
         locador: nomes[r.locador_id] ?? "Geral",
+        tipoLocacao: r.tipo_locacao ?? null,
+        diasLocacao: r.dias_locacao ?? null,
       };
     }));
     setLoading(false);
@@ -287,6 +293,21 @@ const Carrinho = () => {
                    {item.obraEndereco && (
                      <div className="flex items-start gap-1.5 text-xs font-medium text-muted-foreground w-full">
                        <MapPin className="h-3.5 w-3.5 mt-0.5 shrink-0" /> <span>{item.obraEndereco}</span>
+                     </div>
+                   )}
+                   {item.equipmentType === "cacamba" && item.tipoLocacao && (
+                     <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground">
+                       <Globe className="h-3.5 w-3.5" />
+                       Locação: <span className="capitalize text-foreground">{item.tipoLocacao}</span>
+                     </div>
+                   )}
+                   {item.equipmentType === "cacamba" && !!item.diasLocacao && (
+                     <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground">
+                       <CalendarDays className="h-3.5 w-3.5" />
+                       Prazo:{" "}
+                       <span className="text-foreground">
+                         {item.diasLocacao} {item.diasLocacao === 1 ? "dia" : "dias"}
+                       </span>
                      </div>
                    )}
                 </div>

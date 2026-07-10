@@ -81,39 +81,41 @@ const TiposEquipamentos = () => {
             <DialogHeader>
               <DialogTitle>{editingEquip ? "Editar Equipamento" : "Cadastrar Equipamento"}</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSave} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="foto">Foto do Equipamento</Label>
-                <div className="flex items-center gap-4">
-                  <div className="h-16 w-16 rounded border-2 border-dashed border-muted-foreground/25 flex items-center justify-center bg-muted/50 overflow-hidden">
-                    {editingEquip?.foto_url ? (
-                      <img src={editingEquip.foto_url} alt="Preview" className="h-full w-full object-cover" />
-                    ) : (
-                      <ImageIcon className="h-6 w-6 text-muted-foreground/30" />
-                    )}
+            <form onSubmit={handleSave}>
+              <div className="space-y-4 p-6">
+                <div className="space-y-2">
+                  <Label htmlFor="foto">Foto do Equipamento</Label>
+                  <div className="flex items-center gap-4">
+                    <div className="h-16 w-16 rounded border-2 border-dashed border-muted-foreground/25 flex items-center justify-center bg-muted/50 overflow-hidden">
+                      {editingEquip?.foto_url ? (
+                        <img src={editingEquip.foto_url} alt="Preview" className="h-full w-full object-cover" />
+                      ) : (
+                        <ImageIcon className="h-6 w-6 text-muted-foreground/30" />
+                      )}
+                    </div>
+                    <Input id="foto" name="foto" type="file" accept="image/*" className="flex-1" />
                   </div>
-                  <Input id="foto" name="foto" type="file" accept="image/*" className="flex-1" />
                 </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="tipo">Tipo de Equipamento</Label>
-                <Input id="tipo" name="tipo" defaultValue={editingEquip?.nome} required placeholder="Ex: Prensa Hidráulica" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="descricao">Descrição</Label>
-                <Textarea id="descricao" name="descricao" defaultValue={editingEquip?.descricao ?? ""} required placeholder="Descreva a finalidade..." />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="situacao">Situação</Label>
-                <Select name="situacao" defaultValue={editingEquip ? (editingEquip.ativo ? "Ativo" : "Inativo") : "Ativo"}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione a situação" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Ativo">Ativo</SelectItem>
-                    <SelectItem value="Inativo">Inativo</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="space-y-2">
+                  <Label htmlFor="tipo">Tipo de Equipamento</Label>
+                  <Input id="tipo" name="tipo" defaultValue={editingEquip?.nome} required placeholder="Ex: Prensa Hidráulica" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="descricao">Descrição</Label>
+                  <Textarea id="descricao" name="descricao" defaultValue={editingEquip?.descricao ?? ""} required placeholder="Descreva a finalidade..." />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="situacao">Situação</Label>
+                  <Select name="situacao" defaultValue={editingEquip ? (editingEquip.ativo ? "Ativo" : "Inativo") : "Ativo"}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a situação" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Ativo">Ativo</SelectItem>
+                      <SelectItem value="Inativo">Inativo</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <DialogFooter>
                 <Button type="submit">{editingEquip ? "Salvar Alterações" : "Cadastrar"}</Button>

@@ -76,14 +76,16 @@ const ClassesResiduo = () => {
             <DialogHeader>
               <DialogTitle>{editingClass ? "Editar Classe" : "Cadastrar Classe"}</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSave} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="nome">Nome da Classe</Label>
-                <Input id="nome" name="nome" defaultValue={editingClass?.nome} required placeholder="Ex: Classe I - Perigosos" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="descricao">Descrição</Label>
-                <Textarea id="descricao" name="descricao" defaultValue={editingClass?.descricao} required placeholder="Descreva as características da classe..." />
+            <form onSubmit={handleSave}>
+              <div className="space-y-4 p-6">
+                <div className="space-y-2">
+                  <Label htmlFor="nome">Nome da Classe</Label>
+                  <Input id="nome" name="nome" defaultValue={editingClass?.nome} required placeholder="Ex: Classe I - Perigosos" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="descricao">Descrição</Label>
+                  <Textarea id="descricao" name="descricao" defaultValue={editingClass?.descricao} required placeholder="Descreva as características da classe..." />
+                </div>
               </div>
               <DialogFooter>
                 <Button type="submit">{editingClass ? "Salvar Alterações" : "Cadastrar"}</Button>

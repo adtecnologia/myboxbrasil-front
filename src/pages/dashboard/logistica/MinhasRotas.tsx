@@ -823,15 +823,15 @@ const MinhasRotas = () => {
 
       {/* Modal de Carregamento da Rota (Início) */}
       <Dialog open={isStartModalOpen} onOpenChange={setIsStartModalOpen}>
-        <DialogContent className="sm:max-w-[450px]">
+        <DialogContent className="sm:max-w-[450px] max-h-[90vh] overflow-y-auto p-0">
           <DialogHeader>
             <DialogTitle>Carregamento de Rota</DialogTitle>
-            <DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6 p-6">
+            <DialogDescription className="text-muted-foreground">
               Valide o QR Code das caçambas de <strong>Entrega</strong> sendo carregadas. As <strong>Retiradas</strong> serão validadas no local.
             </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-6 py-4">
             <div className="space-y-3">
               <label className="text-sm font-medium">Itens para Entrega ({validatedQrs.length}/{routes.find(r => r.id === startingRouteId)?.items.filter(i => i.type === "Entrega").length || 0})</label>
               <div className="grid grid-cols-1 gap-2 max-h-[200px] overflow-y-auto pr-1">
@@ -895,7 +895,7 @@ const MinhasRotas = () => {
             </div>
           </div>
 
-          <DialogFooter className="gap-2">
+          <DialogFooter className="gap-2 px-6 pb-6">
             <Button variant="outline" onClick={() => setIsStartModalOpen(false)} className="flex-1">Cancelar</Button>
             <Button 
               onClick={handleStartRoute} 
@@ -911,12 +911,12 @@ const MinhasRotas = () => {
       {/* Modal de Confirmação de Entrega (No Local) */}
       <Dialog open={isConfirmModalOpen} onOpenChange={setIsConfirmModalOpen}>
         <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden">
-          <DialogHeader className="p-6 pb-0">
+          <DialogHeader>
             <DialogTitle>Confirmar {selectedDeliveryItem?.type}: {selectedDeliveryItem?.qrCode}</DialogTitle>
-            <DialogDescription>Validação obrigatória no local do cliente.</DialogDescription>
           </DialogHeader>
-          
-          <div className="p-6 pt-4 space-y-6">
+
+          <div className="p-6 space-y-6">
+            <DialogDescription className="text-muted-foreground">Validação obrigatória no local do cliente.</DialogDescription>
             {/* Informações da Ordem */}
             <div className="bg-muted/50 rounded-xl p-4 border space-y-3">
               <div className="flex items-center gap-2 text-primary font-bold text-sm">

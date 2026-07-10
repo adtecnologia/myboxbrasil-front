@@ -1,0 +1,1 @@
+ALTER TABLE public.modelos_cacamba ADD COLUMN IF NOT EXISTS tipo TEXT CHECK (tipo IN ('Estacionária','Roll-on/Roll-off'));

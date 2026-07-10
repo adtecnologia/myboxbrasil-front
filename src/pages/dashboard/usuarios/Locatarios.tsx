@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/DataTable";
 import { formatCPF, formatCNPJ, formatCelular, formatCEP, onlyDigits } from "@/lib/auth-utils";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 
@@ -297,13 +297,10 @@ function LocatarioDetailsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <User className="h-5 w-5 text-primary" />
-            Detalhes do Locatário
-          </DialogTitle>
-          <DialogDescription>Informações cadastrais e indicadores operacionais.</DialogDescription>
+          <DialogTitle>Detalhes do Locatário</DialogTitle>
         </DialogHeader>
 
+        <div className="p-6">
         {isLoading || !data ? (
           <div className="space-y-4">
             <Skeleton className="h-24 w-full" />
@@ -383,6 +380,7 @@ function LocatarioDetailsDialog({
             </div>
           </div>
         )}
+        </div>
       </DialogContent>
     </Dialog>
   );

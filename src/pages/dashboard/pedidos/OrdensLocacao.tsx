@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DataPagination, usePagination } from "@/components/DataPagination";
 import { DataTable } from "@/components/DataTable";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import myboxLogo from "@/assets/mybox-logo.png";
@@ -24,6 +24,126 @@ import { toast } from "sonner";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { printMtr } from "@/lib/mtr";
+
+// ============ Fotos da Ordem (locação, retirada, destino final) ============
+type FotoTipo = "retirada" | "entrega" | "destino_final";
+const TIPO_LABEL: Record<FotoTipo, string> = {
+  entrega: "Locação (entrega da caçamba)",
+  retirada: "Retirada",
+  destino_final: "Destino final",
+};
+
+const FotosOrdemDialog = ({ ordem }: { ordem: Ordem }) => {
+  const [open, setOpen] = useState(false);
+
+  const { data: fotos = [], isLoading } = useQuery({
+    queryKey: ["ordem-fotos", ordem.id],
+    enabled: open,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("entrega_fotos")
+        .select("id, foto_path, tipo, created_at")
+        .eq("ordem_locacao_unidade_id", ordem.id)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      const rows = data ?? [];
+      const paths = rows.map((r: any) => r.foto_path);
+      const urlMap = new Map<string, string>();
+      if (paths.length) {
+        const { data: signed } = await supabase.storage
+          .from("entregas-fotos")
+          .createSignedUrls(paths, 60 * 60);
+        (signed ?? []).forEach((s: any) => {
+          if (s?.path && s?.signedUrl) urlMap.set(s.path, s.signedUrl);
+        });
+      }
+      return rows.map((r: any) => ({
+        id: r.id as string,
+        tipo: (r.tipo as FotoTipo) ?? "entrega",
+        createdAt: r.created_at as string,
+        url: urlMap.get(r.foto_path) ?? "",
+      }));
+    },
+  });
+
+  const grupos = useMemo(() => {
+    const g: Record<FotoTipo, typeof fotos> = { entrega: [], retirada: [], destino_final: [] };
+    fotos.forEach((f) => {
+      if (g[f.tipo]) g[f.tipo].push(f);
+    });
+    return g;
+  }, [fotos]);
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-8 w-8 rounded-lg hover:border-primary hover:text-primary shadow-sm"
+          title="Ver fotos"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Camera className="h-4 w-4" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Fotos da ordem — {ordem.codigo}</DialogTitle>
+        </DialogHeader>
+        {isLoading ? (
+          <div className="py-10 text-center text-sm text-muted-foreground">Carregando fotos...</div>
+        ) : fotos.length === 0 ? (
+          <div className="py-10 text-center text-sm text-muted-foreground">
+            Nenhuma foto registrada para esta ordem.
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {(Object.keys(TIPO_LABEL) as FotoTipo[]).map((tipo) => {
+              const items = grupos[tipo];
+              if (!items || items.length === 0) return null;
+              return (
+                <section key={tipo}>
+                  <h3 className="text-sm font-semibold text-foreground mb-2">
+                    {TIPO_LABEL[tipo]}{" "}
+                    <span className="text-xs text-muted-foreground font-normal">
+                      ({items.length})
+                    </span>
+                  </h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                    {items.map((f) => (
+                      <a
+                        key={f.id}
+                        href={f.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="group block rounded-lg overflow-hidden border border-border bg-muted aspect-square"
+                      >
+                        {f.url ? (
+                          <img
+                            src={f.url}
+                            alt={TIPO_LABEL[tipo]}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">
+                            Indisponível
+                          </div>
+                        )}
+                      </a>
+                    ))}
+                  </div>
+                </section>
+              );
+            })}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+};
 
 // Fix default marker icons
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -151,6 +271,17 @@ const MapResizer = () => {
   return null;
 };
 
+const DEFAULT_MAP_CENTER: [number, number] = [-15.7801, -47.9292];
+
+const MapRecenter = ({ center }: { center: [number, number] }) => {
+  const map = useMap();
+  useEffect(() => {
+    const isDefault = center[0] === DEFAULT_MAP_CENTER[0] && center[1] === DEFAULT_MAP_CENTER[1];
+    map.setView(center, isDefault ? map.getZoom() : 14);
+  }, [center, map]);
+  return null;
+};
+
 // Deterministic pseudo-random position around a center based on id
 const hashStr = (s: string) => {
   let h = 0;
@@ -164,8 +295,104 @@ const positionFor = (id: string, center: [number, number]): [number, number] => 
   return [center[0] + dLat, center[1] + dLng];
 };
 
-const MapBox = ({ className = "", data = [], tabLabel = "", mapRef }: { className?: string; data?: Ordem[]; tabLabel?: string; mapRef?: React.MutableRefObject<L.Map | null> }) => {
-  const center: [number, number] = [-20.8113, -49.3758]; // São José do Rio Preto
+type ProfileAddress = {
+  cep?: string | null;
+  logradouro?: string | null;
+  numero?: string | null;
+  bairro?: string | null;
+  cidade?: string | null;
+  estado?: string | null;
+};
+
+const UF_TO_STATE: Record<string, string> = {
+  AC: "Acre",
+  AL: "Alagoas",
+  AP: "Amapá",
+  AM: "Amazonas",
+  BA: "Bahia",
+  CE: "Ceará",
+  DF: "Distrito Federal",
+  ES: "Espírito Santo",
+  GO: "Goiás",
+  MA: "Maranhão",
+  MT: "Mato Grosso",
+  MS: "Mato Grosso do Sul",
+  MG: "Minas Gerais",
+  PA: "Pará",
+  PB: "Paraíba",
+  PR: "Paraná",
+  PE: "Pernambuco",
+  PI: "Piauí",
+  RJ: "Rio de Janeiro",
+  RN: "Rio Grande do Norte",
+  RS: "Rio Grande do Sul",
+  RO: "Rondônia",
+  RR: "Roraima",
+  SC: "Santa Catarina",
+  SP: "São Paulo",
+  SE: "Sergipe",
+  TO: "Tocantins",
+};
+
+const normalizeStateForGeocode = (estado?: string | null) => {
+  const value = estado?.trim();
+  if (!value) return "";
+  const uf = value.split("-")[0]?.trim().toUpperCase();
+  return UF_TO_STATE[uf] ?? value.split("-").pop()?.trim() ?? value;
+};
+
+const normalizeCepForGeocode = (cep?: string | null) => {
+  const digits = cep?.replace(/\D/g, "") ?? "";
+  if (digits.length !== 8) return cep?.trim() ?? "";
+  return `${digits.slice(0, 5)}-${digits.slice(5)}`;
+};
+
+const cleanStreetForGeocode = (logradouro?: string | null) =>
+  (logradouro ?? "")
+    .replace(/^\s*quadra\s+/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const buildMapCenterQueries = (profile: ProfileAddress | null | undefined) => {
+  const cep = normalizeCepForGeocode(profile?.cep);
+  const estado = normalizeStateForGeocode(profile?.estado);
+  const bairro = profile?.bairro?.trim() ?? "";
+  const cidade = profile?.cidade?.trim() ?? "";
+  const logradouro = profile?.logradouro?.trim() ?? "";
+  const logradouroLimpo = cleanStreetForGeocode(profile?.logradouro);
+  const numero = profile?.numero?.trim() ?? "";
+
+  const enderecoCompleto = [logradouro, numero].filter(Boolean).join(", ");
+  const enderecoLimpo = [logradouroLimpo, numero].filter(Boolean).join(" ");
+
+  return [
+    [enderecoLimpo, bairro, cidade, estado, "Brasil"],
+    [enderecoCompleto, bairro, cidade, estado, "Brasil"],
+    [cep, "Brasil"],
+    [bairro, cidade, estado, "Brasil"],
+    [cidade, estado, "Brasil"],
+  ]
+    .map((parts) => parts.filter(Boolean).join(", "))
+    .filter((query, index, list) => query && list.indexOf(query) === index);
+};
+
+async function geocodeAddress(query: string): Promise<[number, number] | null> {
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=br&q=${encodeURIComponent(query)}`,
+      { headers: { Accept: "application/json" } }
+    );
+    const data = await res.json();
+    if (Array.isArray(data) && data[0]?.lat && data[0]?.lon) {
+      return [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+const MapBox = ({ className = "", data = [], tabLabel = "", mapRef, center = DEFAULT_MAP_CENTER }: { className?: string; data?: Ordem[]; tabLabel?: string; mapRef?: React.MutableRefObject<L.Map | null>; center?: [number, number] }) => {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const internalMapRef = useRef<L.Map | null>(null);
   const activeMapRef = mapRef || internalMapRef;
@@ -192,7 +419,7 @@ const MapBox = ({ className = "", data = [], tabLabel = "", mapRef }: { classNam
     const map: Record<string, [number, number]> = {};
     data.forEach((o) => { map[o.id] = positionFor(o.id, center); });
     return map;
-  }, [data]);
+  }, [center, data]);
 
   const filteredOverlay = useMemo(
     () => data.filter(o => `${o.cliente} ${o.endereco} ${o.codigo}`.toLowerCase().includes(search.toLowerCase())),
@@ -223,6 +450,7 @@ const MapBox = ({ className = "", data = [], tabLabel = "", mapRef }: { classNam
         ref={(instance) => { if (instance) activeMapRef.current = instance; }}
       >
         <MapResizer />
+        <MapRecenter center={center} />
         <TileLayer
           attribution='&copy; OpenStreetMap contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -502,16 +730,13 @@ const PedirRetiradaModal = () => {
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Hand className="h-5 w-5 text-primary" />
-            Solicitar Retirada
-          </DialogTitle>
+          <DialogTitle>Solicitar Retirada</DialogTitle>
+        </DialogHeader>
+
+        <div className="p-6 space-y-6">
           <p className="text-sm text-muted-foreground">
             Escaneie o QR Code da caçamba ou digite o código de identificação.
           </p>
-        </DialogHeader>
-        
-        <div className="py-6 space-y-6">
           {!method ? (
             <div className="grid grid-cols-2 gap-4">
               <Button 
@@ -546,7 +771,6 @@ const PedirRetiradaModal = () => {
                   <div className="absolute bottom-0 right-0 w-4 h-4 border-b-4 border-r-4 border-primary translate-x-1 translate-y-1" />
                 </div>
               </div>
-              <Button variant="ghost" className="w-full text-xs" onClick={() => setMethod(null)}>Voltar</Button>
             </div>
           ) : (
             <div className="space-y-4">
@@ -567,15 +791,23 @@ const PedirRetiradaModal = () => {
                   </div>
                 </div>
               </div>
-              <div className="pt-2 flex gap-3">
-                <Button variant="outline" className="flex-1 h-11" onClick={() => setMethod(null)}>Voltar</Button>
-                <Button className="flex-1 h-11 bg-primary hover:bg-primary/90" onClick={handleConfirmar} disabled={loading}>
-                  {loading ? "Enviando..." : "Confirmar"}
-                </Button>
-              </div>
             </div>
           )}
         </div>
+
+        {method === "qr" && (
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMethod(null)}>Voltar</Button>
+          </DialogFooter>
+        )}
+        {method === "code" && (
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMethod(null)}>Voltar</Button>
+            <Button onClick={handleConfirmar} disabled={loading}>
+              {loading ? "Enviando..." : "Confirmar"}
+            </Button>
+          </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   );
@@ -683,7 +915,7 @@ const OrdensTable = ({ data, loading, mode, selected, setSelected, onFocusLocata
   const showCheckbox = false;
   const toggle = (id: string) => setSelected(selected.includes(id) ? selected.filter(x => x !== id) : [...selected, id]);
 
-  const firstColLabel = mode === "view" && data === locadas ? "Data Locação" : mode === "view-cdf" ? "Data Locação" : mode === "view-analise" ? "Data Retirada" : "Data Pedido";
+  const firstColLabel = tabKey === "locadas" || mode === "view-cdf" ? "Data Locação" : mode === "view-analise" ? "Data Retirada" : "Data Pedido";
   const localLabel = mode === "view-analise" ? "Local destino" : "Local locação";
 
   return (
@@ -742,10 +974,7 @@ const OrdensTable = ({ data, loading, mode, selected, setSelected, onFocusLocata
           ),
         },
         
-        ...(data === locadas || mode === "view-cdf" ? [{
-          header: "Locação",
-          accessor: (o: Ordem) => <DriverVehicleCell motorista={o.locacao?.motorista} veiculo={o.locacao?.veiculo} />,
-        }] : []),
+        ...[],
         ...(tabKey === "entregas"
           ? [{
               header: "Entrega",
@@ -758,7 +987,7 @@ const OrdensTable = ({ data, loading, mode, selected, setSelected, onFocusLocata
                 />
               ),
             }]
-          : mode === "view-analise"
+          : mode === "view-analise" || mode === "view-cdf"
           ? []
           : [{
               header: "Retirada",
@@ -771,15 +1000,53 @@ const OrdensTable = ({ data, loading, mode, selected, setSelected, onFocusLocata
                 />
               ),
             }]),
+        ...(mode === "view-cdf"
+          ? [
+              {
+                header: "MTR",
+                accessor: (_o: Ordem) => (
+                  <span className="inline-block px-2 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-700 border border-amber-200">
+                    Pendente
+                  </span>
+                ),
+              },
+              {
+                header: "CDF",
+                accessor: (_o: Ordem) => (
+                  <span className="inline-block px-2 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-700 border border-amber-200">
+                    Pendente
+                  </span>
+                ),
+              },
+            ]
+          : []),
       ]}
       actions={(o) => {
         const isLocatario = activeProfileType === "locatario";
+        if (mode === "view-cdf") {
+          return (
+            <div className="flex justify-end items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+              <FotosOrdemDialog ordem={o} />
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 rounded-lg hover:border-primary hover:text-primary shadow-sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onFocusLocatario?.(o);
+                }}
+              >
+                <MapPin className="h-4 w-4" />
+              </Button>
+            </div>
+          );
+        }
         return (
           <div className="flex justify-end items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
             {!isLocatario && isDestinoFinal && mode === "view-analise" && o.statusLabel === "Em análise" && (
               <EmitirCdfDialog ordem={o} />
             )}
-            {!isLocatario && isDestinoFinal && (mode === "view-analise" || mode === "view-cdf") && (
+            {!isLocatario && isDestinoFinal && mode === "view-analise" && (
               <Button
                 variant="outline"
                 size="icon"
@@ -801,15 +1068,8 @@ const OrdensTable = ({ data, loading, mode, selected, setSelected, onFocusLocata
                 <FileText className="h-4 w-4" />
               </Button>
             )}
-            {!isLocatario && !isDestinoFinal && mode === "view-cdf" && (
-              <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg hover:border-primary hover:text-primary shadow-sm">
-                <Hand className="h-4 w-4" />
-              </Button>
-            )}
-            {!isLocatario && !isDestinoFinal && (mode === "view-cdf" || (mode === "view" && data === locadas)) && (
-              <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg hover:border-primary hover:text-primary shadow-sm">
-                <Camera className="h-4 w-4" />
-              </Button>
+            {!isLocatario && !isDestinoFinal && tabKey === "locadas" && (
+              <FotosOrdemDialog ordem={o} />
             )}
             <Button 
               variant="outline" 
@@ -839,6 +1099,7 @@ const OrdensTable = ({ data, loading, mode, selected, setSelected, onFocusLocata
 
 const OrdensLocacao = () => {
   const activeProfileType = useAuthStore((state) => state.activeProfileType());
+  const user = useAuthStore((state) => state.user);
   const isDestinoFinal = activeProfileType === "destino";
   const isPrefeitura = activeProfileType === "prefeitura";
 
@@ -851,25 +1112,53 @@ const OrdensLocacao = () => {
     "view"
   );
   const analiseDB = useOrdensFromDB(
-    ["em_transito_destino_final", "aguardando_analise"],
+    ["em_transito_destino_final", "em_transito_analise", "aguardando_analise"],
     "view-analise"
   );
-  const cdfDB = useOrdensFromDB(["cdf_emitido"], "view-cdf");
+  const cdfDB = useOrdensFromDB(
+    ["cdf_emitido"],
+    "view-cdf",
+  );
+
+  const { data: mapCenter = DEFAULT_MAP_CENTER } = useQuery({
+    queryKey: ["ordens-map-center", user?.id, activeProfileType],
+    enabled: !!user?.id && !!activeProfileType,
+    staleTime: 24 * 60 * 60 * 1000,
+    queryFn: async (): Promise<[number, number]> => {
+      const { data: profile, error } = await supabase
+        .from("profiles")
+        .select("cep, logradouro, numero, bairro, cidade, estado")
+        .eq("id", user!.id)
+        .maybeSingle();
+      if (error) throw error;
+
+      const queryCandidates = buildMapCenterQueries(profile);
+
+      for (const query of queryCandidates) {
+        const center = await geocodeAddress(query);
+        if (center) return center;
+      }
+
+      return DEFAULT_MAP_CENTER;
+    },
+  });
+
+  const withDbData = (t: typeof allTabsConfig[number]) => {
+    if (t.key === "entregas") return { ...t, data: entregasDB.data, loading: entregasDB.isLoading };
+    if (t.key === "locadas") return { ...t, data: locadasDB.data, loading: locadasDB.isLoading };
+    if (t.key === "analise") return { ...t, data: analiseDB.data, loading: analiseDB.isLoading };
+    if (t.key === "cdf") return { ...t, data: cdfDB.data, loading: cdfDB.isLoading };
+    return { ...t, loading: false };
+  };
 
   const filteredTabsConfig = useMemo(() => {
     if (isDestinoFinal) {
-      return allTabsConfig.filter(t => t.key === "analise" || t.key === "cdf");
+      return allTabsConfig.filter(t => t.key === "analise" || t.key === "cdf").map(withDbData);
     }
     if (isPrefeitura) {
-      return allTabsConfig.filter(t => t.key === "locadas" || t.key === "cdf");
+      return allTabsConfig.filter(t => t.key === "locadas" || t.key === "cdf").map(withDbData);
     }
-    return allTabsConfig.map((t) => {
-      if (t.key === "entregas") return { ...t, data: entregasDB.data, loading: entregasDB.isLoading };
-      if (t.key === "locadas") return { ...t, data: locadasDB.data, loading: locadasDB.isLoading };
-      if (t.key === "analise") return { ...t, data: analiseDB.data, loading: analiseDB.isLoading };
-      if (t.key === "cdf") return { ...t, data: cdfDB.data, loading: cdfDB.isLoading };
-      return { ...t, loading: false };
-    });
+    return allTabsConfig.map(withDbData);
   }, [isDestinoFinal, isPrefeitura, entregasDB, locadasDB, analiseDB, cdfDB]);
 
   const [tab, setTab] = useState<TabKey>(filteredTabsConfig[0]?.key || "entregas");
@@ -897,9 +1186,7 @@ const OrdensLocacao = () => {
     const mapElement = map.getContainer();
     mapElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-    // Deterministic position based on current MapBox logic
-    const center: [number, number] = [-20.8113, -49.3758];
-    const pos = positionFor(ordem.id, center);
+    const pos = positionFor(ordem.id, mapCenter);
     
     map.flyTo(pos, 15, { duration: 0.6 });
     
@@ -929,6 +1216,7 @@ const OrdensLocacao = () => {
                 className="min-h-[480px] w-full" 
                 data={t.data} 
                 tabLabel={t.label}
+                center={mapCenter}
                 mapRef={{ 
                   get current() { return mapRefs.current[t.key] || null; },
                   set current(val) { mapRefs.current[t.key] = val; }
@@ -968,6 +1256,7 @@ const STATUS_META: Record<
   aguardando_retirada: { label: "Aguardando retirada", variant: "danger" },
   em_transito_retirada: { label: "Em trânsito para retirada", variant: "purple" },
   em_transito_destino_final: { label: "Em trânsito para destino final", variant: "danger" },
+  em_transito_analise: { label: "Em trânsito para análise", variant: "purple" },
   aguardando_analise: { label: "Aguardando análise", variant: "warning" },
   cdf_emitido: { label: "CDF emitido", variant: "danger" },
   cancelada: { label: "Cancelada", variant: "danger" },
@@ -981,6 +1270,8 @@ function useOrdensFromDB(statuses: string[], mode: "view" | "view-analise" | "vi
   const profileType = activeProfile?.profileType;
   const isLocador = profileType === "locador";
   const isAdmin = profileType === "admin";
+  const isPrefeitura = profileType === "prefeitura";
+  const isDestino = profileType === "destino";
   const rawTenant = activeProfile?.tenantId;
   const locadorId =
     rawTenant && rawTenant !== "self" ? rawTenant : user?.id;
@@ -990,10 +1281,25 @@ function useOrdensFromDB(statuses: string[], mode: "view" | "view-analise" | "vi
       "ordens-db",
       statuses.join(","),
       profileType,
-      isAdmin ? "all" : isLocador ? locadorId : user?.id,
+      isAdmin ? "all" : isLocador ? locadorId : isPrefeitura ? `pref-${user?.id}` : isDestino ? `dest-${user?.id}` : user?.id,
     ],
     enabled: !!user?.id && !!profileType,
     queryFn: async (): Promise<Ordem[]> => {
+      // Prefeitura: descobrir cidade/estado do perfil para filtrar obras
+      let prefCidade: string | null = null;
+      let prefEstado: string | null = null;
+      if (isPrefeitura) {
+        const { data: prof } = await supabase
+          .from("profiles")
+          .select("cidade, estado")
+          .eq("id", user!.id)
+          .maybeSingle();
+        prefCidade = prof?.cidade ?? null;
+        prefEstado = prof?.estado ?? null;
+        if (!prefCidade || !prefEstado) return [];
+      }
+
+      const obrasJoin = isPrefeitura ? "obras!inner" : "obras";
       const query = supabase
         .from("ordem_locacao_unidades")
         .select(
@@ -1001,7 +1307,7 @@ function useOrdensFromDB(statuses: string[], mode: "view" | "view-analise" | "vi
            cacamba_unidades ( codigo, cacambas ( modelo ) ),
            ordens_locacao!inner (
              id, equipment_type, created_at,
-             obras ( rua, numero, bairro, cidade, estado ),
+             ${obrasJoin} ( rua, numero, bairro, cidade, estado ),
              pedido_fornecedores!inner (
                id, numero, status, locador_id,
                pedidos!inner ( id, numero, locatario_id )
@@ -1014,12 +1320,33 @@ function useOrdensFromDB(statuses: string[], mode: "view" | "view-analise" | "vi
         ? await query
         : isLocador
           ? await query.eq("ordens_locacao.pedido_fornecedores.locador_id", locadorId!)
-          : await query.eq("ordens_locacao.pedido_fornecedores.pedidos.locatario_id", user!.id);
+          : isPrefeitura
+            ? await query
+                .ilike("ordens_locacao.obras.cidade", prefCidade!)
+                .ilike("ordens_locacao.obras.estado", prefEstado!)
+            : isDestino
+              ? await query.eq("destino_final_id", user!.id)
+              : await query.eq("ordens_locacao.pedido_fornecedores.pedidos.locatario_id", user!.id);
       if (error) throw error;
 
-      const aceitos = (rows ?? []).filter(
+      let aceitos = (rows ?? []).filter(
         (r: any) => r.ordens_locacao?.pedido_fornecedores?.status === "aceito"
       );
+
+      // Destino final: restringir às OLUs que possuem rota (não cancelada)
+      if (isDestino && aceitos.length) {
+        const oluIdsAll = aceitos.map((r: any) => r.id);
+        const { data: rItens } = await supabase
+          .from("rota_itens")
+          .select("ordem_locacao_unidade_id, rotas!inner(status)")
+          .in("ordem_locacao_unidade_id", oluIdsAll);
+        const validOluIds = new Set(
+          (rItens ?? [])
+            .filter((it: any) => it.rotas && it.rotas.status !== "cancelada")
+            .map((it: any) => it.ordem_locacao_unidade_id),
+        );
+        aceitos = aceitos.filter((r: any) => validOluIds.has(r.id));
+      }
 
       // Resolver nomes de modelos de caçamba (cacambas.modelo guarda o id do modelo)
       const modeloIds = Array.from(

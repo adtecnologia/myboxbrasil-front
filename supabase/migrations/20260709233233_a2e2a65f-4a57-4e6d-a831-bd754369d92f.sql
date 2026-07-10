@@ -1,0 +1,1 @@
+ALTER TABLE public.formas_pagamento ADD COLUMN IF NOT EXISTS tipo TEXT CHECK (tipo IN ('imediato','periodico'));

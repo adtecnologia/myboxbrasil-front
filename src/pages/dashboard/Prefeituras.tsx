@@ -7,7 +7,7 @@ import { usePagination } from "@/components/DataPagination";
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/DataTable";
 import { formatCPF, formatCNPJ, formatCelular, formatCEP, onlyDigits } from "@/lib/auth-utils";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 
@@ -17,6 +17,9 @@ interface Prefeitura {
   documento: string;
   cidade: string;
   estado: string;
+  celular: string;
+  telefone: string;
+  email: string;
   status: "ativo" | "inativo";
 }
 
@@ -43,7 +46,7 @@ const Prefeituras = () => {
       if (ids.length === 0) return [];
       const { data: profiles, error: pErr } = await supabase
         .from("profiles")
-        .select("id, nome, documento, cidade, estado")
+        .select("id, nome, documento, cidade, estado, celular, telefone, email")
         .in("id", ids)
         .order("nome", { ascending: true });
       if (pErr) throw pErr;
@@ -53,6 +56,9 @@ const Prefeituras = () => {
         documento: p.documento ?? "",
         cidade: p.cidade ?? "",
         estado: p.estado ?? "",
+        celular: (p as any).celular ?? "",
+        telefone: (p as any).telefone ?? "",
+        email: (p as any).email ?? "",
         status: ativoMap.get(p.id) ? "ativo" : "inativo",
       }));
     },
@@ -113,8 +119,11 @@ const Prefeituras = () => {
           },
           { header: "Nome", accessor: "nome", className: "font-medium" },
           { header: "Documento", accessor: (p) => formatDoc(p.documento) },
-          { header: "Cidade", accessor: (p) => p.cidade || "—" },
-          { header: "Estado", accessor: (p) => p.estado || "—" },
+          {
+            header: "Cidade",
+            accessor: (p) =>
+              p.cidade || p.estado ? [p.cidade, p.estado].filter(Boolean).join("/") : "—",
+          },
           {
             header: "Status",
             accessor: (p) => (
@@ -128,6 +137,20 @@ const Prefeituras = () => {
               >
                 {p.status}
               </Badge>
+            ),
+          },
+          {
+            header: "Contato",
+            accessor: (p) => (
+              <div className="text-xs space-y-1">
+                <p className="flex items-center gap-1">
+                  <Phone className="h-3 w-3 text-muted-foreground" />{" "}
+                  {p.celular || p.telefone ? formatCelular(p.celular || p.telefone) : "—"}
+                </p>
+                <p className="flex items-center gap-1">
+                  <Mail className="h-3 w-3 text-muted-foreground" /> {p.email || "—"}
+                </p>
+              </div>
             ),
           },
         ]}
@@ -256,13 +279,10 @@ function PrefeituraDetailsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Building className="h-5 w-5 text-primary" />
-            Detalhes da Prefeitura
-          </DialogTitle>
-          <DialogDescription>Informações cadastrais e indicadores operacionais.</DialogDescription>
+          <DialogTitle>Detalhes da Prefeitura</DialogTitle>
         </DialogHeader>
 
+        <div className="p-6">
         {isLoading || !data ? (
           <div className="space-y-4">
             <Skeleton className="h-24 w-full" />
@@ -333,6 +353,7 @@ function PrefeituraDetailsDialog({
             </div>
           </div>
         )}
+        </div>
       </DialogContent>
     </Dialog>
   );

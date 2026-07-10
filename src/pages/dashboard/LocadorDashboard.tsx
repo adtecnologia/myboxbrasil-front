@@ -32,7 +32,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -70,6 +70,9 @@ const formatStatusLabel = (s: string) =>
 const LocadorDashboard = () => {
   const userId = useAuthStore((s) => s.user?.id);
   const navigate = useNavigate();
+  const now = new Date();
+  const [month, setMonth] = useState<number>(now.getMonth() + 1);
+  const [year, setYear] = useState<number>(now.getFullYear());
 
   const { data, isLoading } = useQuery({
     queryKey: ["locador-dashboard", userId],
@@ -140,7 +143,7 @@ const LocadorDashboard = () => {
 
       const { data: licencas } = await supabase
         .from("licenca_cidade")
-        .select("id, cidade, estado")
+        .select("id, cidade, estado, status_prefeitura")
         .eq("user_id", userId!)
         .order("estado", { ascending: true })
         .order("cidade", { ascending: true });
@@ -196,28 +199,26 @@ const LocadorDashboard = () => {
 
   const receitaMes = useMemo(() => {
     const pfs = data?.pfs ?? [];
-    const now = new Date();
     return pfs
       .filter((p) => {
         const d = new Date(p.created_at);
-        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+        return d.getMonth() === month - 1 && d.getFullYear() === year;
       })
       .reduce((acc, p) => acc + Number(p.valor_total ?? 0), 0);
-  }, [data]);
+  }, [data, month, year]);
 
   const novosClientes = useMemo(() => {
     const pedidos = data?.pedidos ?? [];
-    const now = new Date();
     const ids = new Set(
       pedidos
         .filter((p) => {
           const d = new Date(p.created_at);
-          return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+          return d.getMonth() === month - 1 && d.getFullYear() === year;
         })
         .map((p) => p.locatario_id)
     );
     return ids.size;
-  }, [data]);
+  }, [data, month, year]);
 
   const faturamentoSemana = useMemo(() => {
     const pfs = data?.pfs ?? [];
@@ -291,13 +292,14 @@ const LocadorDashboard = () => {
     });
     return licencas.map((l) => {
       const statuses = byLic.get(l.id) ?? [];
-      const status = statuses.length === 0
-        ? { label: "Sem documentos", cls: "bg-muted text-muted-foreground border-border" }
-        : statuses.some((s) => s === "negado")
-        ? { label: "Não aprovada", cls: "bg-red-100 text-red-700 border-red-200 dark:bg-red-500/15 dark:text-red-400" }
-        : statuses.every((s) => s === "aceito")
+      const sp = (l as { status_prefeitura?: string | null }).status_prefeitura;
+      const status = sp === "validado"
         ? { label: "Aprovada", cls: "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-400" }
-        : { label: "Em análise", cls: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/15 dark:text-amber-400" };
+        : sp === "rejeitado"
+        ? { label: "Não aprovada", cls: "bg-red-100 text-red-700 border-red-200 dark:bg-red-500/15 dark:text-red-400" }
+        : statuses.length === 0
+        ? { label: "Sem documentos", cls: "bg-muted text-muted-foreground border-border" }
+        : { label: "Aguardando validação", cls: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/15 dark:text-amber-400" };
       return { id: l.id, cidade: l.cidade, estado: l.estado, docs: statuses.length, status };
     });
   }, [data]);
@@ -311,7 +313,7 @@ const LocadorDashboard = () => {
       <PageHeader title="Painel" subtitle="Visão geral da sua operação">
         <div className="flex items-center gap-2">
           <Calendar className="h-4 w-4 text-white/70 mr-1" />
-          <Select defaultValue="5">
+          <Select value={String(month)} onValueChange={(v) => setMonth(Number(v))}>
             <SelectTrigger className="w-[130px] h-9 text-xs bg-white/15 border-white/20 text-white backdrop-blur-md">
               <SelectValue placeholder="Mês" />
             </SelectTrigger>
@@ -321,13 +323,14 @@ const LocadorDashboard = () => {
               ))}
             </SelectContent>
           </Select>
-          <Select defaultValue="2026">
+          <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
             <SelectTrigger className="w-[100px] h-9 text-xs bg-white/15 border-white/20 text-white backdrop-blur-md">
               <SelectValue placeholder="Ano" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="2026">2026</SelectItem>
-              <SelectItem value="2025">2025</SelectItem>
+              {[now.getFullYear(), now.getFullYear() - 1, now.getFullYear() - 2].map((y) => (
+                <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -413,7 +416,12 @@ const LocadorDashboard = () => {
               <CardTitle className="text-lg">Faturamento da Semana</CardTitle>
               <CardDescription className="text-sm">Comparativo diário de receitas</CardDescription>
             </div>
-            <Button variant="outline" size="sm" className="h-8 text-xs">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs"
+              onClick={() => navigate("/dashboard/financeiro/faturamento")}
+            >
               Ver Detalhes
             </Button>
           </CardHeader>

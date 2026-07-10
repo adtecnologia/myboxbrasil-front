@@ -5,6 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
 import { usePagination } from "@/components/DataPagination";
 import { DataTable } from "@/components/DataTable";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,17 +16,28 @@ import { useLocadorTable } from "@/hooks/useLocadorTable";
 import { toast } from "sonner";
 import type { Database } from "@/integrations/supabase/types";
 
-type Veiculo = Database["public"]["Tables"]["veiculos"]["Row"];
+type Veiculo = Database["public"]["Tables"]["veiculos"]["Row"] & {
+  chassi?: string | null;
+  cor?: string | null;
+  configuracao?: string | null;
+  tipo_carroceria?: string | null;
+  capacidade_carga?: number | null;
+  pbt?: number | null;
+  rntrc?: string | null;
+  crlv_numero?: string | null;
+  crlv_validade?: string | null;
+};
 
 const Veiculos = () => {
   const userId = useAuthStore((s) => s.user?.id);
   const { rows: tiposVeiculos, loading: loadingTipos } = useLocadorTable<{ id: string; nome: string; ativo?: boolean }>("tipos_veiculos", "nome");
-  console.log("[Veiculos] tiposVeiculos:", tiposVeiculos, "loading:", loadingTipos, "userId:", userId);
   const [items, setItems] = useState<Veiculo[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Veiculo | null>(null);
+  const [ativo, setAtivo] = useState(true);
+  const [tab, setTab] = useState("identificacao");
 
   const refresh = async () => {
     setLoading(true);
@@ -39,6 +53,13 @@ const Veiculos = () => {
   useEffect(() => {
     refresh();
   }, []);
+
+  useEffect(() => {
+    if (dialogOpen) {
+      setAtivo(editingItem?.ativo ?? true);
+      setTab("identificacao");
+    }
+  }, [dialogOpen, editingItem]);
 
   const filtered = items.filter((v) =>
     (v.placa ?? "").toLowerCase().includes(search.toLowerCase()) ||
@@ -56,21 +77,38 @@ const Veiculos = () => {
     }
     const formData = new FormData(e.currentTarget);
     const f = Object.fromEntries(formData.entries()) as Record<string, string>;
-    const payload = {
+
+    const currentYear = new Date().getFullYear();
+    const minYear = 1900;
+    const maxYear = currentYear + 1;
+    const ano = f.ano ? Number(f.ano) : null;
+    if (ano !== null && (!Number.isInteger(ano) || ano < minYear || ano > maxYear)) {
+      toast.error(`Ano inválido. Informe um valor entre ${minYear} e ${maxYear}.`);
+      setTab("especificacoes");
+      return;
+    }
+
+    const payload: any = {
       locador_id: userId,
       tipo_veiculo: f.tipoVeiculo || null,
       placa: f.placa,
       renavam: f.renavam || null,
+      chassi: f.chassi || null,
       marca: f.marca || null,
       modelo: f.modelo || null,
-      versao: f.versao || null,
-      ano_fabricacao: f.anoFabricacao ? Number(f.anoFabricacao) : null,
-      ano_modelo: f.anoModelo ? Number(f.anoModelo) : null,
+      ano_fabricacao: ano,
+      ano_modelo: ano,
+      cor: f.cor || null,
       combustivel: f.combustivel || null,
-      motor: f.motor || null,
       eixos: f.eixos ? Number(f.eixos) : null,
-      lotacao: f.lotacao ? Number(f.lotacao) : null,
-      tara: f.tara ? Number(f.tara) : null,
+      configuracao: f.configuracao || null,
+      tipo_carroceria: f.tipoCarroceria || null,
+      capacidade_carga: f.capacidadeCarga ? Number(f.capacidadeCarga) : null,
+      pbt: f.pbt ? Number(f.pbt) : null,
+      rntrc: f.rntrc || null,
+      crlv_numero: f.crlvNumero || null,
+      crlv_validade: f.crlvValidade || null,
+      ativo,
     };
 
     const { error } = editingItem
@@ -100,6 +138,9 @@ const Veiculos = () => {
     refresh();
   };
 
+  const currentYear = new Date().getFullYear();
+  const e = editingItem as Veiculo | null;
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-xl bg-gradient-to-r from-primary to-[hsl(155,45%,40%)] p-5 sm:p-6 text-primary-foreground">
@@ -120,89 +161,157 @@ const Veiculos = () => {
             <DialogHeader>
               <DialogTitle>{editingItem ? "Editar Veículo" : "Cadastrar Veículo"}</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSave} className="space-y-6 py-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="tipoVeiculo">Tipo de Veículo</Label>
-                  <Select name="tipoVeiculo" defaultValue={editingItem?.tipo_veiculo || ""}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o tipo" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {loadingTipos && (
-                        <div className="px-2 py-1.5 text-xs text-muted-foreground">Carregando...</div>
-                      )}
-                      {!loadingTipos && tiposVeiculos.length === 0 && (
-                        <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                          Nenhum tipo cadastrado. Cadastre em Conf. Operacionais → Tipos de Veículos.
-                        </div>
-                      )}
-                      {tiposVeiculos.map((t) => (
-                        <SelectItem key={t.id} value={t.nome}>{t.nome}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="placa">Placa</Label>
-                  <Input id="placa" name="placa" defaultValue={editingItem?.placa ?? ""} required placeholder="ABC-1234" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="renavam">Renavam</Label>
-                  <Input id="renavam" name="renavam" defaultValue={editingItem?.renavam ?? ""} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="marca">Marca</Label>
-                  <Input id="marca" name="marca" defaultValue={editingItem?.marca ?? ""} required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="modelo">Modelo</Label>
-                  <Input id="modelo" name="modelo" defaultValue={editingItem?.modelo ?? ""} required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="versao">Versão</Label>
-                  <Input id="versao" name="versao" defaultValue={editingItem?.versao ?? ""} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="anoFabricacao">Ano Fabricação</Label>
-                  <Input id="anoFabricacao" name="anoFabricacao" type="number" defaultValue={editingItem?.ano_fabricacao ?? ""} required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="anoModelo">Ano Modelo</Label>
-                  <Input id="anoModelo" name="anoModelo" type="number" defaultValue={editingItem?.ano_modelo ?? ""} required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="combustivel">Combustível</Label>
-                  <Select name="combustivel" defaultValue={editingItem?.combustivel ?? ""}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Diesel">Diesel</SelectItem>
-                      <SelectItem value="Gasolina">Gasolina</SelectItem>
-                      <SelectItem value="Flex">Flex</SelectItem>
-                      <SelectItem value="GNV">GNV</SelectItem>
-                      <SelectItem value="Elétrico">Elétrico</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="motor">Motor</Label>
-                  <Input id="motor" name="motor" defaultValue={editingItem?.motor ?? ""} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="eixos">Eixos</Label>
-                  <Input id="eixos" name="eixos" type="number" defaultValue={editingItem?.eixos ?? ""} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="lotacao">Lotação (ton)</Label>
-                  <Input id="lotacao" name="lotacao" type="number" step="0.1" defaultValue={editingItem?.lotacao ?? ""} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="tara">Tara (ton)</Label>
-                  <Input id="tara" name="tara" type="number" step="0.1" defaultValue={editingItem?.tara ?? ""} />
-                </div>
+            <form onSubmit={handleSave}>
+              <div className="p-6">
+              <Tabs value={tab} onValueChange={setTab} className="w-full">
+                <TabsList className="grid w-full grid-cols-4">
+                  <TabsTrigger value="identificacao">Identificação</TabsTrigger>
+                  <TabsTrigger value="especificacoes">Especificações</TabsTrigger>
+                  <TabsTrigger value="tecnicas">Técnicas</TabsTrigger>
+                  <TabsTrigger value="documentacao">Documentação</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="identificacao" className="mt-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="tipoVeiculo">Tipo de Veículo</Label>
+                      <Select name="tipoVeiculo" defaultValue={e?.tipo_veiculo || ""}>
+                        <SelectTrigger><SelectValue placeholder="Selecione o tipo" /></SelectTrigger>
+                        <SelectContent>
+                          {loadingTipos && <div className="px-2 py-1.5 text-xs text-muted-foreground">Carregando...</div>}
+                          {!loadingTipos && tiposVeiculos.length === 0 && (
+                            <div className="px-2 py-1.5 text-xs text-muted-foreground">Nenhum tipo cadastrado.</div>
+                          )}
+                          {tiposVeiculos.map((t) => (
+                            <SelectItem key={t.id} value={t.nome}>{t.nome}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="placa">Placa *</Label>
+                      <Input id="placa" name="placa" defaultValue={e?.placa ?? ""} required placeholder="ABC-1234" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="renavam">Renavam</Label>
+                      <Input id="renavam" name="renavam" defaultValue={e?.renavam ?? ""} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="chassi">Chassi</Label>
+                      <Input id="chassi" name="chassi" defaultValue={e?.chassi ?? ""} maxLength={17} placeholder="17 caracteres" />
+                    </div>
+                    <div className="space-y-2 md:col-span-2 flex items-center justify-between rounded-md border p-3">
+                      <div>
+                        <Label>Status</Label>
+                        <p className="text-xs text-muted-foreground">{ativo ? "Veículo ativo na frota" : "Veículo inativo"}</p>
+                      </div>
+                      <Switch checked={ativo} onCheckedChange={setAtivo} />
+                    </div>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="especificacoes" className="mt-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="marca">Marca *</Label>
+                      <Input id="marca" name="marca" defaultValue={e?.marca ?? ""} required />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="modelo">Modelo *</Label>
+                      <Input id="modelo" name="modelo" defaultValue={e?.modelo ?? ""} required />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="ano">Ano *</Label>
+                      <Input id="ano" name="ano" type="number" min={1900} max={currentYear + 1} step={1}
+                        defaultValue={e?.ano_modelo ?? e?.ano_fabricacao ?? ""} required />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="cor">Cor</Label>
+                      <Input id="cor" name="cor" defaultValue={e?.cor ?? ""} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="combustivel">Combustível</Label>
+                      <Select name="combustivel" defaultValue={e?.combustivel ?? ""}>
+                        <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Diesel">Diesel</SelectItem>
+                          <SelectItem value="Gasolina">Gasolina</SelectItem>
+                          <SelectItem value="Flex">Flex</SelectItem>
+                          <SelectItem value="GNV">GNV</SelectItem>
+                          <SelectItem value="Elétrico">Elétrico</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="tecnicas" className="mt-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="eixos">Quantidade de Eixos</Label>
+                      <Input id="eixos" name="eixos" type="number" min={1} max={12} defaultValue={e?.eixos ?? ""} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="configuracao">Configuração</Label>
+                      <Select name="configuracao" defaultValue={e?.configuracao ?? ""}>
+                        <SelectTrigger><SelectValue placeholder="Ex: 6x2" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="4x2">4x2</SelectItem>
+                          <SelectItem value="4x4">4x4</SelectItem>
+                          <SelectItem value="6x2">6x2</SelectItem>
+                          <SelectItem value="6x4">6x4</SelectItem>
+                          <SelectItem value="8x2">8x2</SelectItem>
+                          <SelectItem value="8x4">8x4</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="tipoCarroceria">Tipo de Carroceria</Label>
+                      <Select name="tipoCarroceria" defaultValue={e?.tipo_carroceria ?? ""}>
+                        <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Aberta">Aberta</SelectItem>
+                          <SelectItem value="Fechada">Fechada</SelectItem>
+                          <SelectItem value="Basculante">Basculante</SelectItem>
+                          <SelectItem value="Poliguindaste">Poliguindaste</SelectItem>
+                          <SelectItem value="Roll-on">Roll-on</SelectItem>
+                          <SelectItem value="Prancha">Prancha</SelectItem>
+                          <SelectItem value="Baú">Baú</SelectItem>
+                          <SelectItem value="Tanque">Tanque</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="capacidadeCarga">Capacidade de Carga (ton)</Label>
+                      <Input id="capacidadeCarga" name="capacidadeCarga" type="number" step="0.01" min={0}
+                        defaultValue={e?.capacidade_carga ?? ""} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="pbt">PBT (ton)</Label>
+                      <Input id="pbt" name="pbt" type="number" step="0.01" min={0} defaultValue={e?.pbt ?? ""} />
+                    </div>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="documentacao" className="mt-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="rntrc">RNTRC</Label>
+                      <Input id="rntrc" name="rntrc" defaultValue={e?.rntrc ?? ""} placeholder="Registro ANTT" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="crlvNumero">Número do CRLV</Label>
+                      <Input id="crlvNumero" name="crlvNumero" defaultValue={e?.crlv_numero ?? ""} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="crlvValidade">Validade do CRLV</Label>
+                      <Input id="crlvValidade" name="crlvValidade" type="date" defaultValue={e?.crlv_validade ?? ""} />
+                    </div>
+                  </div>
+                </TabsContent>
+              </Tabs>
               </div>
+
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
                 <Button type="submit">{editingItem ? "Salvar Alterações" : "Cadastrar Veículo"}</Button>
@@ -234,10 +343,19 @@ const Veiculos = () => {
             ),
           },
           { header: "Tipo", accessor: "tipo_veiculo" },
-          { header: "Ano", accessor: (v) => `${v.ano_fabricacao ?? "-"}/${v.ano_modelo ?? "-"}` },
+          { header: "Ano", accessor: (v) => v.ano_modelo ?? v.ano_fabricacao ?? "-" },
+          { header: "Cor", accessor: (v) => v.cor ?? "-" },
           { header: "Combustível", accessor: "combustivel" },
-          { header: "Lotação", accessor: (v) => v.lotacao ? `${v.lotacao}t` : "-" },
-          { header: "Tara", accessor: (v) => v.tara ? `${v.tara}t` : "-" },
+          { header: "Config.", accessor: (v) => v.configuracao ?? "-" },
+          { header: "Capac.", accessor: (v) => v.capacidade_carga ? `${v.capacidade_carga}t` : "-" },
+          {
+            header: "Status",
+            accessor: (v) => (
+              <Badge variant={v.ativo ? "default" : "secondary"} className="text-[10px]">
+                {v.ativo ? "Ativo" : "Inativo"}
+              </Badge>
+            ),
+          },
         ]}
         renderMobileCard={(v) => (
           <div className="rounded-xl border border-border bg-background p-4 space-y-3 shadow-sm">
@@ -262,20 +380,25 @@ const Veiculos = () => {
             </div>
             <div className="grid grid-cols-2 gap-2 text-[11px]">
               <div className="bg-muted/50 rounded-md p-2">
-                <p className="text-muted-foreground mb-0.5">Tipo</p>
-                <p className="font-medium">{v.tipo_veiculo}</p>
+                <p className="text-muted-foreground mb-0.5">Ano</p>
+                <p className="font-medium">{v.ano_modelo ?? v.ano_fabricacao ?? "-"}</p>
               </div>
               <div className="bg-muted/50 rounded-md p-2">
-                <p className="text-muted-foreground mb-0.5">Ano</p>
-                <p className="font-medium">{v.ano_fabricacao}/{v.ano_modelo}</p>
+                <p className="text-muted-foreground mb-0.5">Cor</p>
+                <p className="font-medium">{v.cor ?? "-"}</p>
               </div>
               <div className="bg-muted/50 rounded-md p-2">
                 <p className="text-muted-foreground mb-0.5">Combustível</p>
-                <p className="font-medium">{v.combustivel}</p>
+                <p className="font-medium">{v.combustivel ?? "-"}</p>
               </div>
               <div className="bg-muted/50 rounded-md p-2">
-                <p className="text-muted-foreground mb-0.5">Lotação/Tara</p>
-                <p className="font-medium">{v.lotacao}t / {v.tara}t</p>
+                <p className="text-muted-foreground mb-0.5">Config/Capac.</p>
+                <p className="font-medium">{v.configuracao ?? "-"} / {v.capacidade_carga ? `${v.capacidade_carga}t` : "-"}</p>
+              </div>
+              <div className="col-span-2">
+                <Badge variant={v.ativo ? "default" : "secondary"} className="text-[10px]">
+                  {v.ativo ? "Ativo" : "Inativo"}
+                </Badge>
               </div>
             </div>
           </div>

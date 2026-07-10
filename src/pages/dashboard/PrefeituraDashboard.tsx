@@ -41,7 +41,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { DashboardSkeleton } from "@/components/DashboardSkeleton";
+import { Skeleton } from "@/components/ui/skeleton";
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -52,43 +52,15 @@ L.Icon.Default.mergeOptions({
 
 const months = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
-const classeResiduos = [
-  { name: "Classe A", value: 58, color: "hsl(142, 76%, 36%)" },
-  { name: "Classe B", value: 22, color: "hsl(217, 91%, 60%)" },
-  { name: "Classe C", value: 12, color: "hsl(47, 95%, 55%)" },
-  { name: "Classe D", value: 8, color: "hsl(0, 84%, 60%)" },
-];
-
-const ocorrenciasRecentes = [
-  { id: "OC-0421", local: "Vila Redentora", fiscal: "Carlos Souza", gravidade: "Alta", status: "Aberta", data: "Hoje 10:24" },
-  { id: "OC-0420", local: "Jd. Maria Cândida", fiscal: "Ana Lima", gravidade: "Média", status: "Em análise", data: "Hoje 09:11" },
-  { id: "OC-0419", local: "Jd. Soraia", fiscal: "Pedro Reis", gravidade: "Baixa", status: "Resolvida", data: "Ontem" },
-  { id: "OC-0418", local: "Solo Sagrado", fiscal: "Carlos Souza", gravidade: "Alta", status: "Em análise", data: "Ontem" },
-];
-
-const gravidadeColor: Record<string, string> = {
-  Alta: "bg-rose-500/10 text-rose-600 border-rose-200",
-  Média: "bg-amber-500/10 text-amber-600 border-amber-200",
-  Baixa: "bg-emerald-500/10 text-emerald-600 border-emerald-200",
-};
-const statusColor: Record<string, string> = {
-  "Aberta": "bg-rose-500/10 text-rose-600",
-  "Em análise": "bg-amber-500/10 text-amber-600",
-  "Resolvida": "bg-emerald-500/10 text-emerald-600",
-};
-
-const bairros = [
-  { name: "Vila Redentora", count: 86, pct: 100 },
-  { name: "Jd. Maria Cândida", count: 64, pct: 74 },
-  { name: "Solo Sagrado", count: 41, pct: 48 },
-  { name: "Jd. Soraia", count: 28, pct: 33 },
-  { name: "Recanto do Lago", count: 17, pct: 20 },
-];
-
-const mtrCdf = [
-  { label: "MTRs emitidos", value: 142, color: "text-primary", bg: "bg-primary/10" },
-  { label: "CDFs emitidos", value: 128, color: "text-blue-600", bg: "bg-blue-500/10" },
-  { label: "Pendentes", value: 14, color: "text-amber-600", bg: "bg-amber-500/10" },
+const CLASSE_COLORS = [
+  "hsl(142, 76%, 36%)",
+  "hsl(217, 91%, 60%)",
+  "hsl(47, 95%, 55%)",
+  "hsl(0, 84%, 60%)",
+  "hsl(280, 65%, 55%)",
+  "hsl(180, 65%, 45%)",
+  "hsl(30, 90%, 55%)",
+  "hsl(200, 20%, 45%)",
 ];
 
 const MapResizer = () => {
@@ -102,29 +74,185 @@ const MapResizer = () => {
   return null;
 };
 
-const markers = [
-  { pos: [-20.8113, -49.3758] as [number, number], label: "Vila Redentora - 12 caçambas" },
-  { pos: [-20.8050, -49.3850] as [number, number], label: "Jd. Maria Cândida - 8 caçambas" },
-  { pos: [-20.8200, -49.3650] as [number, number], label: "Solo Sagrado - 5 caçambas" },
-  { pos: [-20.7980, -49.3700] as [number, number], label: "Jd. Soraia - 3 caçambas" },
-];
+const MapRecenter = ({ center }: { center: [number, number] }) => {
+  const map = useMap();
+  useEffect(() => {
+    if (center) map.setView(center, 12);
+  }, [center, map]);
+  return null;
+};
+
+async function geocode(query: string): Promise<[number, number] | null> {
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`,
+      { headers: { Accept: "application/json" } }
+    );
+    const data = await res.json();
+    if (Array.isArray(data) && data[0]) return [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+  } catch {}
+  return null;
+}
 
 const PrefeituraDashboard = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<any>(null);
+  const now = new Date();
+  const [mes, setMes] = useState<string>(String(now.getMonth() + 1));
+  const [ano, setAno] = useState<string>(String(now.getFullYear()));
+  const [mapCenter, setMapCenter] = useState<[number, number]>([-15.7801, -47.9292]);
+  const [mapMarkers, setMapMarkers] = useState<{ pos: [number, number]; label: string }[]>([]);
 
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const { data, error } = await supabase.rpc("get_prefeitura_dashboard" as any);
+      const { data, error } = await supabase.rpc("get_prefeitura_dashboard" as any, {
+        _mes: Number(mes),
+        _ano: Number(ano),
+      });
       if (!error) setData(data);
       setLoading(false);
     })();
-  }, []);
+  }, [mes, ano]);
+
+  // Geocode a cidade da prefeitura e os bairros para o mapa
+  useEffect(() => {
+    const cidade = data?.cidade;
+    const estado = data?.estado;
+    if (!cidade || !estado) return;
+    let cancelled = false;
+    (async () => {
+      const c = await geocode(`${cidade}, ${estado}, Brasil`);
+      if (!cancelled && c) setMapCenter(c);
+
+      // Busca obras com caçambas locadas / aguardando retirada / em trânsito para retirada
+      const RELEVANT = ["locada", "aguardando_retirada", "em_transito_retirada"];
+      const { data: obras } = await supabase
+        .from("obras")
+        .select("id, nome, rua, numero, bairro")
+        .ilike("cidade", cidade)
+        .ilike("estado", estado);
+      const obraIds = (obras ?? []).map((o: any) => o.id);
+      if (!obraIds.length) {
+        if (!cancelled) setMapMarkers([]);
+        return;
+      }
+      const { data: ordens } = await supabase
+        .from("ordens_locacao")
+        .select("id, obra_id")
+        .in("obra_id", obraIds);
+      const olIds = (ordens ?? []).map((o: any) => o.id);
+      if (!olIds.length) {
+        if (!cancelled) setMapMarkers([]);
+        return;
+      }
+      const { data: unidades } = await supabase
+        .from("ordem_locacao_unidades")
+        .select("ordem_locacao_id, status")
+        .in("ordem_locacao_id", olIds)
+        .in("status", RELEVANT);
+      const olToObra = new Map<string, string>((ordens ?? []).map((o: any) => [o.id, o.obra_id]));
+      const obraById = new Map<string, any>((obras ?? []).map((o: any) => [o.id, o]));
+      const perObra = new Map<string, { obra: any; locadas: number; aguardando: number; transito: number; total: number }>();
+      (unidades ?? []).forEach((u: any) => {
+        const obraId = olToObra.get(u.ordem_locacao_id);
+        if (!obraId) return;
+        const obra = obraById.get(obraId);
+        if (!obra) return;
+        const entry = perObra.get(obraId) ?? { obra, locadas: 0, aguardando: 0, transito: 0, total: 0 };
+        if (u.status === "locada") entry.locadas += 1;
+        else if (u.status === "aguardando_retirada") entry.aguardando += 1;
+        else if (u.status === "em_transito_retirada") entry.transito += 1;
+        entry.total += 1;
+        perObra.set(obraId, entry);
+      });
+
+      const entries = Array.from(perObra.values())
+        .sort((a, b) => b.total - a.total)
+        .slice(0, 15);
+
+      const results: { pos: [number, number]; label: string }[] = [];
+      for (const e of entries) {
+        const parts = [
+          [e.obra.rua, e.obra.numero].filter(Boolean).join(", "),
+          e.obra.bairro,
+          cidade,
+          estado,
+          "Brasil",
+        ].filter(Boolean);
+        const q = parts.join(", ");
+        const p = await geocode(q);
+        if (p) {
+          const detalhes = [
+            e.locadas ? `${e.locadas} locada(s)` : null,
+            e.aguardando ? `${e.aguardando} aguardando retirada` : null,
+            e.transito ? `${e.transito} em trânsito p/ retirada` : null,
+          ].filter(Boolean).join(" · ");
+          results.push({ pos: p, label: `${e.obra.nome ?? "Obra"} — ${detalhes}` });
+        }
+      }
+      if (!cancelled) setMapMarkers(results);
+    })();
+    return () => { cancelled = true; };
+  }, [data?.cidade, data?.estado]);
 
   if (loading) {
-    return <DashboardSkeleton title="Painel da Prefeitura" subtitle="Fiscalização e gestão de resíduos sólidos" statCount={5} />;
+    return (
+      <div className="space-y-6 pb-10" aria-busy="true" aria-live="polite">
+        <PageHeader title="Painel da Prefeitura" subtitle="Carregando dados do município...">
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-9 w-[130px] bg-white/20" />
+            <Skeleton className="h-9 w-[100px] bg-white/20" />
+          </div>
+        </PageHeader>
+
+        {/* Stat cards */}
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Card key={i} className="overflow-hidden border-none shadow-sm bg-card">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <Skeleton className="h-8 w-8 rounded-lg" />
+                </div>
+                <Skeleton className="h-7 w-20 mb-2" />
+                <Skeleton className="h-3 w-24" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Map */}
+        <Card className="border-none shadow-sm overflow-hidden">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="space-y-2">
+                <Skeleton className="h-5 w-48" />
+                <Skeleton className="h-3 w-56" />
+              </div>
+              <Skeleton className="h-8 w-24" />
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Skeleton className="h-[320px] w-full rounded-none" />
+          </CardContent>
+        </Card>
+
+        {/* Charts row */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          {[0, 1].map((i) => (
+            <Card key={i} className="border-none shadow-sm">
+              <CardHeader className="pb-2">
+                <Skeleton className="h-5 w-44" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-[240px] w-full" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
   }
 
   const stats = data?.stats ?? {};
@@ -132,6 +260,14 @@ const PrefeituraDashboard = () => {
   const pedidosRecentes: any[] = data?.pedidos_recentes ?? [];
   const ordensPorMes: { mes: string; value: number }[] = data?.ordens_por_mes ?? [];
   const maxBairro = Math.max(1, ...topBairros.map((b) => b.count));
+  const classesResiduoRaw: { nome: string; volume: number }[] = data?.classes_residuo ?? [];
+  const totalVolClasses = classesResiduoRaw.reduce((acc, c) => acc + Number(c.volume ?? 0), 0);
+  const classeResiduos = classesResiduoRaw.map((c, i) => ({
+    name: c.nome,
+    value: totalVolClasses > 0 ? Math.round((Number(c.volume) / totalVolClasses) * 100) : 0,
+    volume: Number(c.volume ?? 0),
+    color: CLASSE_COLORS[i % CLASSE_COLORS.length],
+  }));
 
   const ordensMesChart = months.map((m, i) => {
     const key = `${new Date().getFullYear()}-${String(i + 1).padStart(2, "0")}`;
@@ -140,11 +276,11 @@ const PrefeituraDashboard = () => {
   });
 
   const statCards = [
-    { label: "Resíduos tratados", value: `${Number(stats.residuos_m3 ?? 0).toFixed(0)}m³`, icon: Recycle },
-    { label: "Locadores", value: stats.locadores ?? 0, icon: Users },
-    { label: "Caçambas", value: stats.cacambas ?? 0, icon: Container },
-    { label: "Caçambas locadas", value: stats.cacambas_locadas ?? 0, icon: PackageCheck },
-    { label: "Destino final", value: stats.destino_final ?? 0, icon: MapPin },
+    { label: "Resíduos tratados", value: `${Number(stats.residuos_m3 ?? 0).toFixed(0)}m³`, icon: Recycle, pending: 0, href: "/dashboard/relatorios/destinacao-residuos" },
+    { label: "Locadores", value: stats.locadores ?? 0, icon: Users, pending: Number(stats.locadores_pendentes ?? 0), href: "/dashboard/locadores" },
+    { label: "Caçambas", value: stats.cacambas ?? 0, icon: Container, pending: 0, href: "/dashboard/cacambas" },
+    { label: "Caçambas locadas", value: stats.cacambas_locadas ?? 0, icon: PackageCheck, pending: 0, href: "/dashboard/pedidos/ordens" },
+    { label: "Destino final", value: stats.destino_final ?? 0, icon: MapPin, pending: Number(stats.destino_final_pendentes ?? 0), href: "/dashboard/destinadores" },
   ];
 
   return (
@@ -153,13 +289,13 @@ const PrefeituraDashboard = () => {
         title="Painel da Prefeitura"
         subtitle={
           data?.cidade
-            ? `${data.cidade}/${data.estado} · ${stats.total_pedidos ?? 0} pedidos · ${stats.total_ordens ?? 0} ordens`
+            ? `${data.cidade}/${data.estado}`
             : "Cadastre a cidade no seu perfil para ver os dados"
         }
       >
         <div className="flex items-center gap-2">
           <Calendar className="h-4 w-4 text-white/70 mr-1" />
-          <Select defaultValue="5">
+          <Select value={mes} onValueChange={setMes}>
             <SelectTrigger className="w-[130px] h-9 text-xs bg-white/15 border-white/20 text-white backdrop-blur-md">
               <SelectValue placeholder="Mês" />
             </SelectTrigger>
@@ -169,13 +305,15 @@ const PrefeituraDashboard = () => {
               ))}
             </SelectContent>
           </Select>
-          <Select defaultValue="2026">
+          <Select value={ano} onValueChange={setAno}>
             <SelectTrigger className="w-[100px] h-9 text-xs bg-white/15 border-white/20 text-white backdrop-blur-md">
               <SelectValue placeholder="Ano" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="2026">2026</SelectItem>
-              <SelectItem value="2025">2025</SelectItem>
+              {Array.from({ length: 5 }).map((_, i) => {
+                const y = now.getFullYear() - i;
+                return <SelectItem key={y} value={String(y)}>{y}</SelectItem>;
+              })}
             </SelectContent>
           </Select>
         </div>
@@ -184,12 +322,29 @@ const PrefeituraDashboard = () => {
       {/* Stat cards */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
         {statCards.map((stat) => (
-          <Card key={stat.label} className="overflow-hidden border-none shadow-sm bg-card hover:shadow-md transition-shadow">
+          <Card
+            key={stat.label}
+            onClick={() => stat.href && navigate(stat.href)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if ((e.key === "Enter" || e.key === " ") && stat.href) { e.preventDefault(); navigate(stat.href); } }}
+            className="overflow-hidden border-none shadow-sm bg-card hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          >
             <CardContent className="p-4">
               <div className="flex items-center justify-between mb-3">
                 <div className="rounded-lg bg-primary/10 p-2">
                   <stat.icon className="h-4 w-4 text-primary" />
                 </div>
+                {stat.pending > 0 && (
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] h-5 px-1.5 gap-1 bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/15 dark:text-amber-400"
+                    title={`${stat.pending} aguardando validação`}
+                  >
+                    <AlertTriangle className="h-3 w-3" />
+                    {stat.pending}
+                  </Badge>
+                )}
               </div>
               <p className="text-2xl font-bold tracking-tight text-foreground">{stat.value}</p>
               <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mt-1">{stat.label}</p>
@@ -213,10 +368,11 @@ const PrefeituraDashboard = () => {
         </CardHeader>
         <CardContent className="p-0">
           <div className="h-[320px] w-full">
-            <MapContainer center={[-20.8113, -49.3758]} zoom={13} style={{ height: "100%", width: "100%" }}>
+            <MapContainer center={mapCenter} zoom={12} style={{ height: "100%", width: "100%" }}>
               <MapResizer />
+              <MapRecenter center={mapCenter} />
               <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-              {markers.map((m, i) => (
+              {mapMarkers.map((m, i) => (
                 <Marker key={i} position={m.pos}>
                   <Popup>{m.label}</Popup>
                 </Marker>
@@ -275,76 +431,41 @@ const PrefeituraDashboard = () => {
         </Card>
       </div>
 
-      {/* Classe resíduos + MTR/CDF + Bairros */}
-      <div className="grid gap-6 lg:grid-cols-3">
+      {/* Resíduos por Classe */}
+      <div className="grid gap-6">
         <Card className="border-none shadow-sm">
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Resíduos por Classe</CardTitle>
-            <CardDescription className="text-xs">Distribuição percentual</CardDescription>
+            <CardDescription className="text-xs">
+              Distribuição por volume {totalVolClasses > 0 ? `· ${totalVolClasses.toFixed(1)}m³ total` : ""}
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={200}>
-              <PieChart>
-                <Pie data={classeResiduos} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={45} outerRadius={75} paddingAngle={2}>
-                  {classeResiduos.map((e, i) => <Cell key={i} fill={e.color} />)}
-                </Pie>
-                <Tooltip contentStyle={{ borderRadius: 8, border: "1px solid hsl(var(--border))" }} />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="grid grid-cols-2 gap-2 mt-2">
-              {classeResiduos.map((c) => (
-                <div key={c.name} className="flex items-center gap-2 text-xs">
-                  <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: c.color }} />
-                  <span className="font-medium">{c.name}</span>
-                  <span className="ml-auto text-muted-foreground">{c.value}%</span>
+            {classeResiduos.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-10">
+                Sem registros de resíduos no período.
+              </p>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-[240px_1fr] items-center">
+                <ResponsiveContainer width="100%" height={220}>
+                  <PieChart>
+                    <Pie data={classeResiduos} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={45} outerRadius={80} paddingAngle={2}>
+                      {classeResiduos.map((e, i) => <Cell key={i} fill={e.color} />)}
+                    </Pie>
+                    <Tooltip contentStyle={{ borderRadius: 8, border: "1px solid hsl(var(--border))" }} formatter={(v: any, _n, p: any) => [`${v}% · ${p.payload.volume.toFixed(1)}m³`, p.payload.name]} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {classeResiduos.map((c) => (
+                    <div key={c.name} className="flex items-center gap-2 text-xs">
+                      <span className="h-2.5 w-2.5 rounded-sm shrink-0" style={{ backgroundColor: c.color }} />
+                      <span className="font-medium truncate">{c.name}</span>
+                      <span className="ml-auto text-muted-foreground shrink-0">{c.value}% · {c.volume.toFixed(1)}m³</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-none shadow-sm">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">MTR e CDF</CardTitle>
-            <CardDescription className="text-xs">Status dos documentos</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3 pt-2">
-            {mtrCdf.map((m) => (
-              <div key={m.label} className={`flex items-center justify-between rounded-lg p-3 ${m.bg}`}>
-                <div className="flex items-center gap-3">
-                  <FileCheck2 className={`h-5 w-5 ${m.color}`} />
-                  <span className="text-sm font-medium text-foreground">{m.label}</span>
-                </div>
-                <span className={`text-xl font-bold ${m.color}`}>{m.value}</span>
               </div>
-            ))}
-            <Separator className="opacity-50" />
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">Taxa de conformidade</span>
-              <span className="font-bold text-primary">90.1%</span>
-            </div>
-            <Progress value={90} className="h-1.5" />
-          </CardContent>
-        </Card>
-
-        <Card className="border-none shadow-sm">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Top Bairros</CardTitle>
-            <CardDescription className="text-xs">Volume de locações</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4 pt-2">
-            {bairros.map((b) => (
-              <div key={b.name} className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-medium text-foreground flex items-center gap-1.5">
-                    <Building2 className="h-3 w-3 text-muted-foreground" />
-                    {b.name}
-                  </span>
-                  <span className="font-bold">{b.count}</span>
-                </div>
-                <Progress value={b.pct} className="h-1.5" />
-              </div>
-            ))}
+            )}
           </CardContent>
         </Card>
       </div>
@@ -387,8 +508,27 @@ const PrefeituraDashboard = () => {
                     </p>
                   </div>
                 </div>
-                <Badge variant="outline" className="text-[10px] px-2 py-0.5 border-0 font-medium bg-primary/10 text-primary">
-                  {p.status}
+                <Badge
+                  variant="outline"
+                  className={`text-[10px] px-2 py-0.5 border-0 font-medium ${
+                    p.status === "aceito"
+                      ? "bg-primary/10 text-primary"
+                      : p.status === "aguardando_aceite"
+                      ? "bg-amber-500/10 text-amber-600"
+                      : p.status === "recusado"
+                      ? "bg-destructive/10 text-destructive"
+                      : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {p.status === "aguardando_aceite"
+                    ? "Aguardando aceite"
+                    : p.status === "aceito"
+                    ? "Aceito"
+                    : p.status === "recusado"
+                    ? "Recusado"
+                    : p.status === "cancelado"
+                    ? "Cancelado"
+                    : p.status}
                 </Badge>
               </button>
             ))}

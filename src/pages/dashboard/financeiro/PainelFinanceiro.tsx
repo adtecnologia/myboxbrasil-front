@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -36,8 +36,11 @@ import { DataTable } from "@/components/DataTable";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/stores/useAuthStore";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Skeleton } from "@/components/ui/skeleton";
 
-const dataReceita = [
+const dataReceitaMock = [
   { name: "Jan", receita: 45000, despesa: 32000 },
   { name: "Fev", receita: 52000, despesa: 34000 },
   { name: "Mar", receita: 48000, despesa: 31000 },
@@ -46,22 +49,153 @@ const dataReceita = [
   { name: "Jun", receita: 67000, despesa: 41000 },
 ];
 
-const dataDistribuicao = [
+const dataDistribuicaoMock = [
   { name: "Locações", value: 65, color: "#10b981" },
   { name: "Serviços", value: 20, color: "#3b82f6" },
   { name: "Outros", value: 15, color: "#f59e0b" },
 ];
 
-const transacoesRecentes = [
+const transacoesRecentesMock = [
   { id: "TRX-001", cliente: "Construtora Alfa", valor: 1250.00, data: "22/05/2026", status: "Pago", tipo: "Receita" },
   { id: "TRX-002", fornecedor: "Posto Shell", valor: -850.40, data: "21/05/2026", status: "Pago", tipo: "Despesa" },
   { id: "TRX-003", cliente: "João da Silva", valor: 450.00, data: "21/05/2026", status: "Pendente", tipo: "Receita" },
   { id: "TRX-004", fornecedor: "Manutenção Preventiva", valor: -1200.00, data: "20/05/2026", status: "Pago", tipo: "Despesa" },
 ];
 
+const brl = (v: number) =>
+  v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+const MESES = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+
+function useFinanceiroLocador(locadorId: string | undefined) {
+  return useQuery({
+    queryKey: ["painel-financeiro-locador", locadorId],
+    enabled: !!locadorId,
+    queryFn: async () => {
+      const { data: faturas, error } = await supabase
+        .from("faturas")
+        .select("id, valor_total, status, paga_em, vencimento, created_at, locatario_id, pedido_id")
+        .eq("locador_id", locadorId!)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      const rows = faturas ?? [];
+
+      const locatarioIds = Array.from(new Set(rows.map((r) => r.locatario_id).filter(Boolean)));
+      const nomes = new Map<string, string>();
+      if (locatarioIds.length) {
+        const { data: profs } = await supabase
+          .from("profiles")
+          .select("id, nome")
+          .in("id", locatarioIds as string[]);
+        (profs ?? []).forEach((p: any) => nomes.set(p.id, p.nome));
+      }
+
+      const now = new Date();
+      const mesAtual = now.getMonth();
+      const anoAtual = now.getFullYear();
+
+      let saldoTotal = 0;
+      let receitaMes = 0;
+      let receitaMesAnterior = 0;
+      let vencidas = 0;
+      const fluxoMap = new Map<string, number>();
+      // últimos 6 meses (incluindo atual)
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(anoAtual, mesAtual - i, 1);
+        fluxoMap.set(`${d.getFullYear()}-${d.getMonth()}`, 0);
+      }
+
+      for (const f of rows) {
+        const v = Number(f.valor_total) || 0;
+        if (f.status === "paga") {
+          saldoTotal += v;
+          const dt = f.paga_em ? new Date(f.paga_em) : null;
+          if (dt) {
+            const key = `${dt.getFullYear()}-${dt.getMonth()}`;
+            if (fluxoMap.has(key)) fluxoMap.set(key, (fluxoMap.get(key) || 0) + v);
+            if (dt.getMonth() === mesAtual && dt.getFullYear() === anoAtual) receitaMes += v;
+            const prev = new Date(anoAtual, mesAtual - 1, 1);
+            if (dt.getMonth() === prev.getMonth() && dt.getFullYear() === prev.getFullYear())
+              receitaMesAnterior += v;
+          }
+        }
+        if (f.status === "vencida") vencidas += 1;
+      }
+
+      const fluxo = Array.from(fluxoMap.entries()).map(([k, receita]) => {
+        const [y, m] = k.split("-").map(Number);
+        return { name: MESES[m], ano: y, receita, despesa: 0 };
+      });
+
+      const inadimplencia = rows.length ? (vencidas / rows.length) * 100 : 0;
+      const variacao =
+        receitaMesAnterior > 0
+          ? ((receitaMes - receitaMesAnterior) / receitaMesAnterior) * 100
+          : receitaMes > 0
+          ? 100
+          : 0;
+
+      // Distribuição por status
+      const porStatus = { paga: 0, pendente: 0, vencida: 0 } as Record<string, number>;
+      for (const f of rows) {
+        const v = Number(f.valor_total) || 0;
+        if (f.status in porStatus) porStatus[f.status] += v;
+      }
+      const totalDist = porStatus.paga + porStatus.pendente + porStatus.vencida;
+      const distribuicao = totalDist > 0
+        ? [
+            { name: "Recebido", value: Math.round((porStatus.paga / totalDist) * 100), color: "#10b981" },
+            { name: "A Receber", value: Math.round((porStatus.pendente / totalDist) * 100), color: "#3b82f6" },
+            { name: "Vencidas", value: Math.round((porStatus.vencida / totalDist) * 100), color: "#f59e0b" },
+          ].filter((d) => d.value > 0)
+        : [];
+
+      const transacoes = rows.slice(0, 8).map((f, idx) => ({
+        id: `FAT-${String(idx + 1).padStart(3, "0")}`,
+        cliente: (f.locatario_id && nomes.get(f.locatario_id)) || "Cliente",
+        fornecedor: undefined as string | undefined,
+        valor: Number(f.valor_total) || 0,
+        data: new Date(f.paga_em || f.vencimento || f.created_at).toLocaleDateString("pt-BR"),
+        status: f.status === "paga" ? "Pago" : f.status === "vencida" ? "Vencida" : "Pendente",
+        tipo: "Receita" as string,
+      }));
+
+      return {
+        saldoTotal,
+        receitaMes,
+        variacao,
+        inadimplencia,
+        fluxo,
+        distribuicao,
+        transacoes,
+        total: rows.length,
+      };
+    },
+  });
+}
+
 const PainelFinanceiro = () => {
   const profileType = useAuthStore((state) => state.activeProfileType());
   const isLocador = profileType === "locador";
+  const user = useAuthStore((s) => s.user);
+  const activeProfile = useAuthStore(
+    (s) => s.activeProfile() ?? s.user?.profiles[0] ?? null
+  );
+  const rawTenant = activeProfile?.tenantId;
+  const locadorId = rawTenant && rawTenant !== "self" ? rawTenant : user?.id;
+
+  const { data: real, isLoading } = useFinanceiroLocador(isLocador ? locadorId : undefined);
+
+  const dataReceita = isLocador && real ? real.fluxo : dataReceitaMock;
+  const dataDistribuicao = isLocador && real && real.distribuicao.length
+    ? real.distribuicao
+    : dataDistribuicaoMock;
+  const transacoesRecentes: any[] = isLocador && real ? real.transacoes : transacoesRecentesMock;
+
+  const saldoTotal = isLocador && real ? real.saldoTotal : 124530;
+  const receitaMensal = isLocador && real ? real.receitaMes : 67400;
+  const variacao = isLocador && real ? real.variacao : 12;
+  const inadimplencia = isLocador && real ? real.inadimplencia : 4.5;
 
   return (
     <div className="space-y-6">
@@ -76,15 +210,19 @@ const PainelFinanceiro = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium opacity-80">Saldo Total</p>
-                <h3 className="text-2xl font-bold mt-1 text-white">R$ 124.530,00</h3>
+                {isLocador && isLoading ? (
+                  <Skeleton className="h-7 w-32 mt-1 bg-white/20" />
+                ) : (
+                  <h3 className="text-2xl font-bold mt-1 text-white">{brl(saldoTotal)}</h3>
+                )}
               </div>
               <div className="bg-white/20 p-3 rounded-xl">
                 <Wallet className="h-6 w-6" />
               </div>
             </div>
             <div className="mt-4 flex items-center gap-1 text-xs text-white/90">
-              <ArrowUpRight className="h-3 w-3" />
-              <span className="font-bold">+12%</span>
+              {variacao >= 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+              <span className="font-bold">{variacao >= 0 ? "+" : ""}{variacao.toFixed(1)}%</span>
               <span className="opacity-80">em relação ao mês anterior</span>
             </div>
           </CardContent>
@@ -95,14 +233,18 @@ const PainelFinanceiro = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Receita Mensal</p>
-                <h3 className="text-2xl font-bold mt-1 text-emerald-600">R$ 67.400,00</h3>
+                {isLocador && isLoading ? (
+                  <Skeleton className="h-7 w-32 mt-1" />
+                ) : (
+                  <h3 className="text-2xl font-bold mt-1 text-emerald-600">{brl(receitaMensal)}</h3>
+                )}
               </div>
               <div className="bg-emerald-50 p-3 rounded-xl text-emerald-600">
                 <TrendingUp className="h-6 w-6" />
               </div>
             </div>
             <div className="mt-4 flex items-center gap-1 text-xs">
-              <Badge variant="outline" className="bg-emerald-50 text-emerald-600 border-emerald-100">Meta: 90%</Badge>
+              <span className="text-muted-foreground text-[10px]">Faturas pagas neste mês</span>
             </div>
           </CardContent>
         </Card>
@@ -112,15 +254,20 @@ const PainelFinanceiro = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Despesas</p>
-                <h3 className="text-2xl font-bold mt-1 text-red-500">R$ 41.200,00</h3>
+                {isLocador ? (
+                  <h3 className="text-2xl font-bold mt-1 text-red-500">{brl(0)}</h3>
+                ) : (
+                  <h3 className="text-2xl font-bold mt-1 text-red-500">R$ 41.200,00</h3>
+                )}
               </div>
               <div className="bg-red-50 p-3 rounded-xl text-red-600">
                 <TrendingDown className="h-6 w-6" />
               </div>
             </div>
             <div className="mt-4 flex items-center gap-1 text-xs">
-              <span className="text-red-500 font-medium">8% acima</span>
-              <span className="text-muted-foreground text-[10px]">do esperado</span>
+              <span className="text-muted-foreground text-[10px]">
+                {isLocador ? "Sem despesas registradas" : "8% acima do esperado"}
+              </span>
             </div>
           </CardContent>
         </Card>
@@ -130,15 +277,20 @@ const PainelFinanceiro = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Inadimplência</p>
-                <h3 className="text-2xl font-bold mt-1 text-amber-600">4.5%</h3>
+                {isLocador && isLoading ? (
+                  <Skeleton className="h-7 w-20 mt-1" />
+                ) : (
+                  <h3 className="text-2xl font-bold mt-1 text-amber-600">{inadimplencia.toFixed(1)}%</h3>
+                )}
               </div>
               <div className="bg-amber-50 p-3 rounded-xl text-amber-600">
                 <CreditCard className="h-6 w-6" />
               </div>
             </div>
             <div className="mt-4 flex items-center gap-1 text-xs">
-              <span className="text-emerald-500 font-medium">-1.2%</span>
-              <span className="text-muted-foreground text-[10px]">queda este mês</span>
+              <span className="text-muted-foreground text-[10px]">
+                {isLocador ? "% de faturas vencidas" : "-1.2% queda este mês"}
+              </span>
             </div>
           </CardContent>
         </Card>
@@ -271,18 +423,6 @@ const PainelFinanceiro = () => {
         <div className="space-y-4">
           <h3 className="text-lg font-bold">Ações Rápidas</h3>
           <div className="grid grid-cols-1 gap-3">
-            <Button 
-              className="h-14 justify-start gap-4 px-4 text-base" 
-              asChild
-            >
-              <Link to="/dashboard/financeiro/faturamento">
-                <div className="bg-white/20 p-2 rounded-lg">
-                  <FileText className="h-5 w-5" />
-                </div>
-                Novo Faturamento
-              </Link>
-            </Button>
-            
             <Button 
               variant="outline" 
               className="h-14 justify-start gap-4 px-4 text-base"

@@ -71,10 +71,12 @@ const TiposVeiculos = () => {
             <DialogHeader>
               <DialogTitle>{editingTipo ? "Editar Tipo" : "Cadastrar Tipo"}</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSave} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="tipo">Tipo de Veículo</Label>
-                <Input id="tipo" name="tipo" defaultValue={editingTipo?.nome} required placeholder="Ex: Caminhão Poli-Guindaste" />
+            <form onSubmit={handleSave}>
+              <div className="space-y-4 p-6">
+                <div className="space-y-2">
+                  <Label htmlFor="tipo">Tipo de Veículo</Label>
+                  <Input id="tipo" name="tipo" defaultValue={editingTipo?.nome} required placeholder="Ex: Caminhão Poli-Guindaste" />
+                </div>
               </div>
               <DialogFooter>
                 <Button type="submit">{editingTipo ? "Salvar Alterações" : "Cadastrar"}</Button>

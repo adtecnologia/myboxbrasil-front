@@ -1,13 +1,16 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, Column } from "@/components/DataTable";
 import { Button } from "@/components/ui/button";
 import { FileText, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuthStore } from "@/stores/useAuthStore";
 
 interface Transacao {
-  id: number;
+  id: string;
   locatario: string;
   data: string;
   valorBruto: number;
@@ -18,78 +21,76 @@ interface Transacao {
   tipo: string;
 }
 
+const FORMA_LABEL: Record<string, { label: string; taxa: number; tipo: "A vista" | "A prazo" }> = {
+  pix: { label: "PIX", taxa: 0, tipo: "A vista" },
+  dinheiro: { label: "Dinheiro", taxa: 0, tipo: "A vista" },
+  cartao: { label: "Cartão de Crédito", taxa: 0.033, tipo: "A vista" },
+  cartao_credito: { label: "Cartão de Crédito", taxa: 0.033, tipo: "A vista" },
+  credit_card: { label: "Cartão de Crédito", taxa: 0.033, tipo: "A vista" },
+  credito: { label: "Cartão de Crédito", taxa: 0.033, tipo: "A vista" },
+  boleto: { label: "Boleto", taxa: 0.03, tipo: "A prazo" },
+};
+
+function mapForma(fp: string | null | undefined) {
+  const key = String(fp ?? "").toLowerCase();
+  return FORMA_LABEL[key] ?? { label: fp || "—", taxa: 0, tipo: "A prazo" as const };
+}
+
 const Transacoes = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const { toast } = useToast();
+  const locadorId = useAuthStore((s) => s.user?.id);
 
-  const transacoes: Transacao[] = [
-    { 
-      id: 1, 
-      locatario: "Construtora Rocha", 
-      data: "15/05/2026", 
-      valorBruto: 450.00, 
-      taxas: 15.00, 
-      valorLiquido: 435.00, 
-      forma: "Cartão de Crédito", 
-      status: "Pago", 
-      tipo: "A vista" 
+  const { data: transacoes = [], isLoading } = useQuery({
+    queryKey: ["transacoes-locador", locadorId],
+    enabled: !!locadorId,
+    queryFn: async () => {
+      const { data: faturas, error } = await supabase
+        .from("faturas")
+        .select("id, valor_total, status, paga_em, created_at, forma_pagamento, locatario_id")
+        .eq("locador_id", locadorId!)
+        .eq("status", "paga")
+        .order("paga_em", { ascending: false });
+      if (error) throw error;
+      const ids = Array.from(new Set((faturas ?? []).map((f) => f.locatario_id).filter(Boolean))) as string[];
+      const nomes = new Map<string, string>();
+      if (ids.length) {
+        const { data: profs } = await supabase
+          .from("profiles")
+          .select("id, nome, nome_fantasia")
+          .in("id", ids);
+        (profs ?? []).forEach((p: any) => nomes.set(p.id, p.nome_fantasia || p.nome || "Locatário"));
+      }
+      return (faturas ?? []).map<Transacao>((f: any) => {
+        const info = mapForma(f.forma_pagamento);
+        const bruto = Number(f.valor_total ?? 0);
+        const taxas = +(bruto * info.taxa).toFixed(2);
+        const ref = f.paga_em ? new Date(f.paga_em) : new Date(f.created_at);
+        return {
+          id: f.id,
+          locatario: nomes.get(f.locatario_id) ?? "—",
+          data: ref.toLocaleDateString("pt-BR"),
+          valorBruto: bruto,
+          taxas,
+          valorLiquido: +(bruto - taxas).toFixed(2),
+          forma: info.label,
+          status: "Pago",
+          tipo: info.tipo,
+        };
+      });
     },
-    { 
-      id: 2, 
-      locatario: "Engenharia Silva", 
-      data: "14/05/2026", 
-      valorBruto: 1200.00, 
-      taxas: 36.00, 
-      valorLiquido: 1164.00, 
-      forma: "Boleto", 
-      status: "Pago", 
-      tipo: "A prazo" 
-    },
-    { 
-      id: 3, 
-      locatario: "Maria Oliveira", 
-      data: "12/05/2026", 
-      valorBruto: 380.00, 
-      taxas: 0.00, 
-      valorLiquido: 380.00, 
-      forma: "PIX", 
-      status: "Pago", 
-      tipo: "A vista" 
-    },
-    { 
-      id: 4, 
-      locatario: "Construtora Rocha", 
-      data: "10/05/2026", 
-      valorBruto: 450.00, 
-      taxas: 0.00, 
-      valorLiquido: 450.00, 
-      forma: "PIX", 
-      status: "Pago", 
-      tipo: "A vista" 
-    },
-    { 
-      id: 5, 
-      locatario: "Jardins LTDA", 
-      data: "08/05/2026", 
-      valorBruto: 890.00, 
-      taxas: 26.70, 
-      valorLiquido: 863.30, 
-      forma: "Boleto", 
-      status: "Pago", 
-      tipo: "A prazo" 
-    },
-  ];
+  });
 
-  const handleAnticipation = (id: number) => {
+  const handleAnticipation = (_id: string) => {
     toast({
       title: "Solicitação enviada",
       description: "Sua solicitação de antecipação foi enviada para análise.",
     });
   };
 
-  const handleReceipt = (id: number) => {
+  const handleReceipt = (_id: string) => {
     toast({
       title: "Recibo",
       description: "O recibo está sendo gerado e o download começará em breve.",
@@ -147,8 +148,9 @@ const Transacoes = () => {
     },
   ];
 
-  const filteredData = transacoes.filter(t => 
-    t.locatario.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredData = useMemo(
+    () => transacoes.filter((t) => t.locatario.toLowerCase().includes(searchTerm.toLowerCase())),
+    [transacoes, searchTerm]
   );
 
   return (
@@ -158,6 +160,7 @@ const Transacoes = () => {
       <DataTable
         data={filteredData}
         columns={columns}
+        loading={isLoading}
         searchPlaceholder="Buscar por locatário..."
         searchValue={searchTerm}
         onSearchChange={setSearchTerm}
@@ -168,32 +171,6 @@ const Transacoes = () => {
           onPageChange: setCurrentPage,
           onPageSizeChange: setPageSize
         }}
-        actions={(item) => (
-          <div className="flex gap-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="h-8 px-2 gap-1 text-xs" 
-              onClick={() => handleReceipt(item.id)}
-              title="Ver Recibo"
-            >
-              <FileText className="h-3.5 w-3.5" />
-              Recibo
-            </Button>
-            {item.forma === "Cartão de Crédito" && (
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="h-8 px-2 gap-1 text-xs border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 hover:text-amber-800"
-                onClick={() => handleAnticipation(item.id)}
-                title="Pedir Antecipação"
-              >
-                <Zap className="h-3.5 w-3.5 fill-amber-500 text-amber-500" />
-                Antecipar
-              </Button>
-            )}
-          </div>
-        )}
       />
     </div>
   );

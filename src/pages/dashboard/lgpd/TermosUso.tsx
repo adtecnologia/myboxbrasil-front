@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Label } from "@/components/ui/label";
 import { usePagination } from "@/components/DataPagination";
 import { DataTable } from "@/components/DataTable";
+import PdfCanvasViewer from "@/components/PdfCanvasViewer";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -26,6 +27,9 @@ const TermosUso = () => {
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerData, setViewerData] = useState<Uint8Array | null>(null);
+  const [viewerTitle, setViewerTitle] = useState<string>("");
 
   const load = async () => {
     const { data, error } = await supabase
@@ -77,9 +81,12 @@ const TermosUso = () => {
     if (!t.arquivo_url) { toast.error("Nenhum arquivo disponível"); return; }
     const { data, error } = await supabase.storage
       .from("documentos-legais")
-      .createSignedUrl(t.arquivo_url, 60 * 10);
-    if (error || !data) { toast.error(error?.message ?? "Erro ao gerar link"); return; }
-    window.open(data.signedUrl, "_blank");
+      .download(t.arquivo_url);
+    if (error || !data) { toast.error(error?.message ?? "Erro ao carregar PDF"); return; }
+    const bytes = new Uint8Array(await data.arrayBuffer());
+    setViewerData(bytes);
+    setViewerTitle(t.titulo);
+    setViewerOpen(true);
   };
 
   const filtered = termos.filter((t) =>
@@ -108,22 +115,24 @@ const TermosUso = () => {
             <DialogHeader>
               <DialogTitle>Nova Versão de Termos de Uso</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSave} className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="titulo">Título</Label>
-                <Input id="titulo" name="titulo" required placeholder="Ex: Termos de Uso Geral v2.2" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="versao">Versão</Label>
-                <Input id="versao" name="versao" required placeholder="Ex: 2.2.0" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="arquivo">Arquivo PDF</Label>
-                <Input id="arquivo" name="arquivo" type="file" accept="application/pdf" required />
-                <p className="text-xs text-muted-foreground">Envie o documento em formato PDF.</p>
+            <form onSubmit={handleSave}>
+              <div className="space-y-4 p-6">
+                <div className="space-y-2">
+                  <Label htmlFor="titulo">Título</Label>
+                  <Input id="titulo" name="titulo" required placeholder="Ex: Termos de Uso Geral v2.2" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="versao">Versão</Label>
+                  <Input id="versao" name="versao" required placeholder="Ex: 2.2.0" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="arquivo">Arquivo PDF</Label>
+                  <Input id="arquivo" name="arquivo" type="file" accept="application/pdf" required />
+                  <p className="text-xs text-muted-foreground">Envie o documento em formato PDF.</p>
+                </div>
               </div>
               <DialogFooter>
-                <Button type="submit" className="w-full" disabled={uploading}>
+                <Button type="submit" className="w-full sm:w-auto" disabled={uploading}>
                   <Upload className="mr-2 h-4 w-4" />
                   {uploading ? "Enviando..." : "Publicar Nova Versão"}
                 </Button>
@@ -187,6 +196,22 @@ const TermosUso = () => {
           onPageSizeChange: setPageSize,
         }}
       />
+
+      <Dialog open={viewerOpen} onOpenChange={(o) => {
+        setViewerOpen(o);
+        if (!o) {
+          setViewerData(null);
+        }
+      }}>
+        <DialogContent className="max-w-5xl w-[95vw] h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="truncate">{viewerTitle || "Visualizar PDF"}</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 min-h-0">
+            <PdfCanvasViewer data={viewerData} />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

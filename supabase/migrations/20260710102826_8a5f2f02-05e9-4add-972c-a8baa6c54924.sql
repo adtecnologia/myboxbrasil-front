@@ -1,0 +1,6 @@
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS banco_codigo TEXT,
+  ADD COLUMN IF NOT EXISTS banco_nome TEXT,
+  ADD COLUMN IF NOT EXISTS banco_agencia TEXT,
+  ADD COLUMN IF NOT EXISTS banco_conta TEXT,
+  ADD COLUMN IF NOT EXISTS banco_tipo_conta TEXT;

@@ -10,9 +10,12 @@ import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/DataTable";
 import { formatCPF, formatCNPJ, formatCelular, formatCEP, onlyDigits } from "@/lib/auth-utils";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
+import { Check, X, Download } from "lucide-react";
 import { toast } from "sonner";
+import { useAuthStore } from "@/stores/useAuthStore";
 
 interface Locador {
   id: string;
@@ -24,6 +27,7 @@ interface Locador {
   avatar_url?: string | null;
   cidade?: string | null;
   estado?: string | null;
+  licenca_status?: "aguardando_validacao" | "validado" | "rejeitado" | "sem_documentos" | null;
 }
 
 const Locadores = ({ hideHeader = false }: { hideHeader?: boolean }) => {
@@ -31,10 +35,34 @@ const Locadores = ({ hideHeader = false }: { hideHeader?: boolean }) => {
   const isMobile = useIsMobile();
   const queryClient = useQueryClient();
   const [detailId, setDetailId] = useState<string | null>(null);
+  const activeProfileType = useAuthStore((s) => s.activeProfileType());
+  const authUser = useAuthStore((s) => s.user);
+  const isPrefeitura = activeProfileType === "prefeitura";
 
   const { data: locadores = [], isLoading } = useQuery({
-    queryKey: ["locadores", "v2"],
+    queryKey: ["locadores", "v2", isPrefeitura ? `pref-${authUser?.id}` : "all"],
     queryFn: async (): Promise<Locador[]> => {
+      // Prefeitura: usa função definer que traz todos os locadores com
+      // cadastro de licença na cidade — ativos ou não.
+      if (isPrefeitura) {
+        const { data, error } = await supabase.rpc(
+          "get_locadores_licenciados_prefeitura",
+        );
+        if (error) throw error;
+        return (data ?? []).map((p: any) => ({
+          id: p.id,
+          nome: p.nome ?? "",
+          documento: p.documento ?? "",
+          telefone: p.celular ?? p.telefone ?? "",
+          email: p.email ?? "",
+          status: p.ativo ? "ativo" : "inativo",
+          avatar_url: p.avatar_url ?? null,
+          cidade: p.cidade ?? null,
+          estado: p.estado ?? null,
+          licenca_status: p.licenca_status ?? null,
+        }));
+      }
+
       const { data: roles, error } = await supabase
         .from("user_roles")
         .select("user_id, ativo")
@@ -98,8 +126,14 @@ const Locadores = ({ hideHeader = false }: { hideHeader?: boolean }) => {
       {!hideHeader && (
         <div className="rounded-xl bg-gradient-to-r from-primary to-[hsl(155,45%,40%)] p-5 sm:p-6 text-primary-foreground">
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold">Gestão de Locadores</h1>
-            <p className="text-sm text-white/75">Administração de fornecedores de caçambas</p>
+            <h1 className="text-xl sm:text-2xl font-bold">
+              {isPrefeitura ? "Locadores licenciados na cidade" : "Gestão de Locadores"}
+            </h1>
+            <p className="text-sm text-white/75">
+              {isPrefeitura
+                ? "Fornecedores de caçambas com licença ativa no seu município"
+                : "Administração de fornecedores de caçambas"}
+            </p>
           </div>
         </div>
       )}
@@ -133,18 +167,34 @@ const Locadores = ({ hideHeader = false }: { hideHeader?: boolean }) => {
           },
           {
             header: "Status",
-            accessor: (c) => (
-              <Badge
-                variant="outline"
-                className={
-                  c.status === "ativo"
-                    ? "bg-green-500/10 text-green-600 border-green-500/20 hover:bg-green-500/20 capitalize"
-                    : "bg-rose-500/10 text-rose-600 border-rose-500/20 hover:bg-rose-500/20 capitalize"
-                }
-              >
-                {c.status}
-              </Badge>
-            ),
+            accessor: (c) => {
+              if (isPrefeitura) {
+                const map: Record<string, { label: string; cls: string }> = {
+                  validado: { label: "Validado", cls: "bg-green-500/10 text-green-600 border-green-500/20" },
+                  aguardando_validacao: { label: "Aguardando validação", cls: "bg-amber-500/10 text-amber-600 border-amber-500/20" },
+                  rejeitado: { label: "Rejeitado", cls: "bg-rose-500/10 text-rose-600 border-rose-500/20" },
+                  sem_documentos: { label: "Sem documentos", cls: "bg-muted text-muted-foreground border-border" },
+                };
+                const s = map[c.licenca_status ?? "sem_documentos"] ?? map.sem_documentos;
+                return (
+                  <Badge variant="outline" className={s.cls}>
+                    {s.label}
+                  </Badge>
+                );
+              }
+              return (
+                <Badge
+                  variant="outline"
+                  className={
+                    c.status === "ativo"
+                      ? "bg-green-500/10 text-green-600 border-green-500/20 hover:bg-green-500/20 capitalize"
+                      : "bg-rose-500/10 text-rose-600 border-rose-500/20 hover:bg-rose-500/20 capitalize"
+                  }
+                >
+                  {c.status}
+                </Badge>
+              );
+            },
           },
           { 
             header: "Contato", 
@@ -195,6 +245,7 @@ const Locadores = ({ hideHeader = false }: { hideHeader?: boolean }) => {
               <Eye className="h-4 w-4" />
               Detalhes
             </Button>
+            {!isPrefeitura && (
             <Button
               variant="outline"
               size="sm"
@@ -206,6 +257,7 @@ const Locadores = ({ hideHeader = false }: { hideHeader?: boolean }) => {
               <Power className="h-4 w-4" />
               {c.status === "ativo" ? "Desativar" : "Ativar"}
             </Button>
+            )}
           </div>
         )}
         pagination={{
@@ -233,9 +285,86 @@ function LocadorDetailsDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const open = !!id;
+  const activeProfileType = useAuthStore((s) => s.activeProfileType());
+  const isPrefeitura = activeProfileType === "prefeitura";
+  const queryClient = useQueryClient();
+  const [actionDoc, setActionDoc] = useState<
+    { id: string; nome: string; action: "aceito" | "negado" } | null
+  >(null);
+  const [motivoText, setMotivoText] = useState("");
+  const [actionLic, setActionLic] = useState<
+    { id: string; label: string; action: "validado" | "rejeitado" } | null
+  >(null);
+  const [motivoLicText, setMotivoLicText] = useState("");
+
+  const statusMut = useMutation({
+    mutationFn: async (vars: { docId: string; status: "aceito" | "negado"; motivo?: string }) => {
+      const { error } = await supabase.rpc(
+        "prefeitura_atualizar_status_documento_licenca",
+        { _doc_id: vars.docId, _status: vars.status, _motivo: vars.motivo ?? null },
+      );
+      if (error) throw error;
+    },
+    onSuccess: (_d, vars) => {
+      toast.success(vars.status === "aceito" ? "Documento validado" : "Documento recusado");
+      queryClient.invalidateQueries({ queryKey: ["locador-licencas-pref", id] });
+      setActionDoc(null);
+      setMotivoText("");
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Erro ao atualizar documento"),
+  });
+
+  const licMut = useMutation({
+    mutationFn: async (vars: { licId: string; status: "validado" | "rejeitado"; motivo: string }) => {
+      const { error } = await supabase.rpc(
+        "prefeitura_atualizar_status_licenca",
+        { _licenca_id: vars.licId, _status: vars.status, _motivo: vars.motivo },
+      );
+      if (error) throw error;
+    },
+    onSuccess: (_d, vars) => {
+      toast.success(vars.status === "validado" ? "Locador validado" : "Locador rejeitado");
+      queryClient.invalidateQueries({ queryKey: ["locador-licencas-pref", id] });
+      queryClient.invalidateQueries({ queryKey: ["locadores"] });
+      setActionLic(null);
+      setMotivoLicText("");
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Erro ao atualizar licença"),
+  });
+
+  const { data: licencasPref = [] } = useQuery({
+    queryKey: ["locador-licencas-pref", id],
+    enabled: !!id && isPrefeitura,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc(
+        "get_locador_licencas_prefeitura",
+        { _locador_id: id! },
+      );
+      if (error) throw error;
+      return (data ?? []) as unknown as Array<{
+        id: string;
+        cidade: string;
+        estado: string;
+        created_at: string;
+        status_prefeitura: string | null;
+        motivo_prefeitura: string | null;
+        validado_em: string | null;
+        documentos: Array<{
+          id: string;
+          nome: string;
+          status: string;
+          data_vencimento: string | null;
+          arquivo_path: string | null;
+          motivo_recusa: string | null;
+          created_at: string;
+        }>;
+      }>;
+    },
+  });
+
   const { data, isLoading } = useQuery({
     queryKey: ["locador-detalhes", id],
-    enabled: !!id,
+    enabled: !!id && !isPrefeitura,
     queryFn: async () => {
       const [profileRes, cacRes, equipRes, pfRes, licRes, fatRes] = await Promise.all([
         supabase.from("profiles").select("*").eq("id", id!).maybeSingle(),
@@ -313,34 +442,270 @@ function LocadorDetailsDialog({
   });
 
   const p = data?.profile;
+  const { data: profileForPref } = useQuery({
+    queryKey: ["locador-profile-pref", id],
+    enabled: !!id && isPrefeitura,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", id!)
+        .maybeSingle();
+      if (error) throw error;
+      return data as any;
+    },
+  });
+  const profile = isPrefeitura ? profileForPref : p;
   const formatDoc = (v?: string | null) => {
     if (!v) return "—";
     return onlyDigits(v).length > 11 ? formatCNPJ(v) : formatCPF(v);
   };
   const endereco =
-    p &&
+    profile &&
     [
-      [p.logradouro, p.numero].filter(Boolean).join(", "),
-      p.complemento,
-      p.bairro,
-      [p.cidade, p.estado].filter(Boolean).join("/"),
-      p.cep ? `CEP ${formatCEP(p.cep)}` : null,
+      [profile.logradouro, profile.numero].filter(Boolean).join(", "),
+      profile.complemento,
+      profile.bairro,
+      [profile.cidade, profile.estado].filter(Boolean).join("/"),
+      profile.cep ? `CEP ${formatCEP(profile.cep)}` : null,
     ]
       .filter(Boolean)
       .join(" - ");
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Building2 className="h-5 w-5 text-primary" />
-            Detalhes do Locador
-          </DialogTitle>
-          <DialogDescription>Informações cadastrais e indicadores operacionais.</DialogDescription>
+          <DialogTitle>Detalhes do Locador</DialogTitle>
         </DialogHeader>
 
-        {isLoading || !data ? (
+        <div className="p-6">
+        {isPrefeitura ? (
+          !profile ? (
+            <div className="space-y-4">
+              <Skeleton className="h-24 w-full" />
+              <Skeleton className="h-40 w-full" />
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <div className="rounded-lg border border-border bg-muted/30 p-4">
+                <div className="flex items-start justify-between flex-wrap gap-3">
+                  <div>
+                    <p className="text-lg font-semibold text-foreground">{profile?.nome ?? "—"}</p>
+                    {profile?.nome_fantasia && (
+                      <p className="text-sm text-muted-foreground">{profile.nome_fantasia}</p>
+                    )}
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className={
+                      profile?.ativo
+                        ? "bg-green-500/10 text-green-600 border-green-500/20"
+                        : "bg-rose-500/10 text-rose-600 border-rose-500/20"
+                    }
+                  >
+                    {profile?.ativo ? "Ativo" : "Inativo"}
+                  </Badge>
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-border">
+                <div className="px-4 py-3 border-b border-border">
+                  <p className="text-sm font-semibold flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-primary" /> Dados cadastrais
+                  </p>
+                </div>
+                <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                  <Field icon={User} label="Documento" value={formatDoc(profile?.documento)} />
+                  <Field icon={Mail} label="Email" value={profile?.email ?? "—"} />
+                  <Field icon={Phone} label="Celular" value={profile?.celular ? formatCelular(profile.celular) : "—"} />
+                  <Field icon={Phone} label="Telefone" value={profile?.telefone ? formatCelular(profile.telefone) : "—"} />
+                  <Field icon={MapPin} label="Endereço" value={endereco || "—"} className="md:col-span-2" />
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-border">
+                <div className="px-4 py-3 border-b border-border">
+                  <p className="text-sm font-semibold flex items-center gap-2">
+                    <FileBadge className="h-4 w-4 text-primary" /> Licenças cadastradas
+                    <span className="text-xs font-normal text-muted-foreground">
+                      ({licencasPref.length})
+                    </span>
+                  </p>
+                </div>
+                {licencasPref.length === 0 ? (
+                  <div className="p-6 text-center text-sm text-muted-foreground">
+                    Nenhuma licença cadastrada.
+                  </div>
+                ) : (
+                  <ul className="divide-y divide-border">
+                    {licencasPref.map((lic) => (
+                      <li key={lic.id} className="p-4 space-y-2">
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                          <p className="text-sm font-semibold text-foreground flex items-center gap-1">
+                            <MapPin className="h-3.5 w-3.5 text-primary" />
+                            {lic.cidade}/{lic.estado}
+                          </p>
+                          <div className="flex items-center gap-2">
+                            {lic.status_prefeitura === "validado" && (
+                              <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20">
+                                Locador validado
+                              </Badge>
+                            )}
+                            {lic.status_prefeitura === "rejeitado" && (
+                              <Badge variant="outline" className="bg-rose-500/10 text-rose-600 border-rose-500/20">
+                                Locador rejeitado
+                              </Badge>
+                            )}
+                            <span className="text-[11px] text-muted-foreground">
+                              Desde {new Date(lic.created_at).toLocaleDateString("pt-BR")}
+                            </span>
+                          </div>
+                        </div>
+                        {lic.motivo_prefeitura && (lic.status_prefeitura === "validado" || lic.status_prefeitura === "rejeitado") && (
+                          <p className={`text-[11px] ${lic.status_prefeitura === "validado" ? "text-green-600" : "text-rose-600"}`}>
+                            <span className="font-semibold">
+                              {lic.status_prefeitura === "validado" ? "Observação:" : "Motivo:"}
+                            </span>{" "}
+                            {lic.motivo_prefeitura}
+                          </p>
+                        )}
+                        {lic.documentos.length === 0 ? (
+                          <p className="text-xs text-muted-foreground">Sem documentos anexados.</p>
+                        ) : (
+                          <ul className="space-y-1.5">
+                            {lic.documentos.map((d) => {
+                              const styles: Record<string, string> = {
+                                aceito: "bg-green-500/10 text-green-600 border-green-500/20",
+                                aguardando_validacao: "bg-amber-500/10 text-amber-600 border-amber-500/20",
+                                negado: "bg-rose-500/10 text-rose-600 border-rose-500/20",
+                                vencido: "bg-rose-500/10 text-rose-600 border-rose-500/20",
+                              };
+                              return (
+                                <li
+                                  key={d.id}
+                                  className="rounded-md border border-border bg-muted/20 px-3 py-2 text-xs space-y-2"
+                                >
+                                  <div className="flex items-center justify-between gap-2">
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <FileText className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                                    <span className="truncate font-medium text-foreground">{d.nome}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2 flex-shrink-0">
+                                    {d.data_vencimento && (
+                                      <span className="text-muted-foreground">
+                                        Venc.: {new Date(d.data_vencimento).toLocaleDateString("pt-BR")}
+                                      </span>
+                                    )}
+                                    <Badge
+                                      variant="outline"
+                                      className={`capitalize ${styles[d.status] ?? "bg-muted text-muted-foreground"}`}
+                                    >
+                                      {d.status.replace(/_/g, " ")}
+                                    </Badge>
+                                  </div>
+                                  </div>
+                                  {d.status === "negado" && d.motivo_recusa && (
+                                    <p className="text-[11px] text-rose-600">
+                                      <span className="font-semibold">Motivo:</span> {d.motivo_recusa}
+                                    </p>
+                                  )}
+                                  <div className="flex items-center justify-end gap-2 pt-1">
+                                    {d.arquivo_path && (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-7 text-[11px] gap-1"
+                                        onClick={async () => {
+                                          const { data: signed, error } = await supabase.storage
+                                            .from("documentos-legais")
+                                            .createSignedUrl(d.arquivo_path!, 60, { download: true });
+                                          if (error || !signed?.signedUrl) {
+                                            toast.error("Não foi possível gerar o link");
+                                            return;
+                                          }
+                                          window.open(signed.signedUrl, "_blank");
+                                        }}
+                                      >
+                                        <Download className="h-3 w-3" /> Baixar
+                                      </Button>
+                                    )}
+                                    {d.status !== "aceito" && (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-7 text-[11px] gap-1 border-green-500/30 text-green-600 hover:bg-green-500/10"
+                                        disabled={statusMut.isPending}
+                                        onClick={() => {
+                                          setActionDoc({ id: d.id, nome: d.nome, action: "aceito" });
+                                          setMotivoText("");
+                                        }}
+                                      >
+                                        <Check className="h-3 w-3" /> Validar
+                                      </Button>
+                                    )}
+                                    {d.status !== "negado" && (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-7 text-[11px] gap-1 border-rose-500/30 text-rose-600 hover:bg-rose-500/10"
+                                        disabled={statusMut.isPending}
+                                        onClick={() => {
+                                          setActionDoc({ id: d.id, nome: d.nome, action: "negado" });
+                                          setMotivoText("");
+                                        }}
+                                      >
+                                        <X className="h-3 w-3" /> Recusar
+                                      </Button>
+                                    )}
+                                  </div>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        )}
+                        {(() => {
+                          const allAceito =
+                            lic.documentos.length > 0 &&
+                            lic.documentos.every((d) => d.status === "aceito");
+                          if (!allAceito || lic.status_prefeitura === "validado" || lic.status_prefeitura === "rejeitado") return null;
+                          return (
+                            <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-border mt-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 gap-1 border-rose-500/30 text-rose-600 hover:bg-rose-500/10"
+                                disabled={licMut.isPending}
+                                onClick={() => {
+                                  setActionLic({ id: lic.id, label: `${lic.cidade}/${lic.estado}`, action: "rejeitado" });
+                                  setMotivoLicText("");
+                                }}
+                              >
+                                <X className="h-4 w-4" /> Rejeitar locador
+                              </Button>
+                              <Button
+                                size="sm"
+                                className="h-8 gap-1 bg-green-600 hover:bg-green-700 text-white"
+                                disabled={licMut.isPending}
+                                onClick={() => {
+                                  setActionLic({ id: lic.id, label: `${lic.cidade}/${lic.estado}`, action: "validado" });
+                                  setMotivoLicText("");
+                                }}
+                              >
+                                <Check className="h-4 w-4" /> Validar locador
+                              </Button>
+                            </div>
+                          );
+                        })()}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          )
+        ) : isLoading || !data ? (
           <div className="space-y-4">
             <Skeleton className="h-24 w-full" />
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -418,8 +783,138 @@ function LocadorDetailsDialog({
             </div>
           </div>
         )}
+        </div>
       </DialogContent>
     </Dialog>
+    <Dialog
+      open={!!actionDoc}
+      onOpenChange={(o) => {
+        if (!o) {
+          setActionDoc(null);
+          setMotivoText("");
+        }
+      }}
+    >
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>
+            {actionDoc?.action === "aceito" ? "Validar documento" : "Recusar documento"}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 px-6 py-4">
+          {actionDoc && (
+            <p className="text-sm text-muted-foreground">
+              Documento: <span className="font-medium text-foreground">{actionDoc.nome}</span>
+            </p>
+          )}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-foreground">
+              {actionDoc?.action === "aceito" ? "Observação *" : "Motivo da recusa *"}
+            </label>
+            <Textarea
+              value={motivoText}
+              onChange={(e) => setMotivoText(e.target.value)}
+              placeholder={
+                actionDoc?.action === "aceito"
+                  ? "Descreva a observação da validação"
+                  : "Descreva o motivo para recusar este documento"
+              }
+              rows={4}
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-2 border-t -mx-6 px-6 pt-4 mt-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setActionDoc(null);
+                setMotivoText("");
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant={actionDoc?.action === "aceito" ? "default" : "destructive"}
+              disabled={statusMut.isPending || !motivoText.trim()}
+              onClick={() =>
+                actionDoc &&
+                statusMut.mutate({
+                  docId: actionDoc.id,
+                  status: actionDoc.action,
+                  motivo: motivoText.trim(),
+                })
+              }
+            >
+              {actionDoc?.action === "aceito" ? "Confirmar validação" : "Confirmar recusa"}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+    <Dialog
+      open={!!actionLic}
+      onOpenChange={(o) => {
+        if (!o) {
+          setActionLic(null);
+          setMotivoLicText("");
+        }
+      }}
+    >
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>
+            {actionLic?.action === "validado" ? "Validar locador" : "Rejeitar locador"}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 px-6 py-4">
+          {actionLic && (
+            <p className="text-sm text-muted-foreground">
+              Licença: <span className="font-medium text-foreground">{actionLic.label}</span>
+            </p>
+          )}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-foreground">
+              {actionLic?.action === "validado" ? "Observação *" : "Motivo da rejeição *"}
+            </label>
+            <Textarea
+              value={motivoLicText}
+              onChange={(e) => setMotivoLicText(e.target.value)}
+              placeholder={
+                actionLic?.action === "validado"
+                  ? "Descreva a observação da validação"
+                  : "Descreva o motivo para rejeitar este locador"
+              }
+              rows={4}
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-2 border-t -mx-6 px-6 pt-4 mt-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setActionLic(null);
+                setMotivoLicText("");
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant={actionLic?.action === "validado" ? "default" : "destructive"}
+              disabled={licMut.isPending || !motivoLicText.trim()}
+              onClick={() =>
+                actionLic &&
+                licMut.mutate({
+                  licId: actionLic.id,
+                  status: actionLic.action,
+                  motivo: motivoLicText.trim(),
+                })
+              }
+            >
+              {actionLic?.action === "validado" ? "Confirmar validação" : "Confirmar rejeição"}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 

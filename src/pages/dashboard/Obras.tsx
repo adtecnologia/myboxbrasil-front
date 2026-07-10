@@ -148,13 +148,11 @@ const Obras = () => {
             <DialogHeader>
               <DialogTitle>{editingObra ? "Editar Obra" : "Cadastrar Nova Obra"}</DialogTitle>
             </DialogHeader>
-            <div className="px-1">
-              <ObraForm 
-                onSave={handleSave} 
-                initialData={editingObra} 
-                submitLabel={editingObra ? "Salvar Alterações" : "Cadastrar Obra"} 
-              />
-            </div>
+            <ObraForm 
+              onSave={handleSave} 
+              initialData={editingObra} 
+              submitLabel={editingObra ? "Salvar Alterações" : "Cadastrar Obra"} 
+            />
           </DialogContent>
         </Dialog>
       </div>

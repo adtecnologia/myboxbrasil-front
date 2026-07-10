@@ -1,0 +1,1 @@
+ALTER TABLE public.formas_pagamento ADD COLUMN IF NOT EXISTS dias INTEGER;

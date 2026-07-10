@@ -163,6 +163,7 @@ export type Database = {
           cacamba_id: string | null
           carrinho_id: string
           created_at: string
+          dias_locacao: number | null
           equipamento_id: string | null
           equipment_type: Database["public"]["Enums"]["item_tipo"]
           id: string
@@ -171,12 +172,14 @@ export type Database = {
           observacoes: string | null
           preco_unitario: number
           quantidade: number
+          tipo_locacao: string | null
           updated_at: string
         }
         Insert: {
           cacamba_id?: string | null
           carrinho_id: string
           created_at?: string
+          dias_locacao?: number | null
           equipamento_id?: string | null
           equipment_type: Database["public"]["Enums"]["item_tipo"]
           id?: string
@@ -185,12 +188,14 @@ export type Database = {
           observacoes?: string | null
           preco_unitario?: number
           quantidade?: number
+          tipo_locacao?: string | null
           updated_at?: string
         }
         Update: {
           cacamba_id?: string | null
           carrinho_id?: string
           created_at?: string
+          dias_locacao?: number | null
           equipamento_id?: string | null
           equipment_type?: Database["public"]["Enums"]["item_tipo"]
           id?: string
@@ -199,6 +204,7 @@ export type Database = {
           observacoes?: string | null
           preco_unitario?: number
           quantidade?: number
+          tipo_locacao?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -326,6 +332,7 @@ export type Database = {
           data_vencimento: string | null
           id: string
           licenca_cidade_id: string
+          motivo_recusa: string | null
           nome: string
           status: Database["public"]["Enums"]["status_documento_licenca"]
           updated_at: string
@@ -337,6 +344,7 @@ export type Database = {
           data_vencimento?: string | null
           id?: string
           licenca_cidade_id: string
+          motivo_recusa?: string | null
           nome: string
           status?: Database["public"]["Enums"]["status_documento_licenca"]
           updated_at?: string
@@ -348,6 +356,7 @@ export type Database = {
           data_vencimento?: string | null
           id?: string
           licenca_cidade_id?: string
+          motivo_recusa?: string | null
           nome?: string
           status?: Database["public"]["Enums"]["status_documento_licenca"]
           updated_at?: string
@@ -587,25 +596,31 @@ export type Database = {
         Row: {
           ativo: boolean
           created_at: string
+          dias: number | null
           id: string
           locador_id: string | null
           nome: string
+          tipo: string | null
           updated_at: string
         }
         Insert: {
           ativo?: boolean
           created_at?: string
+          dias?: number | null
           id?: string
           locador_id?: string | null
           nome: string
+          tipo?: string | null
           updated_at?: string
         }
         Update: {
           ativo?: boolean
           created_at?: string
+          dias?: number | null
           id?: string
           locador_id?: string | null
           nome?: string
+          tipo?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -616,24 +631,36 @@ export type Database = {
           created_at: string
           estado: string
           id: string
+          motivo_prefeitura: string | null
+          status_prefeitura: string
           updated_at: string
           user_id: string
+          validado_em: string | null
+          validado_por: string | null
         }
         Insert: {
           cidade: string
           created_at?: string
           estado: string
           id?: string
+          motivo_prefeitura?: string | null
+          status_prefeitura?: string
           updated_at?: string
           user_id: string
+          validado_em?: string | null
+          validado_por?: string | null
         }
         Update: {
           cidade?: string
           created_at?: string
           estado?: string
           id?: string
+          motivo_prefeitura?: string | null
+          status_prefeitura?: string
           updated_at?: string
           user_id?: string
+          validado_em?: string | null
+          validado_por?: string | null
         }
         Relationships: []
       }
@@ -779,6 +806,7 @@ export type Database = {
           medida_f: string | null
           modelo: string
           preco_minimo: number | null
+          tipo: string | null
           updated_at: string
         }
         Insert: {
@@ -795,6 +823,7 @@ export type Database = {
           medida_f?: string | null
           modelo: string
           preco_minimo?: number | null
+          tipo?: string | null
           updated_at?: string
         }
         Update: {
@@ -811,6 +840,7 @@ export type Database = {
           medida_f?: string | null
           modelo?: string
           preco_minimo?: number | null
+          tipo?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -1076,6 +1106,7 @@ export type Database = {
         Row: {
           cacamba_id: string | null
           created_at: string
+          dias_locacao: number | null
           equipamento_id: string | null
           equipment_type: Database["public"]["Enums"]["item_tipo"]
           id: string
@@ -1086,12 +1117,14 @@ export type Database = {
           preco_unitario: number
           quantidade: number
           status: Database["public"]["Enums"]["ordem_locacao_status"]
+          tipo_locacao: string | null
           updated_at: string
           valor_total: number
         }
         Insert: {
           cacamba_id?: string | null
           created_at?: string
+          dias_locacao?: number | null
           equipamento_id?: string | null
           equipment_type: Database["public"]["Enums"]["item_tipo"]
           id?: string
@@ -1102,12 +1135,14 @@ export type Database = {
           preco_unitario?: number
           quantidade?: number
           status?: Database["public"]["Enums"]["ordem_locacao_status"]
+          tipo_locacao?: string | null
           updated_at?: string
           valor_total?: number
         }
         Update: {
           cacamba_id?: string | null
           created_at?: string
+          dias_locacao?: number | null
           equipamento_id?: string | null
           equipment_type?: Database["public"]["Enums"]["item_tipo"]
           id?: string
@@ -1118,6 +1153,7 @@ export type Database = {
           preco_unitario?: number
           quantidade?: number
           status?: Database["public"]["Enums"]["ordem_locacao_status"]
+          tipo_locacao?: string | null
           updated_at?: string
           valor_total?: number
         }
@@ -1291,6 +1327,11 @@ export type Database = {
           ativo: boolean
           avatar_url: string | null
           bairro: string | null
+          banco_agencia: string | null
+          banco_codigo: string | null
+          banco_conta: string | null
+          banco_nome: string | null
+          banco_tipo_conta: string | null
           celular: string | null
           cep: string | null
           cidade: string | null
@@ -1323,6 +1364,11 @@ export type Database = {
           ativo?: boolean
           avatar_url?: string | null
           bairro?: string | null
+          banco_agencia?: string | null
+          banco_codigo?: string | null
+          banco_conta?: string | null
+          banco_nome?: string | null
+          banco_tipo_conta?: string | null
           celular?: string | null
           cep?: string | null
           cidade?: string | null
@@ -1355,6 +1401,11 @@ export type Database = {
           ativo?: boolean
           avatar_url?: string | null
           bairro?: string | null
+          banco_agencia?: string | null
+          banco_codigo?: string | null
+          banco_conta?: string | null
+          banco_nome?: string | null
+          banco_tipo_conta?: string | null
           celular?: string | null
           cep?: string | null
           cidade?: string | null
@@ -1482,6 +1533,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      system_settings: {
+        Row: {
+          aprovacao_automatica: boolean
+          created_at: string
+          id: string
+          logs_auditoria: boolean
+          manutencao_sistema: boolean
+          singleton: boolean
+          updated_at: string
+        }
+        Insert: {
+          aprovacao_automatica?: boolean
+          created_at?: string
+          id?: string
+          logs_auditoria?: boolean
+          manutencao_sistema?: boolean
+          singleton?: boolean
+          updated_at?: string
+        }
+        Update: {
+          aprovacao_automatica?: boolean
+          created_at?: string
+          id?: string
+          logs_auditoria?: boolean
+          manutencao_sistema?: boolean
+          singleton?: boolean
+          updated_at?: string
+        }
+        Relationships: []
       }
       tecnologias_tratamento: {
         Row: {
@@ -1689,8 +1770,14 @@ export type Database = {
           ano_fabricacao: number | null
           ano_modelo: number | null
           ativo: boolean
+          capacidade_carga: number | null
+          chassi: string | null
           combustivel: string | null
+          configuracao: string | null
+          cor: string | null
           created_at: string
+          crlv_numero: string | null
+          crlv_validade: string | null
           eixos: number | null
           id: string
           locador_id: string
@@ -1698,9 +1785,12 @@ export type Database = {
           marca: string | null
           modelo: string | null
           motor: string | null
+          pbt: number | null
           placa: string
           renavam: string | null
+          rntrc: string | null
           tara: number | null
+          tipo_carroceria: string | null
           tipo_veiculo: string | null
           updated_at: string
           versao: string | null
@@ -1709,8 +1799,14 @@ export type Database = {
           ano_fabricacao?: number | null
           ano_modelo?: number | null
           ativo?: boolean
+          capacidade_carga?: number | null
+          chassi?: string | null
           combustivel?: string | null
+          configuracao?: string | null
+          cor?: string | null
           created_at?: string
+          crlv_numero?: string | null
+          crlv_validade?: string | null
           eixos?: number | null
           id?: string
           locador_id: string
@@ -1718,9 +1814,12 @@ export type Database = {
           marca?: string | null
           modelo?: string | null
           motor?: string | null
+          pbt?: number | null
           placa: string
           renavam?: string | null
+          rntrc?: string | null
           tara?: number | null
+          tipo_carroceria?: string | null
           tipo_veiculo?: string | null
           updated_at?: string
           versao?: string | null
@@ -1729,8 +1828,14 @@ export type Database = {
           ano_fabricacao?: number | null
           ano_modelo?: number | null
           ativo?: boolean
+          capacidade_carga?: number | null
+          chassi?: string | null
           combustivel?: string | null
+          configuracao?: string | null
+          cor?: string | null
           created_at?: string
+          crlv_numero?: string | null
+          crlv_validade?: string | null
           eixos?: number | null
           id?: string
           locador_id?: string
@@ -1738,9 +1843,12 @@ export type Database = {
           marca?: string | null
           modelo?: string | null
           motor?: string | null
+          pbt?: number | null
           placa?: string
           renavam?: string | null
+          rntrc?: string | null
           tara?: number | null
+          tipo_carroceria?: string | null
           tipo_veiculo?: string | null
           updated_at?: string
           versao?: string | null
@@ -1757,6 +1865,7 @@ export type Database = {
         Args: { _pedido_fornecedor_id: string }
         Returns: boolean
       }
+      can_access_rota: { Args: { _rota_id: string }; Returns: boolean }
       can_create_pedido_fornecedor: {
         Args: { _pedido_id: string }
         Returns: boolean
@@ -1822,6 +1931,47 @@ export type Database = {
           nome: string
         }[]
       }
+      get_destinos_licenciados_prefeitura: {
+        Args: { _uid?: string }
+        Returns: {
+          cidade: string
+          documento: string
+          estado: string
+          id: string
+          licenca_status: string
+          nome: string
+        }[]
+      }
+      get_locador_licencas_prefeitura: {
+        Args: { _locador_id: string }
+        Returns: {
+          cidade: string
+          created_at: string
+          documentos: Json
+          estado: string
+          id: string
+          motivo_prefeitura: string
+          status_prefeitura: string
+          validado_em: string
+        }[]
+      }
+      get_locadores_licenciados_prefeitura: {
+        Args: { _uid?: string }
+        Returns: {
+          ativo: boolean
+          avatar_url: string
+          celular: string
+          cidade: string
+          documento: string
+          email: string
+          estado: string
+          id: string
+          licenca_status: string
+          nome: string
+          nome_fantasia: string
+          telefone: string
+        }[]
+      }
       get_locatario_proximas_movimentacoes: {
         Args: { _locatario?: string }
         Returns: Json
@@ -1837,7 +1987,12 @@ export type Database = {
           veiculo_id: string
         }[]
       }
-      get_prefeitura_dashboard: { Args: { _uid?: string }; Returns: Json }
+      get_prefeitura_dashboard:
+        | { Args: { _uid?: string }; Returns: Json }
+        | {
+            Args: { _ano?: number; _mes?: number; _uid?: string }
+            Returns: Json
+          }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1855,6 +2010,19 @@ export type Database = {
       }
       iniciar_rota: { Args: { _rota_id: string }; Returns: undefined }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_destino_for_obra: { Args: { _obra_id: string }; Returns: boolean }
+      is_destino_for_pedido: { Args: { _pedido_id: string }; Returns: boolean }
+      is_destino_for_pf: { Args: { _pf_id: string }; Returns: boolean }
+      is_prefeitura_for_obra: { Args: { _obra_id: string }; Returns: boolean }
+      is_prefeitura_for_pf: { Args: { _pf_id: string }; Returns: boolean }
+      prefeitura_atualizar_status_documento_licenca: {
+        Args: { _doc_id: string; _motivo?: string; _status: string }
+        Returns: undefined
+      }
+      prefeitura_atualizar_status_licenca: {
+        Args: { _licenca_id: string; _motivo: string; _status: string }
+        Returns: undefined
+      }
       solicitar_retirada_por_codigo: {
         Args: { _codigo: string }
         Returns: string

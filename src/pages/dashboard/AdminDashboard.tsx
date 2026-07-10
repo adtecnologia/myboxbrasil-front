@@ -11,7 +11,7 @@ import {
   Activity,
 } from "lucide-react";
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import {
   Card,
@@ -45,7 +45,7 @@ import {
   Cell,
 } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
-import { DashboardSkeleton } from "@/components/DashboardSkeleton";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const months = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -87,6 +87,7 @@ const AdminDashboard = () => {
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin-dashboard", month, year],
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const yearStart = new Date(year, 0, 1).toISOString();
       const yearEnd = new Date(year + 1, 0, 1).toISOString();
@@ -106,12 +107,10 @@ const AdminDashboard = () => {
         supabase
           .from("ordens_locacao")
           .select("id", { count: "exact", head: true })
-          .gte("created_at", rangeStart)
           .lt("created_at", rangeEnd),
         supabase
           .from("ordens_locacao")
           .select("id", { count: "exact", head: true })
-          .gte("created_at", prevStart)
           .lt("created_at", rangeStart),
         supabase
           .from("ordens_locacao")
@@ -157,7 +156,9 @@ const AdminDashboard = () => {
     if (!data) return null;
 
     const roleCount = (r: string) =>
-      data.roles.filter((x) => x.role === r).length;
+      data.roles.filter(
+        (x) => x.role === r && (!x.created_at || x.created_at < rangeEnd),
+      ).length;
     const roleNewInMonth = (r: string) =>
       data.roles.filter(
         (x) =>
@@ -167,6 +168,9 @@ const AdminDashboard = () => {
           x.created_at < rangeEnd,
       ).length;
 
+    const cacambasAte = data.cacambaUnidades.filter(
+      (c) => !c.created_at || c.created_at < rangeEnd,
+    ).length;
     const cacambasNewInMonth = data.cacambaUnidades.filter(
       (c) => c.created_at && c.created_at >= rangeStart && c.created_at < rangeEnd,
     ).length;
@@ -200,7 +204,7 @@ const AdminDashboard = () => {
       },
       {
         label: "Caçambas",
-        value: data.cacambaUnidades.length,
+        value: cacambasAte,
         icon: Container,
         change: cacambasNewInMonth,
       },
@@ -294,11 +298,117 @@ const AdminDashboard = () => {
 
   if (isLoading || !stats) {
     return (
-      <DashboardSkeleton
-        title="Painel de Controle"
-        subtitle="Visão geral do ecossistema MyBox"
-        statCount={6}
-      />
+      <div className="space-y-6 pb-10" aria-busy="true" aria-live="polite">
+        <PageHeader title="Painel de Controle" subtitle="Visão geral do ecossistema MyBox" />
+
+        {/* Stat cards */}
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Card key={i} className="border-none shadow-sm">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <Skeleton className="h-8 w-8 rounded-lg" />
+                  <Skeleton className="h-5 w-10 rounded-full" />
+                </div>
+                <Skeleton className="h-7 w-16" />
+                <Skeleton className="h-3 w-20 mt-2" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Charts row 1 */}
+        <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+          <Card className="border-none shadow-sm">
+            <CardHeader className="pb-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-2">
+                  <Skeleton className="h-5 w-40" />
+                  <Skeleton className="h-3 w-56" />
+                </div>
+                <Skeleton className="h-5 w-32 rounded-full" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-[300px] w-full" />
+            </CardContent>
+          </Card>
+
+          <Card className="border-none shadow-sm">
+            <CardHeader className="pb-2 space-y-2">
+              <Skeleton className="h-5 w-32" />
+              <Skeleton className="h-3 w-48" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-[200px] w-full mt-4" />
+              <div className="mt-6 space-y-3">
+                <Skeleton className="h-3 w-40" />
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <Skeleton className="h-3 w-24" />
+                      <Skeleton className="h-3 w-12" />
+                    </div>
+                    <Skeleton className="h-1.5 w-full" />
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Bottom Row */}
+        <div className="grid gap-6 lg:grid-cols-3">
+          <Card className="lg:col-span-2 border-none shadow-sm">
+            <CardHeader className="pb-4 border-b">
+              <div className="flex items-center justify-between">
+                <div className="space-y-2">
+                  <Skeleton className="h-5 w-40" />
+                  <Skeleton className="h-3 w-52" />
+                </div>
+                <Skeleton className="h-8 w-20" />
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="divide-y divide-border">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="flex items-center justify-between px-6 py-4">
+                    <div className="flex items-center gap-4">
+                      <Skeleton className="h-10 w-10 rounded-full" />
+                      <div className="space-y-2">
+                        <Skeleton className="h-3 w-32" />
+                        <Skeleton className="h-2 w-20" />
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-6">
+                      <Skeleton className="h-4 w-20 hidden sm:block" />
+                      <Skeleton className="h-5 w-16 rounded-full" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-none shadow-sm">
+            <CardHeader className="pb-4 space-y-2">
+              <Skeleton className="h-5 w-32" />
+              <Skeleton className="h-3 w-44" />
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="flex items-start gap-3">
+                  <Skeleton className="mt-1 h-2 w-2 rounded-full shrink-0" />
+                  <div className="space-y-2 flex-1">
+                    <Skeleton className="h-3 w-full" />
+                    <Skeleton className="h-2 w-2/3" />
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     );
   }
 

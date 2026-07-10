@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PageHeader } from "@/components/PageHeader";
 import { useAuthStore } from "@/stores/useAuthStore";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { DashboardSkeleton } from "@/components/DashboardSkeleton";
@@ -39,6 +39,14 @@ const LocatarioDashboard = () => {
   const userId = useAuthStore((s) => s.user?.id);
   const isLocatario = activeProfileType === "locatario";
   const navigate = useNavigate();
+  const now = new Date();
+  const [month, setMonth] = useState<number>(now.getMonth() + 1);
+  const [year, setYear] = useState<number>(now.getFullYear());
+  const yearOptions = useMemo(() => {
+    const start = 2026;
+    const end = Math.max(now.getFullYear(), start);
+    return Array.from({ length: end - start + 1 }, (_, i) => end - i);
+  }, [now]);
 
   const { data, isLoading } = useQuery({
     queryKey: ["locatario-dashboard", userId],
@@ -97,7 +105,12 @@ const LocatarioDashboard = () => {
   const unidades = data?.unidades ?? [];
 
   const stats = useMemo(() => {
-    const count = (arr: string[]) => unidades.filter((u) => arr.includes(u.status)).length;
+    const cutoff = new Date(year, month, 0, 23, 59, 59, 999).getTime();
+    const ordensNoPeriodo = new Set(
+      ordens.filter((o) => new Date(o.created_at).getTime() <= cutoff).map((o) => o.id)
+    );
+    const unidadesFiltradas = unidades.filter((u) => ordensNoPeriodo.has(u.ordem_locacao_id));
+    const count = (arr: string[]) => unidadesFiltradas.filter((u) => arr.includes(u.status)).length;
     return [
       { label: "CDF emitidos", value: count(["cdf_emitido"]), icon: Container },
       { label: "Resíduos tratados", value: "0m³", icon: Recycle },
@@ -105,17 +118,16 @@ const LocatarioDashboard = () => {
       { label: "Entregas Pendentes", value: count(["entrega_pendente", "em_transito_locacao"]), icon: PackageOpen },
       { label: "Em Análise", value: count(["aguardando_analise"]), icon: ClipboardList },
     ];
-  }, [unidades]);
+  }, [unidades, ordens, month, year]);
 
   const ordensMes = useMemo(() => {
-    const year = new Date().getFullYear();
     const counts = new Array(12).fill(0) as number[];
     ordens.forEach((o) => {
       const d = new Date(o.created_at);
       if (d.getFullYear() === year) counts[d.getMonth()] += 1;
     });
     return months.map((m, i) => ({ name: m.slice(0, 3), value: counts[i] }));
-  }, [ordens]);
+  }, [ordens, year]);
 
   const ultimosPedidos = useMemo(() => {
     const modeloMap = new Map<string, string>(
@@ -127,7 +139,13 @@ const LocatarioDashboard = () => {
     const eqpMap = new Map<string, { id: string; modelo: string }>(
       (data?.eqps ?? []).map((e) => [e.id, e] as const)
     );
-    return ordens.slice(0, 4).map((o) => {
+    return ordens
+      .filter((o) => {
+        const d = new Date(o.created_at).getTime();
+        return d <= new Date(year, month, 0, 23, 59, 59, 999).getTime();
+      })
+      .slice(0, 4)
+      .map((o) => {
       const cac = o.cacamba_id ? cacMap.get(o.cacamba_id) : undefined;
       const cacModeloNome = cac ? modeloMap.get(cac.modelo) ?? "" : "";
       const label =
@@ -143,7 +161,7 @@ const LocatarioDashboard = () => {
         pedidoId: pf?.pedido_id as string | undefined,
       };
     });
-  }, [ordens, data]);
+  }, [ordens, data, month, year]);
 
   if (isLoading) {
     return <DashboardSkeleton title="Painel" subtitle="Visão geral das suas locações" />;
@@ -163,7 +181,7 @@ const LocatarioDashboard = () => {
           )}
           <div className="flex items-center gap-2">
             <Calendar className="h-4 w-4 text-white/70 mr-1" />
-            <Select defaultValue="5">
+            <Select value={String(month)} onValueChange={(v) => setMonth(Number(v))}>
               <SelectTrigger className="w-[130px] h-9 text-xs bg-white/15 border-white/20 text-white backdrop-blur-md">
                 <SelectValue placeholder="Mês" />
               </SelectTrigger>
@@ -173,13 +191,14 @@ const LocatarioDashboard = () => {
                 ))}
               </SelectContent>
             </Select>
-            <Select defaultValue="2026">
+            <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
               <SelectTrigger className="w-[100px] h-9 text-xs bg-white/15 border-white/20 text-white backdrop-blur-md">
                 <SelectValue placeholder="Ano" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="2026">2026</SelectItem>
-                <SelectItem value="2025">2025</SelectItem>
+                {yearOptions.map((y) => (
+                  <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

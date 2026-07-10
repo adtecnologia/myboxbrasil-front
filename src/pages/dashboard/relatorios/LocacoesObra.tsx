@@ -23,7 +23,27 @@ const LocacoesObra = () => {
     queryKey: ["relatorio-locacoes-obra", userId, profileType],
     enabled: !!userId,
     queryFn: async () => {
-      // 1. pedido_fornecedores relevantes ao perfil ativo
+      let ordensLoc: any[] | null = null;
+      if (profileType === "prefeitura") {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("cidade, estado")
+          .eq("id", userId!)
+          .maybeSingle();
+        if (!profile?.cidade || !profile?.estado) return [];
+        const { data: obras } = await supabase
+          .from("obras")
+          .select("id")
+          .ilike("cidade", profile.cidade)
+          .ilike("estado", profile.estado);
+        const obraIds = (obras ?? []).map((o) => o.id);
+        if (!obraIds.length) return [];
+        const { data: ords } = await supabase
+          .from("ordens_locacao")
+          .select("id, obra:obra_id(id, nome)")
+          .in("obra_id", obraIds);
+        ordensLoc = ords ?? [];
+      } else {
       let pfIds: string[] = [];
       if (profileType === "locador") {
         const { data: pfs } = await supabase
@@ -45,12 +65,12 @@ const LocacoesObra = () => {
         pfIds = (pfs ?? []).map((p) => p.id);
       }
       if (!pfIds.length) return [];
-
-      // 2. Ordens de locação → mapear id → obra (id + nome)
-      const { data: ordensLoc } = await supabase
-        .from("ordens_locacao")
-        .select("id, obra:obra_id(id, nome)")
-        .in("pedido_fornecedor_id", pfIds);
+        const { data: ords } = await supabase
+          .from("ordens_locacao")
+          .select("id, obra:obra_id(id, nome)")
+          .in("pedido_fornecedor_id", pfIds);
+        ordensLoc = ords ?? [];
+      }
       if (!ordensLoc?.length) return [];
       const ordemToObra = new Map<string, { id: string; nome: string }>();
       (ordensLoc ?? []).forEach((o: any) => {
